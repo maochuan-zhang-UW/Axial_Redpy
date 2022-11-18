@@ -64,7 +64,7 @@ h5filefrom, rtablefrom, otablefrom, ttablefrom, ctablefrom, jtablefrom, \
     dtablefrom, ftablefrom = redpy.table.open_table(optfrom)
 
 # Check for MPL version mismatch
-redpy.table.checkMPL(rtablefrom, ftablefrom, ttablefrom, otablefrom, dtablefrom, opt)
+redpy.table.check_epoch_date(rtablefrom, ftablefrom, ttablefrom, otablefrom, dtablefrom, opt)
 
 if args.verbose: print("Opening hdf5 table: {0}".format(optto.filename))
 h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, \

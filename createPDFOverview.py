@@ -74,7 +74,7 @@ h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
     redpy.table.open_table(opt)
 
 # Check for MPL version mismatch
-redpy.table.checkMPL(rtable, ftable, ttable, otable, dtable, opt)
+redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
 # Process arguments
 if args.starttime:
