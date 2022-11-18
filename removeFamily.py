@@ -41,15 +41,16 @@ else:
     if args.verbose: print("Using config file: settings.cfg")
 
 if args.verbose: print("Opening hdf5 table: {0}".format(opt.filename))
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = redpy.table.openTable(opt)
+h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
+    redpy.table.open_table(opt)
 
 # Check for MPL version mismatch
-redpy.table.checkMPL(rtable, ftable, ttable, otable, dtable, opt)
+redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
 
 oldnClust = ftable.attrs.nClust
 
-redpy.table.removeFamilies(rtable, ctable, dtable, ftable, args.famnum, opt)
+redpy.table.remove_families(rtable, ctable, dtable, ftable, args.famnum, opt)
 
 if args.verbose: print("Creating plots...")
 redpy.plotting.createPlots(rtable, ftable, ttable, ctable, otable, opt)

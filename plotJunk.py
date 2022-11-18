@@ -45,7 +45,8 @@ except OSError:
     print("Folder exists.")
 
 if args.verbose: print("Opening hdf5 table: {}".format(opt.filename))
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = redpy.table.openTable(opt)
+h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
+    redpy.table.open_table(opt)
 
 if args.verbose: print("Creating junk plots...")
 redpy.plotting.createJunkPlots(jtable, opt)

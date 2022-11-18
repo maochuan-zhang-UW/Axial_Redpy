@@ -65,10 +65,11 @@ if args.nsec:
     opt.nsec = args.nsec
 
 if args.verbose: print("Opening hdf5 table: {0}".format(opt.filename))
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = redpy.table.openTable(opt)
+h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
+    redpy.table.open_table(opt)
 
 # Check for MPL version mismatch
-redpy.table.checkMPL(rtable, ftable, ttable, otable, dtable, opt)
+redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
 if args.endtime:
     tend = UTCDateTime(args.endtime)
@@ -120,14 +121,14 @@ while tstart+n*opt.nsec < tend:
 
 	# Save junk triggers in separate table for quality checking purposes
     for i in range(len(junk)):
-        redpy.table.populateJunk(jtable, junk[i], 2, opt) # Both types of junk
+        redpy.table.populate_junk(jtable, junk[i], 2, opt) # Both types of junk
     for i in range(len(junkKurt)):
-        redpy.table.populateJunk(jtable, junkKurt[i], 1, opt) # Just kurtosis junk
+        redpy.table.populate_junk(jtable, junkKurt[i], 1, opt) # Just kurtosis junk
     for i in range(len(junkFI)):
-        redpy.table.populateJunk(jtable, junkFI[i], 0, opt) # Just 'teleseisms'
+        redpy.table.populate_junk(jtable, junkFI[i], 0, opt) # Just 'teleseisms'
 
     # Append times of triggers to ttable to compare total seismicity later
-    redpy.table.populateTriggers(ttable, trigs, ttimes, opt)
+    redpy.table.populate_triggers(ttable, trigs, ttimes, opt)
 
     # Check triggers against deleted events
     if len(dtable) > 0:
@@ -139,7 +140,7 @@ while tstart+n*opt.nsec < tend:
             ostart = 0
             if len(otable) == 0:
                 # First trigger goes to orphans table
-                redpy.table.populateOrphan(otable, 0, trigs[0], opt)
+                redpy.table.populate_orphan(otable, 0, trigs[0], opt)
                 ostart = 1
             else:
                 id = id + 1
@@ -149,7 +150,7 @@ while tstart+n*opt.nsec < tend:
             ostart = 0
             if len(otable) == 0:
                 # First trigger goes to orphans table
-                redpy.table.populateOrphan(otable, 0, trigs[0], opt)
+                redpy.table.populate_orphan(otable, 0, trigs[0], opt)
                 ostart = 1
             # Loop through remaining triggers
             for i in range(ostart,len(trigs)):
@@ -158,7 +159,7 @@ while tstart+n*opt.nsec < tend:
                     trigs[i], id, opt)
         rtable.attrs.previd = id
 
-    redpy.table.clearExpiredOrphans(otable, opt, tstart+(n+1)*opt.nsec)
+    redpy.table.clear_expired_orphans(otable, tstart+(n+1)*opt.nsec, opt)
 
     # Print some stats
     if args.verbose:

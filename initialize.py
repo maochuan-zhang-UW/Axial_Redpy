@@ -39,7 +39,7 @@ else:
 
 if args.verbose: print("Writing hdf5 table: {}".format(opt.filename))
 
-redpy.table.initializeTable(opt)
+redpy.table.initialize_table(opt)
 
 if args.verbose: print("Creating folder to store images '{}{}'".format(opt.outputPath,
                                                                        opt.groupName))

@@ -60,13 +60,15 @@ if args.verbose: print("Creating empty hdf5 table: {0}".format(optto.filename))
 redpy.table.initializeTable(optto)
 
 if args.verbose: print("Opening hdf5 table: {0}".format(optfrom.filename))
-h5filefrom, rtablefrom, otablefrom, ttablefrom, ctablefrom, jtablefrom, dtablefrom, ftablefrom = redpy.table.openTable(optfrom)
+h5filefrom, rtablefrom, otablefrom, ttablefrom, ctablefrom, jtablefrom, \
+    dtablefrom, ftablefrom = redpy.table.open_table(optfrom)
 
 # Check for MPL version mismatch
 redpy.table.checkMPL(rtablefrom, ftablefrom, ttablefrom, otablefrom, dtablefrom, opt)
 
 if args.verbose: print("Opening hdf5 table: {0}".format(optto.filename))
-h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, dtableto, ftableto = redpy.table.openTable(optto)
+h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, \
+    dtableto, ftableto = redpy.table.open_table(optto)
 
 # Define how many stations need to be added
 dsta = optto.nsta - optfrom.nsta

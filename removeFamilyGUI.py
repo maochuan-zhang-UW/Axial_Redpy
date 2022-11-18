@@ -48,7 +48,7 @@ def remove(*args):
     print(removethese)
     root.destroy() # Close the window
 
-    redpy.table.removeFamilies(rtable, ctable, dtable, ftable, removethese, opt)
+    redpy.table.remove_families(rtable, ctable, dtable, ftable, removethese, opt)
         
     if len(removethese) > 0:
         print("Creating plots...")
@@ -94,10 +94,11 @@ else:
     if args.verbose: print("Using config file: settings.cfg")
 
 if args.verbose: print("Opening hdf5 table: {0}".format(opt.filename))
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = redpy.table.openTable(opt)
+h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
+    redpy.table.open_table(opt)
 
 # Check for MPL version mismatch
-redpy.table.checkMPL(rtable, ftable, ttable, otable, dtable, opt)
+redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
 
 oldnClust = ftable.attrs.nClust

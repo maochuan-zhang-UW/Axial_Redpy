@@ -4,7 +4,6 @@
 
 import sys
 
-import datetime
 import matplotlib.dates as mdates
 import numpy as np
 from obspy import UTCDateTime
@@ -16,7 +15,7 @@ import redpy.correlation
 
 def Repeaters(opt):
     """
-    Creates a dictionary defining the columns in the 'Repeaters' table.
+    Creates a dictionary defining the columns in the Repeaters table.
     
     The columns are as follows:
         id           : integer, unique ID number for the event.
@@ -63,7 +62,7 @@ def Repeaters(opt):
 
 def Orphans(opt):
     """
-    Creates a dictionary defining the columns in the 'Orphans' table.
+    Creates a dictionary defining the columns in the Orphans table.
     
     The columns are as follows:
         id           : integer, unique ID number for the event.
@@ -112,7 +111,7 @@ def Orphans(opt):
 
 def Triggers(opt):
     """
-    Creates a dictionary defining the columns in the 'Triggers' table.
+    Creates a dictionary defining the columns in the Triggers table.
     
     The columns are as follows:
         startTimeMPL : float, matplotlib datenumber associated with start time.
@@ -137,7 +136,7 @@ def Triggers(opt):
 
 def Deleted(opt):
     """
-    Creates a dictionary defining the columns in the 'Deleted' table.
+    Creates a dictionary defining the columns in the Deleted table.
     
     The columns are as follows:
         id           : integer, unique ID number for the event.
@@ -184,7 +183,7 @@ def Deleted(opt):
 
 def Junk(opt):
     """
-    Creates a dictionary defining the columns in the 'Junk' table.
+    Creates a dictionary defining the columns in the Junk table.
     
     The columns are as follows:
         isjunk      : integer, code for which flags were raised.
@@ -213,13 +212,13 @@ def Junk(opt):
         "waveform"    : Float32Col(shape=(opt.wshape*opt.nsta,), pos=2),
         "windowStart" : Int32Col(shape=(), pos=3)
         }
-        
+    
     return junk_dictionary
 
 
 def Correlation(opt):
     """
-    Creates a dictionary defining the columns in the 'Correlation' table.
+    Creates a dictionary defining the columns in the Correlation table.
 
     The columns are as follows:
     
@@ -249,7 +248,7 @@ def Correlation(opt):
 
 def Families(opt):
     """
-    Creates a dictionary defining the columns in the 'Families' table.
+    Creates a dictionary defining the columns in the Families table.
     
     The columns are as follows:
         members   : string, rows in the repeater table that contain members of
@@ -290,21 +289,24 @@ def Families(opt):
     return families_dictionary
 
     
-def initializeTable(opt):
+def initialize_table(opt):
     """
     Initializes and creates the hdf5 table file on disk.
-     
+    
     Saves table to file and closes it. Always overwrites an existing file.
-            
+    
     Parameters
     ----------
     opt : Options object
         Describes the run parameters.
     """
 
+    # Open file
     h5file = open_file(opt.filename, mode="w", title=opt.title)
     group = h5file.create_group("/", opt.groupName, opt.title)
-
+    
+    # Create repeaters table, populate attributes based on settings in opt
+    # that can be checked to ensure compatibility with current configuration
     rtable = h5file.create_table(group, "repeaters", Repeaters(opt),
                                  "Repeater Catalog")
     rtable.attrs.scnl = [opt.station, opt.channel, opt.network, opt.location]
@@ -314,7 +316,9 @@ def initializeTable(opt):
     rtable.attrs.atrig = opt.atrig
     rtable.attrs.fmin = opt.fmin
     rtable.attrs.fmax = opt.fmax
+    # previd keeps track of the most recently used unique id number 
     rtable.attrs.previd = 0
+    # ptime keeps track of the most recently added trigger
     rtable.attrs.ptime = 0
     rtable.flush()
     
@@ -340,13 +344,13 @@ def initializeTable(opt):
     
     ftable = h5file.create_table(group, "families", Families(opt),
                                  "Families Table")
-    ftable.attrs.nClust = 0
+    ftable.attrs.nClust = 0 # Number of clusters
     ftable.flush()
 
     h5file.close()
 
 
-def openTable(opt):
+def open_table(opt):
     """
     Convenience function to open the hdf5 file and access the tables in it.
     
@@ -377,29 +381,31 @@ def openTable(opt):
 
     h5file = open_file(opt.filename, "a")
     
-    rtable = eval('h5file.root.'+ opt.groupName + '.repeaters')
-    otable = eval('h5file.root.'+ opt.groupName + '.orphans')
-    ctable = eval('h5file.root.'+ opt.groupName + '.correlation')
-    ttable = eval('h5file.root.'+ opt.groupName + '.triggers')
-    jtable = eval('h5file.root.'+ opt.groupName + '.junk')
-    dtable = eval('h5file.root.'+ opt.groupName + '.deleted')
-    ftable = eval('h5file.root.'+ opt.groupName + '.families')
+    rtable = eval('h5file.root.' + opt.groupName + '.repeaters')
+    otable = eval('h5file.root.' + opt.groupName + '.orphans')
+    ctable = eval('h5file.root.' + opt.groupName + '.correlation')
+    ttable = eval('h5file.root.' + opt.groupName + '.triggers')
+    jtable = eval('h5file.root.' + opt.groupName + '.junk')
+    dtable = eval('h5file.root.' + opt.groupName + '.deleted')
+    ftable = eval('h5file.root.' + opt.groupName + '.families')
     
     return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable
 
 
-def calcAmps(data, windowStart, opt):
+def calculate_window_amplitude(data, trigger_sample, opt):
     """
     Calculates the maximum waveform amplitudes for 'windowAmp'.
     
     Calculations are done for the first half of the window for each station.
+    The window begins 10% of the window length prior to the trigger time,
+    matching the window used for cross-correlation calculations.
     
     Parameters
     ----------
     data : float ndarray
         Waveform data for all stations, appended together.
-    windowStart : integer
-        ...
+    trigger_sample : integer
+        Trigger time in samples.
     opt : Options object
         Describes the run parameters.
     
@@ -408,109 +414,21 @@ def calcAmps(data, windowStart, opt):
     amps : float list
         Array of maximum amplitudes.
     """
-    # !!! CHANGE THIS TO NDARRAY !!!
-    amps = []
+    
+    # Shift window left by 10%
+    window_start = trigger_sample - opt.winlen/10
+    
+    amps = np.zeros(opt.nsta)
     for n in range(opt.nsta):
-        amps.append(max(abs(data[(n*opt.wshape)+windowStart:int(
-            (n*opt.wshape)+windowStart+opt.winlen/2)])))
+        amps[n] = np.max(np.abs(data[int((n*opt.wshape) + window_start):int(
+            (n*opt.wshape) + window_start + opt.winlen/2)]))
     
     return amps
     
-    
-def populateRepeater(rtable, ftable, idnum, trig, opt, windowStart=-1):
-    """
-    Populates a new row in the 'Repeater' table from trigger.
-    
-    !!! Why is ftable called here?
-    
-    Parameters
-    ----------
-    rtable : Table object
-        Handle to the Repeater table.
-    idnum : integer
-        Unique ID number given to this event.
-    trig : Trace object
-        Output from triggering function, with data from all stations appended.
-    opt : Options object
-        Describes the run parameters.
-    windowStart : integer, optional
-        Triggering time in samples from start, defaults to opt.ptrig seconds.
-    """
-    
-    # Create an empty row
-    rrow = rtable.row
-    
-    if windowStart == -1:
-        windowStart = int(opt.ptrig*opt.samprate)
-    
-    rrow['id'] = idnum
-    rrow['startTime'] = trig.stats.starttime.isoformat()
-    # Deal with difference in format string if exactly at a second
-    try:
-        rrow['startTimeMPL'] = mdates.date2num(datetime.datetime.strptime(
-            trig.stats.starttime.isoformat(), '%Y-%m-%dT%H:%M:%S.%f'))
-    except ValueError:
-        rrow['startTimeMPL'] = mdates.date2num(datetime.datetime.strptime(
-            trig.stats.starttime.isoformat(), '%Y-%m-%dT%H:%M:%S'))
-    rrow['waveform'] = trig.data
-    rrow['windowStart'] = windowStart
-    rrow['windowCoeff'], rrow['windowFFT'], rrow['FI'] = \
-        redpy.correlation.calcWindow(trig.data, windowStart, opt)
-    rrow['windowAmp'] = calcAmps(trig.data, windowStart, opt)
-    
-    rrow.append()  
-    rtable.flush()  
 
-    
-def populateOrphan(otable, idnum, trig, opt):
+def populate_triggers(ttable, trigs, ttimes, opt):
     """
-    Populates a new row in the 'Orphans' table from trigger.
-    
-    This function also determines the expiration date based on the STA/LTA
-    amplitude from triggering
-    
-    Parameters
-    ----------
-    otable : Table object
-        Handle to the Orphans table.
-    idnum : integer
-        Unique ID number given to this event.
-    trig : Trace object
-        Output from triggering function, with data from all stations appended.
-    opt : Options object
-        Describes the run parameters.
-    """
-    
-    orow = otable.row
-    
-    windowStart = int(opt.ptrig*opt.samprate)
-    
-    orow['id'] = idnum
-    orow['startTime'] = trig.stats.starttime.isoformat()
-    try:
-        orow['startTimeMPL'] = mdates.date2num(datetime.datetime.strptime(
-            trig.stats.starttime.isoformat(), '%Y-%m-%dT%H:%M:%S.%f'))
-    except ValueError:
-        orow['startTimeMPL'] = mdates.date2num(datetime.datetime.strptime(
-            trig.stats.starttime.isoformat(), '%Y-%m-%dT%H:%M:%S'))
-    orow['waveform'] = trig.data
-    orow['windowStart'] = windowStart
-    orow['windowCoeff'], orow['windowFFT'], orow['FI'] = \
-        redpy.correlation.calcWindow(trig.data, windowStart, opt)
-    orow['windowAmp'] = calcAmps(trig.data, windowStart, opt)
-    
-    # Determine expiration date based on STA/LTA amplitude
-    adddays = np.min([opt.maxorph,((opt.maxorph-opt.minorph)/opt.maxorph)*(
-        trig.stats.maxratio-opt.trigon)+opt.minorph])
-    orow['expires'] = (trig.stats.starttime+adddays*86400).isoformat()
-    
-    orow.append()
-    otable.flush()
-
-
-def populateTriggers(ttable, trigs, ttimes, opt):    
-    """
-    Populates new rows in the 'Triggers' table from a list of triggers.
+    Populates new rows in the Triggers table from a list of triggers.
     
     !!! Change to have it return only triggers that were not found as
     !!! duplicates? I have to do that check a lot down the line; should
@@ -528,15 +446,8 @@ def populateTriggers(ttable, trigs, ttimes, opt):
         Describes the run parameters.
     """
     
-    for t in trigs:        
-        try:
-            trigtime = mdates.date2num(
-                datetime.datetime.strptime(t.stats.starttime.isoformat(),
-                '%Y-%m-%dT%H:%M:%S.%f'))
-        except ValueError:
-            trigtime = mdates.date2num(
-                datetime.datetime.strptime(t.stats.starttime.isoformat(),
-                '%Y-%m-%dT%H:%M:%S'))
+    for t in trigs:
+        trigtime = t.stats.starttime.matplotlib_date
         
         if not len(np.intersect1d(
                    np.where(ttimes > trigtime - opt.mintrig/86400),
@@ -547,7 +458,7 @@ def populateTriggers(ttable, trigs, ttimes, opt):
             ttable.flush()
 
 
-def populateJunk(jtable, trig, isjunk, opt):
+def populate_junk(jtable, trig, isjunk, opt):
     """
     Populates a new row in the 'Junk' table from trigger.
     
@@ -574,12 +485,179 @@ def populateJunk(jtable, trig, isjunk, opt):
     jrow.append()
     jtable.flush()
 
-
-def appendCorrelation(ctable, id1, id2, ccc, opt):
-    """
-    Appends a new value to the 'Correlation' table.
     
-    Automatically puts the smaller of the two id numbers first, and only 
+def populate_orphan(otable, idnum, trig, opt):
+    """
+    Populates a new row in the 'Orphans' table from trigger.
+    
+    This function also determines the expiration date based on the STA/LTA
+    amplitude from triggering
+    
+    Parameters
+    ----------
+    otable : Table object
+        Handle to the Orphans table.
+    idnum : integer
+        Unique ID number given to this event.
+    trig : Trace object
+        Output from triggering function, with data from all stations appended.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
+    orow = otable.row
+    
+    windowStart = int(opt.ptrig*opt.samprate)
+    
+    orow['id'] = idnum
+    orow['startTime'] = trig.stats.starttime.isoformat()
+    orow['startTimeMPL'] = trig.stats.starttime.matplotlib_date
+    orow['waveform'] = trig.data
+    orow['windowStart'] = windowStart
+    orow['windowCoeff'], orow['windowFFT'], orow['FI'] = \
+        redpy.correlation.calcWindow(trig.data, windowStart, opt)
+    orow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart, opt)
+    
+    # Determine expiration date based on STA/LTA amplitude
+    add_days = np.min([opt.maxorph,((opt.maxorph-opt.minorph)/opt.maxorph)*(
+        trig.stats.maxratio-opt.trigon)+opt.minorph])
+    orow['expires'] = (trig.stats.starttime+add_days*86400).isoformat()
+    
+    orow.append()
+    otable.flush()
+
+
+def clear_expired_orphans(otable, tend, opt):
+    """
+    Deletes orphans that have passed their expiration date.
+    
+    Parameters
+    ----------
+    otable : Table object
+        Handle to the Orphans table.
+    tend : UTCDateTime object
+        Time to remove orphans older than.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
+    expired = np.empty(0).astype(int)
+    for n in range(len(otable)):
+        if otable.cols.expires[n].decode('utf-8') < tend.isoformat():
+            expired = np.append(expired,n)
+    
+    if len(expired) > 0:
+        if len(expired) != len(otable):
+            for n in range(len(expired)-1,-1,-1):
+                otable.remove_row(expired[n])
+        else:
+            print('Warning: All orphans expired...')
+            for n in range(len(idx)-1,0,-1):
+                otable.remove_row(expired[n])
+            # Deal with edge case where the last remaining orphan is slated
+            # for removal. The table can't be empty, so we set the windowCoeff
+            # to be 0 so it will never correlate, and set it to expire as
+            # soon as a new orphan is found.
+            otable.cols.windowCoeff[0] = 0
+            otable.cols.expires[0] = (UTCDateTime(otable.cols.startTime[0]) \
+                                                  - 86400).isoformat()
+        otable.flush()
+    
+
+def move_orphan(rtable, otable, oindex, opt):
+    """
+    Moves a row from the 'Orphans' table to the 'Repeater' table.
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeater table.
+    otable : Table object
+        Handle to the Orphans table.
+    oindex : integer
+        Row in otable to move
+    opt :
+        Describes the run parameters.
+    """
+    
+    rrow = rtable.row
+    orow = otable[oindex]
+    
+    rrow['id'] = orow['id']
+    rrow['startTime'] = orow['startTime']
+    rrow['startTimeMPL'] = orow['startTimeMPL']
+    rrow['waveform'] = orow['waveform']
+    rrow['windowStart'] = orow['windowStart']
+    if len(otable) > 1:
+        rrow['windowCoeff'] = orow['windowCoeff']
+        rrow['windowFFT'] = orow['windowFFT']
+        rrow['FI'] = orow['FI']
+    else:
+        # Deal with edge case where this is the last remaining orphan in the
+        # otable. The table can't be empty, so we set the windowCoeff to be
+        # 0 so it will never correlate, and set it to expire as soon as a new
+        # orphan is found.
+        coeff, fft, fi = redpy.correlation.calcWindow(orow['waveform'],
+                                                      orow['windowStart'], opt)
+        rrow['windowCoeff'] = coeff
+        rrow['windowFFT'] = fft
+        rrow['FI'] = fi
+        otable.cols.windowCoeff[oindex] = 0
+        otable.cols.expires[oindex] = (UTCDateTime(
+                                       orow['startTime'])-86400).isoformat()
+    rrow['windowAmp'] = orow['windowAmp']
+    
+    rrow.append()
+    
+    if len(otable) > 1:
+        otable.remove_row(oindex)
+    
+    rtable.flush()
+    otable.flush()
+
+
+def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
+    """
+    Populates a new row in the 'Repeater' table from trigger.
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeater table.
+    idnum : integer
+        Unique ID number given to this event.
+    trig : Trace object
+        Output from triggering function, with data from all stations appended.
+    opt : Options object
+        Describes the run parameters.
+    windowStart : integer, optional
+        Trigger time in samples from start, defaults to opt.ptrig seconds.
+    """
+    
+    # Create an empty row
+    rrow = rtable.row
+    
+    if windowStart == -1:
+        windowStart = int(opt.ptrig*opt.samprate)
+    
+    rrow['id'] = idnum
+    rrow['startTime'] = trig.stats.starttime.isoformat()
+    rrow['startTimeMPL'] = trig.stats.starttime.matplotlib_date
+    rrow['waveform'] = trig.data
+    rrow['windowStart'] = windowStart
+    rrow['windowCoeff'], rrow['windowFFT'], rrow['FI'] = \
+        redpy.correlation.calcWindow(trig.data, windowStart, opt)
+    rrow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart, opt)
+    
+    rrow.append()
+    rtable.flush()
+    
+
+def populate_correlation(ctable, id1, id2, ccc, opt):
+    """
+    Populates a new row in the 'Correlation' table.
+    
+    Automatically puts the smaller of the two id numbers first, and only
     appends if the correlation value is greater than the minimum required.
     
     Parameters
@@ -605,95 +683,9 @@ def appendCorrelation(ctable, id1, id2, ccc, opt):
         ctable.flush()
 
 
-def moveOrphan(rtable, otable, ftable, oindex, opt):
+def populate_new_family(rtable, ftable, members, core, opt):
     """
-    Moves a row from the 'Orphans' table to the 'Repeater' table.
-    
-    !!! Again, why is ftable called here?
-    
-    Parameters
-    ----------
-    rtable : Table object
-        Handle to the Repeater table.
-    otable : Table object
-        Handle to the Orphans table.
-    ftable : Table object
-        !!! to be removed !!!
-    oindex : integer
-        Row in otable to move
-    opt : 
-        Describes the run parameters.    
-    """
-    
-    rrow = rtable.row
-    orow = otable[oindex]
-    
-    rrow['id'] = orow['id']
-    rrow['startTime'] = orow['startTime']
-    rrow['startTimeMPL'] = orow['startTimeMPL']
-    rrow['waveform'] = orow['waveform']
-    rrow['windowStart'] = orow['windowStart']
-    if len(otable) > 1:
-        rrow['windowCoeff'] = orow['windowCoeff']
-        rrow['windowFFT'] = orow['windowFFT']
-        rrow['FI'] = orow['FI']
-    else:
-        # Deal with edge case where this is the last remaining orphan in the
-        # otable. The table can't be empty, so we set the windowCoeff to be
-        # 0 so it will never correlate, and will expire as soon as a new
-        # orphan is found.
-        coeff, fft, fi = redpy.correlation.calcWindow(orow['waveform'],
-                                                      orow['windowStart'], opt)
-        rrow['windowCoeff'] = coeff
-        rrow['windowFFT'] = fft
-        rrow['FI'] = fi
-        otable.cols.windowCoeff[oindex] = 0
-        otable.cols.expires[oindex] = (UTCDateTime(
-                                       orow['startTime'])-86400).isoformat()
-    rrow['windowAmp'] = orow['windowAmp']
-    
-    rrow.append()
-        
-    if len(otable) > 1:
-        otable.remove_row(oindex)
-    
-    rtable.flush()   
-    otable.flush()  
-    
-
-def clearExpiredOrphans(otable, opt, tend): # !!! Reverse order of opt, tend
-    """
-    Deletes orphans that have passed their expiration date.
-    
-    Parameters
-    ----------   
-    otable : Table object
-        Handle to the Orphans table.
-    opt : Options object
-        Describes the run parameters.
-    tend : UTCDateTime object
-        Time to remove orphans older than.
-    """
-    
-    expired = np.empty(0) #!!! astype(int) ? then remove int()s later !!!
-    for n in range(len(otable)):
-        if otable.cols.expires[n].decode('utf-8') < tend.isoformat():
-            expired = np.append(expired,n)
-    
-    if len(expired) > 0:
-        if len(expired) != len(otable):
-            for n in range(len(expired)-1,-1,-1):
-                otable.remove_row(int(expired[n]))        
-        else:
-            print('Warning: All orphans expired...')
-            for n in range(len(idx)-1,0,-1):
-                otable.remove_row(int(expired[n]))
-        otable.flush()
-    
-
-def createNewFamily(rtable, ftable, members, core, opt):
-    """
-    Creates new family from two or more events.
+    Populates a new family from two or more events.
     
     Parameters
     ----------
@@ -722,71 +714,10 @@ def createNewFamily(rtable, ftable, members, core, opt):
     ftable.flush()
     
     if len(ftable)>1:
-        reorderFamilies(ftable, opt)
-        # Reprint second to last family (so html navigation updates)
-        # !!! why only second to last and not last? !!!
-        ftable.cols.printme[-2] = 1        
+        reorder_families(ftable, opt)
     
     
-def mergeFamilies(rtable, ctable, ftable, wfam, wlag, opt):
-    """
-    Combines families that have been merged by adding a new event.
-    
-    !!! Confirm this is without problems !!!
-    
-    Parameters
-    ----------
-    rtable : Table object
-        Handle to the Repeater table.
-    ctable : Table object
-        Handle to the Correlation table.
-    ftable : Table object
-        Handle to the Families table.
-    wfam : integer list
-    
-    wlag : integer list
-        
-    opt : Options object
-        Describes the run parameters.
-    """
-    
-    # Determine which family is largest, use that as base family
-    nmem = []
-    for n in range(len(wfam)):
-        nmem.append(len(np.fromstring(ftable[wfam[n]]['members'], dtype=int,
-                                      sep=' ')))
-    wlag = np.array(wlag)
-    wlag = wlag - wlag[np.argmax(nmem)]
-    
-    # Adjust lags
-    for n in range(len(wfam)):
-        if wlag[n]!=0:
-            members = np.fromstring(ftable[wfam[n]]['members'], dtype=int,
-                                    sep=' ')
-            for m in members:
-                rtable.cols.windowStart[m] = \
-                    rtable.cols.windowStart[m] - wlag[n]
-                rtable.cols.windowCoeff[m], rtable.cols.windowFFT[m], \
-                    rtable.cols.FI[m] = redpy.correlation.calcWindow(
-                    rtable.cols.waveform[m], rtable.cols.windowStart[m], opt)
-            rtable.flush()
-    
-    # Perform merge, cluster        
-    f1 = min(wfam)
-    for n in range(len(wfam))[::-1]:
-        f2 = np.sort(wfam)[n]
-        if f2!=f1:            
-            ftable.cols.members[f1] = ftable.cols.members[f1].decode(
-                'utf-8')+' '+ftable[f2]['members'].decode('utf-8')
-            ftable.remove_row(f2)
-            ftable.attrs.nClust-=1
-    ftable.cols.printme[f1] = 1
-    ftable.cols.lastprint[f1] = -1            
-    reorderFamilies(ftable, opt)
-    redpy.cluster.runFamOPTICS(rtable, ctable, ftable, f1, opt)
-
-    
-def reorderFamilies(ftable, opt):
+def reorder_families(ftable, opt):
     """
     Ensures families are ordered by start time.
     
@@ -803,23 +734,80 @@ def reorderFamilies(ftable, opt):
     x = np.arange(len(ftable))
         
     if (x!=order).any():
+        # Get all the rows
         members = ftable.cols.members[:]
         cores = ftable.cols.core[:]
         longevity = ftable.cols.longevity[:]
         printme = ftable.cols.printme[:]
         lastprint = ftable.cols.lastprint[:]
-        for n in np.where(x!=order)[0]:
-            ftable.cols.startTime[n] = startTimes[order[n]]
-            ftable.cols.members[n] = members[order[n]]
-            ftable.cols.longevity[n] = longevity[order[n]]
-            ftable.cols.core[n] = cores[order[n]]
-            ftable.cols.printme[n] = printme[order[n]]
-            ftable.cols.lastprint[n] = lastprint[order[n]]
-            
+        
+        # Rearrange them
+        ftable.cols.startTime[:] = startTimes[order]
+        ftable.cols.members[:] = members[order]
+        ftable.cols.longevity[:] = longevity[order]
+        ftable.cols.core[:] = cores[order]
+        ftable.cols.printme[:] = printme[order]
+        ftable.cols.lastprint[:] = lastprint[order]
+        
         ftable.flush()
     
+    
+def merge_families(rtable, ctable, ftable, famlist, lags, opt):
+    """
+    Combines families that have been merged by adding a new event.
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeater table.
+    ctable : Table object
+        Handle to the Correlation table.
+    ftable : Table object
+        Handle to the Families table.
+    famlist : integer list
+        List of families to merge.
+    lags : integer list
+        List of lags between cores and new event.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
+    # Determine which family is largest, use that as base family
+    nmembers = []
+    for n in range(len(famlist)):
+        nmembers.append(len(np.fromstring(ftable[famlist[n]]['members'],
+                                          dtype=int, sep=' ')))
+    lags = np.array(lags)
+    lags = lags - lags[np.argmax(nmembers)]
+    
+    # Adjust lags relative to largest family, update windows
+    for n in range(len(famlist)):
+        if lags[n]!=0:
+            members = np.fromstring(ftable[famlist[n]]['members'], dtype=int,
+                                    sep=' ')
+            for m in members:
+                rtable.cols.windowStart[m] = \
+                    rtable.cols.windowStart[m] - lags[n]
+                rtable.cols.windowCoeff[m], rtable.cols.windowFFT[m], \
+                    rtable.cols.FI[m] = redpy.correlation.calcWindow(
+                    rtable.cols.waveform[m], rtable.cols.windowStart[m], opt)
+            rtable.flush()
+    
+    # Perform merge, run clustering to find best new core
+    f1 = min(famlist)
+    for f2 in np.sort(famlist)[::-1]:
+        if f2!=f1:
+            ftable.cols.members[f1] = ftable.cols.members[f1].decode(
+                'utf-8')+' '+ftable[f2]['members'].decode('utf-8')
+            ftable.remove_row(f2)
+            ftable.attrs.nClust-=1
+    ftable.cols.printme[f1] = 1
+    ftable.cols.lastprint[f1] = -1
+    redpy.cluster.runFamOPTICS(rtable, ctable, ftable, f1, opt)
+    reorder_families(ftable, opt)
 
-def removeFamilies(rtable, ctable, dtable, ftable, cnums, opt):
+
+def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt):
     """
     Removes families from catalog.
     
@@ -832,38 +820,39 @@ def removeFamilies(rtable, ctable, dtable, ftable, cnums, opt):
     ----------
     rtable : Table object
         Handle to the Repeater table.
-    ctable : Table object 
+    ctable : Table object
         Handle to the Correlation table.
     dtable : Table object
         Handle to the Deleted table.
     ftable : Table object
         Handle to the Families table.
-    cnums : integer list
-        List of clusters/rows to remove from the families table.
+    remove_clusters : integer list
+        List of clusters/rows to remove from the Families table.
     opt : Options object
         Describes the run parameters.
     """
 
-    cnums = np.sort(cnums)
-    old = list(range(len(rtable)))
-    transform = np.zeros((len(rtable),)).astype(int)    
-    ids = rtable.cols.id[:]
+    remove_clusters = np.sort(remove_clusters)[::-1] # Process in reverse
+    old_rrows = list(range(len(rtable)))
+    transform = np.zeros((len(rtable),)).astype(int)
+    old_cores = ftable.cols.core[:]
+    
+    # Get members of each cluster and remove row in Families table
     members = np.array([])
-    oldcores = ftable.cols.core[:]
-    for cnum in cnums[::-1]: # Process in reverse
-        members = np.append(members, np.fromstring(ftable[cnum]['members'],
+    for cluster in remove_clusters:
+        members = np.append(members, np.fromstring(ftable[cluster]['members'],
                                                    dtype=int, sep=' '))
-        ftable.remove_row(cnum)
+        ftable.remove_row(cluster)
         ftable.flush()
-    ftable.attrs.nClust-=len(cnums)
+    ftable.attrs.nClust-=len(remove_clusters)
     members = np.sort(members).astype('uint32')
     
     # Populate cores in dtable before removing them from rtable
-    cores = rtable[np.intersect1d(members, oldcores)]
+    cores = rtable[np.intersect1d(members, old_cores)]
     for core in cores:
         drow = dtable.row
         drow['id'] = core['id']
-        drow['startTime'] = core['startTime'][0]
+        drow['startTime'] = core['startTime'][0] #!!! why the [0]?
         drow['startTimeMPL'] = core['startTimeMPL']
         drow['waveform'] = core['waveform']
         drow['windowStart'] = core['windowStart']
@@ -873,20 +862,21 @@ def removeFamilies(rtable, ctable, dtable, ftable, cnums, opt):
         drow['FI'] = core['FI']
         drow.append()
     
-    for m in members[::-1]:
-        rtable.remove_row(m)
-        old.remove(m)
-    
-    # !!! Functionalize finding rows in the correlation table? !!!    
+    # !!! Functionalize finding rows in the Correlation table? !!!
+    ids = rtable.cols.id[:]
     ids = ids[members]
     id2 = ctable.cols.id2[:]
     idxc = np.where(np.in1d(id2,ids))[0]
     for c in idxc[::-1]:
         ctable.remove_row(c)
+        
+    # Remove rows from table and list
+    for m in members[::-1]:
+        rtable.remove_row(m)
+        old_rrows.remove(m)
     
-    new = range(len(rtable))
-    transform[old] = new
-    
+    # Update members of Families table with new row locations
+    transform[old_rrows] = range(len(rtable))
     np.set_printoptions(threshold=sys.maxsize)
     np.set_printoptions(linewidth=sys.maxsize)
     for n in range(len(ftable)):
@@ -901,12 +891,12 @@ def removeFamilies(rtable, ctable, dtable, ftable, cnums, opt):
     dtable.flush()
 
 
-def checkMPL(rtable, ftable, ttable, otable, dtable, opt):
+def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
     """
     Checks for mismatch in reference epoch with current matplotlib version.
     
     This check is done because the reference epoch was changed in matplotlib
-    v3.3, so a table generated using matplotlib <v3.3 will have dates in
+    v3.3, so a table generated using matplotlib <v3.3 will have datenumbers in
     the future if the user has updated past v3.3. The opposite is also true,
     with dates far in the past if a table was generated with >=v3.3 and
     current version is <v3.3.
@@ -918,38 +908,37 @@ def checkMPL(rtable, ftable, ttable, otable, dtable, opt):
     ftable : Table object
         Handle to the Families table.
     ttable : Table object
-        Handle to the Triggers table
+        Handle to the Triggers table.
     otable : Table object
-        Handle to the Orphan table
+        Handle to the Orphan table.
     dtable : Table object
-        Handle to the Deleted table
-    opt : Options object describing station/run parameters
-        
+        Handle to the Deleted table.
+    opt : Options object
+        Describes the run parameters.
     """
     
     if len(ttable) > 0:
 
-        # Check and fix matplotlib datetime issues
         if ttable.cols.startTimeMPL[0] > mdates.date2num(
             np.datetime64('now')):
             # Explicitly assumes the first trigger will have the issue.
-        
+            
             print('Found matplotlib version mismatch! Fixing...')
             reftime = mdates.date2num(np.datetime64('now'))
             epoch = mdates.date2num(np.datetime64('0000-12-31'))
-        
+            
             # Fix triggers
             for i in range(len(ttable.cols.startTimeMPL[:])):
                 if ttable.cols.startTimeMPL[i] > reftime:
                     ttable.cols.startTimeMPL[i] = \
                         ttable.cols.startTimeMPL[i] + epoch
-        
+            
             # Fix orphans
             for i in range(len(otable.cols.startTimeMPL[:])):
                 if otable.cols.startTimeMPL[i] > reftime:
                     otable.cols.startTimeMPL[i] = \
                         otable.cols.startTimeMPL[i] + epoch
-        
+            
             # Fix repeaters
             for i in range(len(rtable.cols.startTimeMPL[:])):
                 if rtable.cols.startTimeMPL[i] > reftime:
@@ -961,7 +950,7 @@ def checkMPL(rtable, ftable, ttable, otable, dtable, opt):
                 if dtable.cols.startTimeMPL[i] > reftime:
                     dtable.cols.startTimeMPL[i] = \
                         dtable.cols.startTimeMPL[i] + epoch
-        
+            
             # Fix families
             for i in range(len(ftable.cols.startTime[:])):
                 if ftable.cols.startTime[i] > reftime:
@@ -972,35 +961,35 @@ def checkMPL(rtable, ftable, ttable, otable, dtable, opt):
             np.datetime64('1900-01-01')):
             # Same problem, but with the opposite sense, in case current
             # version is outdated.
-        
+            
             print('Found matplotlib version mismatch! Fixing...')
             reftime = mdates.date2num(np.datetime64('1900-01-01'))
             epoch = mdates.date2num(np.datetime64('1970-01-01'))
-        
+            
             # Fix triggers
             for i in range(len(ttable.cols.startTimeMPL[:])):
                 if ttable.cols.startTimeMPL[i] < reftime:
                     ttable.cols.startTimeMPL[i] = \
                         ttable.cols.startTimeMPL[i] + epoch
-        
+            
             # Fix orphans
             for i in range(len(otable.cols.startTimeMPL[:])):
                 if otable.cols.startTimeMPL[i] < reftime:
                     otable.cols.startTimeMPL[i] = \
                         otable.cols.startTimeMPL[i] + epoch
-        
+            
             # Fix repeaters
             for i in range(len(rtable.cols.startTimeMPL[:])):
                 if rtable.cols.startTimeMPL[i] < reftime:
                     rtable.cols.startTimeMPL[i] = \
                         rtable.cols.startTimeMPL[i] + epoch
-                
+            
             # Fix deleted
             for i in range(len(dtable.cols.startTimeMPL[:])):
                 if dtable.cols.startTimeMPL[i] < reftime:
                     dtable.cols.startTimeMPL[i] = \
                         dtable.cols.startTimeMPL[i] + epoch
-        
+            
             # Fix families
             for i in range(len(ftable.cols.startTime[:])):
                 if ftable.cols.startTime[i] < reftime:

@@ -38,7 +38,8 @@ else:
     if args.verbose: print("Using config file: settings.cfg")
 
 if args.verbose: print("Opening hdf5 table: {0}".format(opt.filename))
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = redpy.table.openTable(opt)
+h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
+    redpy.table.open_table(opt)
 
 if args.verbose: print("Removing junk...")
 
