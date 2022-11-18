@@ -551,8 +551,7 @@ def clear_expired_orphans(otable, tend, opt):
             for n in range(len(expired)-1,-1,-1):
                 otable.remove_row(expired[n])
         else:
-            print('Warning: All orphans expired...')
-            for n in range(len(idx)-1,0,-1):
+            for n in range(len(expired)-1,0,-1):
                 otable.remove_row(expired[n])
             # Deal with edge case where the last remaining orphan is slated
             # for removal. The table can't be empty, so we set the windowCoeff
