@@ -95,7 +95,7 @@ for event in eventlist:
             
     # Check triggers against deleted events
     if len(dtable) > 0:
-        trigs = redpy.correlation.compareDeleted(trigs, dtable, opt)
+        trigs = redpy.correlation.compare_deleted(trigs, dtable, opt)
     
     if len(trigs) > 0:        
         id = rtable.attrs.previd
@@ -107,7 +107,7 @@ for event in eventlist:
                 ostart = 1
             else:        
                 id = id + 1
-                redpy.correlation.runCorrelation(rtable, otable, ctable, ftable,
+                redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable,
                     ttimes, trigs[0], id, opt)
         else:
             ostart = 0
@@ -118,7 +118,7 @@ for event in eventlist:
             # Loop through remaining triggers
             for i in range(ostart,len(trigs)):  
                 id = id + 1
-                redpy.correlation.runCorrelation(rtable, otable, ctable, ftable,
+                redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable,
                     ttimes, trigs[i], id, opt)
         rtable.attrs.previd = id        
     

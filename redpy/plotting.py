@@ -1737,9 +1737,9 @@ def plotReport(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
         for j in range(i+1,len(famcat)):
             if Cfull[i,j]==0:
                 # Compute correlation
-                cor, lag, nthcor = redpy.correlation.xcorr1x1(famtable['windowFFT'][i],
-                    famtable['windowFFT'][j], famtable['windowCoeff'][i],
-                    famtable['windowCoeff'][j], opt)
+                cor, lag, nthcor = redpy.correlation.xcorr_1x1(famtable['windowCoeff'][i],
+                    famtable['windowCoeff'][j], famtable['windowFFT'][i],
+                    famtable['windowFFT'][j], opt)
                 Cfull[i,j] = cor
                 Cfull[j,i] = cor
 
@@ -1902,7 +1902,7 @@ def plotReport(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     for sta in range(opt.nsta):
         n = -1
         data = np.zeros((len(fam), int(opt.winlen*2)))
-        ax = fig2.add_subplot(np.ceil((opt.nsta)/2.), 2, sta+1)
+        ax = fig2.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
         for r in famtable:
             if ordered:
                 plt.title('{0}.{1} (Ordered)'.format(opt.station.split(',')[sta],

@@ -23,7 +23,7 @@ def Repeaters(opt):
         startTimeMPL : float, matplotlib datenumber associated with start time.
         waveform     : float ndarray, filtered waveform data for each station,
                            concatenated.
-        windowStart  : integer, window start time, in samples from start of
+        windowStart  : integer, trigger time, in samples from start of 
                            waveform.
         windowCoeff  : float ndarray, amplitude scaling for cross-correlation
                            for each station.
@@ -70,7 +70,7 @@ def Orphans(opt):
         startTimeMPL : float, matplotlib datenumber associated with start time.
         waveform     : float ndarray, filtered waveform data for each station,
                            concatenated.
-        windowStart  : integer, window start time, in samples from start of
+        windowStart  : integer, trigger time, in samples from start of
                            waveform.
         windowCoeff  : float ndarray, amplitude scaling for cross-correlation
                            for each station.
@@ -144,7 +144,7 @@ def Deleted(opt):
         startTimeMPL : float, matplotlib datenumber associated with start time.
         waveform     : float ndarray, filtered waveform data for each station,
                            concatenated.
-        windowStart  : integer, window start time, in samples from start of
+        windowStart  : integer, trigger time, in samples from start of
                            waveform.
         windowCoeff  : float ndarray, amplitude scaling for cross-correlation
                            for each station.
@@ -190,7 +190,7 @@ def Junk(opt):
         startTime   : string, UTC time of start of the waveform.
         waveform    : float ndarray, filtered waveform data for each station,
                            concatenated.
-        windowStart : integer, window start time, in samples from start of
+        windowStart : integer, trigger time, in samples from start of
                            waveform.
         
         !!! Rename isjunk !!!
@@ -515,7 +515,7 @@ def populate_orphan(otable, idnum, trig, opt):
     orow['waveform'] = trig.data
     orow['windowStart'] = windowStart
     orow['windowCoeff'], orow['windowFFT'], orow['FI'] = \
-        redpy.correlation.calcWindow(trig.data, windowStart, opt)
+        redpy.correlation.calculate_window(trig.data, windowStart, opt)
     orow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart, opt)
     
     # Determine expiration date based on STA/LTA amplitude
@@ -570,7 +570,7 @@ def move_orphan(rtable, otable, oindex, opt):
     Parameters
     ----------
     rtable : Table object
-        Handle to the Repeater table.
+        Handle to the Repeaters table.
     otable : Table object
         Handle to the Orphans table.
     oindex : integer
@@ -596,7 +596,7 @@ def move_orphan(rtable, otable, oindex, opt):
         # otable. The table can't be empty, so we set the windowCoeff to be
         # 0 so it will never correlate, and set it to expire as soon as a new
         # orphan is found.
-        coeff, fft, fi = redpy.correlation.calcWindow(orow['waveform'],
+        coeff, fft, fi = redpy.correlation.calculate_window(orow['waveform'],
                                                       orow['windowStart'], opt)
         rrow['windowCoeff'] = coeff
         rrow['windowFFT'] = fft
@@ -622,7 +622,7 @@ def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
     Parameters
     ----------
     rtable : Table object
-        Handle to the Repeater table.
+        Handle to the Repeaters table.
     idnum : integer
         Unique ID number given to this event.
     trig : Trace object
@@ -630,7 +630,8 @@ def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
     opt : Options object
         Describes the run parameters.
     windowStart : integer, optional
-        Trigger time in samples from start, defaults to opt.ptrig seconds.
+        Trigger time in samples from start of waveform, defaults to
+        opt.ptrig seconds.
     """
     
     # Create an empty row
@@ -645,7 +646,7 @@ def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
     rrow['waveform'] = trig.data
     rrow['windowStart'] = windowStart
     rrow['windowCoeff'], rrow['windowFFT'], rrow['FI'] = \
-        redpy.correlation.calcWindow(trig.data, windowStart, opt)
+        redpy.correlation.calculate_window(trig.data, windowStart, opt)
     rrow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart, opt)
     
     rrow.append()
@@ -689,7 +690,7 @@ def populate_new_family(rtable, ftable, members, core, opt):
     Parameters
     ----------
     rtable : Table object
-        Handle to the Repeater table.
+        Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
     members : integer ndarray
@@ -751,22 +752,22 @@ def reorder_families(ftable, opt):
         ftable.flush()
     
     
-def merge_families(rtable, ctable, ftable, famlist, lags, opt):
+def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
     """
     Combines families that have been merged by adding a new event.
     
     Parameters
     ----------
     rtable : Table object
-        Handle to the Repeater table.
+        Handle to the Repeaters table.
     ctable : Table object
         Handle to the Correlation table.
     ftable : Table object
         Handle to the Families table.
     famlist : integer list
         List of families to merge.
-    lags : integer list
-        List of lags between cores and new event.
+    laglist : integer list
+        List of lags between families and new event.
     opt : Options object
         Describes the run parameters.
     """
@@ -776,19 +777,19 @@ def merge_families(rtable, ctable, ftable, famlist, lags, opt):
     for n in range(len(famlist)):
         nmembers.append(len(np.fromstring(ftable[famlist[n]]['members'],
                                           dtype=int, sep=' ')))
-    lags = np.array(lags)
-    lags = lags - lags[np.argmax(nmembers)]
+    laglist = np.array(laglist)
+    laglist = laglist - laglist[np.argmax(nmembers)]
     
-    # Adjust lags relative to largest family, update windows
+    # Adjust laglist relative to largest family, update windows
     for n in range(len(famlist)):
-        if lags[n]!=0:
+        if laglist[n]!=0:
             members = np.fromstring(ftable[famlist[n]]['members'], dtype=int,
                                     sep=' ')
             for m in members:
                 rtable.cols.windowStart[m] = \
-                    rtable.cols.windowStart[m] - lags[n]
+                    rtable.cols.windowStart[m] - laglist[n]
                 rtable.cols.windowCoeff[m], rtable.cols.windowFFT[m], \
-                    rtable.cols.FI[m] = redpy.correlation.calcWindow(
+                    rtable.cols.FI[m] = redpy.correlation.calculate_window(
                     rtable.cols.waveform[m], rtable.cols.windowStart[m], opt)
             rtable.flush()
     
@@ -818,7 +819,7 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt):
     Parameters
     ----------
     rtable : Table object
-        Handle to the Repeater table.
+        Handle to the Repeaters table.
     ctable : Table object
         Handle to the Correlation table.
     dtable : Table object
@@ -909,7 +910,7 @@ def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
     ttable : Table object
         Handle to the Triggers table.
     otable : Table object
-        Handle to the Orphan table.
+        Handle to the Orphans table.
     dtable : Table object
         Handle to the Deleted table.
     opt : Options object
