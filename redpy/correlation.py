@@ -872,25 +872,35 @@ def do_comparison(rtable, otable, ctable, ftable, trig, idnum, windowCoeff,
 
 
 def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
-    idnum, opt):
+    idnum, troubleshoot, opt):
     """
     Adds a new trigger to the correct table.
     
-    !!! Add troubleshooting flag
+    Specifically, it checks to ensure the trigger doesn't already exist, then
+    correlates it with all orphans, and sorts into the correct table based
+    on that result. If troubleshoot=False and a step within the sorting fails
+    for some reason, the trigger will be appended to the orphan table.
     
-    rtable: Repeater table
-    otable: Orphan table
-    ctable: Correlation matrix table
-    ftable: Families table
-    ttimes: Trigger times
-    trig: New trigger to compare
-    idnum: Unique ID of new trigger
-    opt: Options object describing station/run parameters
-    
-    !!! Add ability to troubleshoot
-    
-    This is the top-level logic for processing; detailed logic is within the two compare
-    functions.
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ctable : Table object
+        Handle to the Correlation table.
+    ftable : Table object
+        Handle to the Families table.
+    ttimes : float ndarray
+        Array of times of existing triggers to prevent duplication.
+    trig : Trace object
+        New trigger to compare, with data from all stations concatenated.
+    idnum : integer
+        Unique ID of new trigger.
+    troubleshoot : bool
+        Flag to bypass try/catch and allow code to fail.
+    opt : Options object
+        Describes run parameters.
     """
     
     # !!! Need to check if this step can be skipped
@@ -907,7 +917,6 @@ def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
         maxcors, maxlags, nthcors = xcorr_1xtable(windowCoeff, windowFFT,
                                                                   otable, opt)
         
-        troubleshoot = True
         # Allow the correlation step to fail for troubleshooting
         if troubleshoot:
             do_comparison(rtable, otable, ctable, ftable, trig, idnum,

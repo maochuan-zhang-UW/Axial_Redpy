@@ -21,6 +21,7 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         increase written print statements
+  -t, --troubleshoot    run in troubleshoot mode (without try/except)
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
@@ -34,6 +35,8 @@ parser.add_argument("csvfile",
     help="catalog csv file with a 'Time UTC' column of event times")
 parser.add_argument("-v", "--verbose", action="count", default=0,
     help="increase written print statements")
+parser.add_argument("-t", "--troubleshoot", action="store_true", default=False,
+    help="run in troubleshoot mode (without try/except)")
 parser.add_argument("-c", "--configfile",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 args = parser.parse_args()
@@ -70,14 +73,22 @@ for event in eventlist:
     if args.verbose: print(etime)
     
     # Download and trigger
-    try:
-        st, stC = redpy.trigger.getData(etime-5*opt.atrig, etime+5*opt.atrig, opt)
+    if args.troubleshoot:
+        st, stC = redpy.trigger.getData(etime-5*opt.atrig,
+                                        etime+5*opt.atrig, opt)
         alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
         # Reset ptime for refilling later
         rtable.attrs.ptime = []
-    except (TypeError, obspy.fdsn.header.FDSNException, Exception):
-        print('Could not download or trigger data... moving on')
-        alltrigs = []
+    else:
+        try:
+            st, stC = redpy.trigger.getData(etime-5*opt.atrig,
+                                            etime+5*opt.atrig, opt)
+            alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
+            # Reset ptime for refilling later
+            rtable.attrs.ptime = []
+        except:
+            print('Could not download or trigger data... troubleshoot with -t')
+            alltrigs = []
     
 	# Clean out data spikes etc.
     trigs, junk, junkFI, junkKurt = redpy.trigger.dataClean(alltrigs, opt, flag=1)
@@ -108,7 +119,7 @@ for event in eventlist:
             else:        
                 id = id + 1
                 redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable,
-                    ttimes, trigs[0], id, opt)
+                    ttimes, trigs[0], id, args.troubleshoot, opt)
         else:
             ostart = 0
             if len(otable) == 0:
@@ -119,7 +130,7 @@ for event in eventlist:
             for i in range(ostart,len(trigs)):  
                 id = id + 1
                 redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable,
-                    ttimes, trigs[i], id, opt)
+                    ttimes, trigs[i], id, args.troubleshoot, opt)
         rtable.attrs.previd = id        
     
     # Don't expire orphans in the catalog?

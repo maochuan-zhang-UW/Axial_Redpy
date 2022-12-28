@@ -42,7 +42,7 @@ parser = argparse.ArgumentParser(description=
     "Backfills table with data from the past")
 parser.add_argument("-v", "--verbose", action="count", default=0,
     help="increase written print statements")
-parser.add_argument("-t", "--troubleshoot", action="count", default=0,
+parser.add_argument("-t", "--troubleshoot", action="store_true", default=False,
     help="run in troubleshoot mode (without try/except)")
 parser.add_argument("-s", "--starttime",
     help="optional start time to begin filling (YYYY-MM-DDTHH:MM:SS)")
@@ -112,8 +112,8 @@ while tstart+n*opt.nsec < tend:
                 endtime = tend
             st, stC = redpy.trigger.getData(tstart+n*opt.nsec-opt.atrig, endtime, opt)
             alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
-        except (TypeError, obspy.clients.fdsn.header.FDSNException, Exception):
-            print('Could not download or trigger data... moving on')
+        except:
+            print('Could not download or trigger data... troubleshoot with -t')
             alltrigs = []
 
 	# Clean out data spikes etc.
@@ -145,7 +145,7 @@ while tstart+n*opt.nsec < tend:
             else:
                 id = id + 1
                 redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable, ttimes,
-                    trigs[0], id, opt)
+                    trigs[0], id, args.troubleshoot, opt)
         else:
             ostart = 0
             if len(otable) == 0:
@@ -156,7 +156,7 @@ while tstart+n*opt.nsec < tend:
             for i in range(ostart,len(trigs)):
                 id = id + 1
                 redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable, ttimes,
-                    trigs[i], id, opt)
+                    trigs[i], id, args.troubleshoot, opt)
         rtable.attrs.previd = id
 
     redpy.table.clear_expired_orphans(otable, tstart+(n+1)*opt.nsec, opt)
