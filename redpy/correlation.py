@@ -569,22 +569,25 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
     famlist = []
     
     # Loop through potential matching families
-    while len(core_maxcors[core_maxcors >= opt.cmin-0.05]) > 0:    
+    while len(core_maxcors[core_maxcors >= opt.cmin-0.05]) > 0:
         
         bestcor = np.argmax(core_maxcors)
         
         if written == 0:
             # best_lag is updated until written
             best_lag = core_maxlags[bestcor]
+            
+            # Recalculate windows with this lag
             windowCoeff_new, windowFFT_new, windowFI_new = \
                 calculate_window(trig.data,
                                  int(opt.ptrig*opt.samprate + best_lag), opt)
         
+        # Cross-correlate with core at appropriate lag
         maxcor_new, maxlag_new, nthcor_new = xcorr_1x1(windowCoeff_new,
                                    core_windowCoeffs[bestcor], windowFFT_new,
                                    core_windowFFTs[bestcor], opt)
         
-        # If it definitely matches a family...
+        # If correlates above threshold with core, it's definitely a match
         if nthcor_new >= opt.cmin:
             
             # Update lists/tables
@@ -634,9 +637,11 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
         core_maxlags = np.delete(core_maxlags, bestcor)
         core_maxcors = np.delete(core_maxcors, bestcor)
         
-    # If doesn't match anything, append as orphan   
+    # If doesn't match anything, append as orphan
     if written == 0:
         redpy.table.populate_orphan(otable, idnum, trig, opt)
+        
+    # Otherwise, either update core or merge families.
     else:
         if len(famlist) == 1:
             redpy.cluster.runFamOPTICS(rtable, ctable, ftable, famlist[0], opt)
@@ -649,10 +654,9 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
     """
     Compares newly adopted repeaters to cores, merges matched families.
     
-    !!! LEFT OFF HERE
-    
-    Note: Currently only runs clustering if there are no matches to cores, and this
-    is the ONLY case where full clustering is run
+    Similar to compare_trigger_to_cores() but with the added complication that
+    the new trigger has adopted at least one other orphan and now exists in
+    the Repeater table.
     
     rtable : Table object
         Handle to the Repeater table.
@@ -671,18 +675,23 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
     
     found = 0
     if len(ftable) >= 1:
+        
+        # Get cores
         cores_table = rtable[ftable.cols.core[:]]
         core_windowFFTs = cores_table['windowFFT']
         core_windowCoeffs = cores_table['windowCoeff']
         core_ids = cores_table['id']
-        fnums = range(ftable.attrs.nClust) 
+        fnums = range(ftable.attrs.nClust)
         
+        # Get repeater that adopted the others to compare
         windowCoeff = rtable[-written]['windowCoeff']
         windowFFT = rtable[-written]['windowFFT']
-        core_maxcors, core_maxlags, core_nthcors = xcorr_1xtable(windowCoeff,
-                                                        windowFFT, cores_table, opt)
         
-        # Loop through families that match
+        # Correlate against the cores
+        core_maxcors, core_maxlags, core_nthcors = xcorr_1xtable(windowCoeff,
+                                                 windowFFT, cores_table, opt)
+        
+        # Loop through potential matching families
         while len(core_maxcors[core_maxcors >= opt.cmin-0.05]) > 0:
             
             bestcor = np.argmax(core_maxcors)
@@ -690,95 +699,123 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
             if found == 0:
                 # best_lag is updated until found
                 best_lag = core_maxlags[bestcor]
+                
+                # Recalculate windows with this lag
                 windowCoeff_new, windowFFT_new, windowFI_new = \
                     calculate_window(rtable[-written]['waveform'],
                         int(rtable[-written]['windowStart'] + best_lag), opt)
-                           
+            
+            # Cross-correlate with core at appropriate lag
             maxcor_new, maxlag_new, nthcor_new = xcorr_1x1(windowCoeff_new,
                                    core_windowCoeffs[bestcor], windowFFT_new,
                                    core_windowFFTs[bestcor], opt)
             
+            # If correlates above threshold with core, it's definitely a match
             if nthcor_new >= opt.cmin:
+                
                 if found == 0:
+                    
+                    # Update found, lag is 0 relative to this family
                     found = 1
                     laglist.append(0)
-                    # Realign all new events in the repeater catalog to the matched family
+                    
+                    # Assign new trigger time, update windows
                     for i in range(-written,0):
-                        
-                        # Assign new trigger time, update windows
                         new_trigger = int(rtable[i]['windowStart'] + best_lag)
                         update_window(rtable, i, new_trigger, 
                             *calculate_window(rtable[i]['waveform'],
                                               new_trigger, opt), opt)
                         append_family_member(ftable, fnums[bestcor],
                                              len(rtable)+i, opt)
+                
+                # Otherwise, update laglist with lags to prepare merge
                 else:
                     laglist.append(maxlag_new)
                 
+                # Update the family list to be merged
                 famlist.append(fnums[bestcor])
                 
                 # Compare to full family, write to correlation table
                 for i in range(-written,0):
-                    maxcor, maxlag, nthcor = xcorr_1x1(rtable[i]['windowCoeff'],
-                        core_windowCoeffs[bestcor], rtable[i]['windowFFT'],
-                        core_windowFFTs[bestcor], opt)
+                    maxcor, maxlag, nthcor = xcorr_1x1(
+                        rtable[i]['windowCoeff'], core_windowCoeffs[bestcor],
+                        rtable[i]['windowFFT'], core_windowFFTs[bestcor], opt)
                     if nthcor >= opt.cmin:
-                        redpy.table.populate_correlation(ctable, rtable[i]['id'],
-                            core_ids[bestcor], maxcor, opt)
+                        redpy.table.populate_correlation(ctable,
+                            rtable[i]['id'], core_ids[bestcor], maxcor, opt)
                     correlate_remaining_family(rtable, ctable, ftable, i,
                         fnums[bestcor], opt)
             
+            # Since it's close to the core, check the rest of the family
             else:
+                
+                # Get family
                 members = np.fromstring(ftable[fnums[bestcor]]['members'],
                     dtype=int, sep=' ')
                 family_table = rtable[members]
-                maxcors_fam, maxlags_fam, nthcors_fam = xcorr_1xtable(windowCoeff_new, windowFFT_new, family_table, opt)
+                
+                # Correlate to family
+                maxcors_fam, maxlags_fam, nthcors_fam = xcorr_1xtable(
+                            windowCoeff_new, windowFFT_new, family_table, opt)
+                
+                # If there's at least one match...
                 if max(nthcors_fam) >= opt.cmin:
+                
                     if found == 0:
+                        
+                        # Update found, lag is 0 relative to this family
                         found = 1
                         laglist.append(0)
-                        # Realign all new events in the repeater catalog to the matched family
+                        
+                        # Assign new trigger time, update windows
                         for i in range(-written,0):
-                            
-                            # Assign new trigger time, update windows
-                            new_trigger = int(rtable[i]['windowStart'] + \
-                                              best_lag + maxlags_fam[np.argmax(maxcors_fam)])
+                            new_trigger = int(
+                                rtable[i]['windowStart'] + best_lag + \
+                                maxlags_fam[np.argmax(maxcors_fam)])
                             update_window(rtable, i, new_trigger, 
                                 *calculate_window(rtable[i]['waveform'],
                                                   new_trigger, opt), opt)
-                            append_family_member(ftable,
-                                fnums[bestcor], len(rtable)+i, opt)
-                        found = 1
+                            append_family_member(ftable, fnums[bestcor],
+                                                 len(rtable)+i, opt)
+                    
+                    # Otherwise, update laglist with lags to prepare merge
                     else:
                         laglist.append(maxlags_fam[np.argmax(maxcors_fam)])
                         
+                    # Update the family list to be merged
                     famlist.append(fnums[bestcor])
                     
+                    # Populate Correlation table
                     for x in range(len(maxcors_fam)):
                         if nthcors_fam[x] >= opt.cmin:
-                            redpy.table.populate_correlation(ctable, rtable[-written]['id'],
-                                family_table[x]['id'], maxcors_fam[x], opt)
-                            
+                            redpy.table.populate_correlation(ctable,
+                                rtable[-written]['id'], family_table[x]['id'],
+                                maxcors_fam[x], opt)
+            
+            # Remove from arrays when done
             fnums = np.delete(fnums, bestcor)
             core_windowFFTs = np.delete(core_windowFFTs, bestcor, axis=0)
             core_windowCoeffs = np.delete(core_windowCoeffs, bestcor, axis=0)
             core_ids = np.delete(core_ids, bestcor)
             core_maxlags = np.delete(core_maxlags, bestcor)
             core_maxcors = np.delete(core_maxcors, bestcor)
-        
+    
     # Make sure to save correlation of new events with each other
     for i in range(-written+1,0):
         maxcor, maxlag, nthcor = xcorr_1x1(rtable[i]['windowCoeff'],
             rtable[-written]['windowCoeff'], rtable[i]['windowFFT'],
             rtable[-written]['windowFFT'], opt)
         if nthcor >= opt.cmin:
-            redpy.table.populate_correlation(ctable, rtable[-written]['id'], rtable[i]['id'],
-                maxcor, opt)
+            redpy.table.populate_correlation(ctable, rtable[-written]['id'],
+                                                  rtable[i]['id'], maxcor, opt)
     
+    # If no matches found, make new family
     if found == 0:
         members = np.arange(len(rtable)-written,len(rtable)).astype(int)
         core = len(rtable)-written
         redpy.table.populate_new_family(rtable, ftable, members, core, opt)
+        
+    # Otherwise, either update core or merge multiple families
     else:
         if len(famlist) == 1:
             redpy.cluster.runFamOPTICS(rtable, ctable, ftable, famlist[0], opt)
@@ -819,7 +856,7 @@ def do_comparison(rtable, otable, ctable, ftable, trig, idnum, windowCoeff,
         Describes run parameters.
     """
     
-    # If there's a possible match, run the most complex function
+    # If there's a possible match with orphan(s), run the most complex function
     if max(maxcors) > opt.cmin-0.05:
         compare_trigger_to_orphans(rtable, otable, ctable, ftable,
                     trig, idnum, windowCoeff, windowFFT, maxcors, maxlags,
@@ -834,8 +871,8 @@ def do_comparison(rtable, otable, ctable, ftable, trig, idnum, windowCoeff,
             redpy.table.populate_orphan(otable, idnum, trig, opt)
 
 
-def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig, idnum, opt):
-
+def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
+    idnum, opt):
     """
     Adds a new trigger to the correct table.
     
