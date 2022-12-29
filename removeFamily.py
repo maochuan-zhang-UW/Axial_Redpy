@@ -50,7 +50,7 @@ redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
 oldnClust = ftable.attrs.nClust
 
-redpy.table.remove_families(rtable, ctable, dtable, ftable, args.famnum, opt)
+redpy.table.remove_families(rtable, ctable, dtable, ftable, args.famnum, opt, args.verbose)
 
 if args.verbose: print("Creating plots...")
 redpy.plotting.createPlots(rtable, ftable, ttable, ctable, otable, opt)

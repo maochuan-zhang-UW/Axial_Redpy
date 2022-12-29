@@ -807,7 +807,8 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
     reorder_families(ftable, opt)
 
 
-def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt):
+def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
+    verbose=False):
     """
     Removes families from catalog.
     
@@ -830,8 +831,11 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt):
         List of clusters/rows to remove from the Families table.
     opt : Options object
         Describes the run parameters.
+    verbose : bool, optional
+        Enable additional print statements.
     """
-
+    
+    if verbose: print('Getting family members to remove...')
     remove_clusters = np.sort(remove_clusters)[::-1] # Process in reverse
     old_rrows = list(range(len(rtable)))
     transform = np.zeros((len(rtable),)).astype(int)
@@ -847,7 +851,9 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt):
     ftable.attrs.nClust-=len(remove_clusters)
     members = np.sort(members).astype('uint32')
     
+    # !!! Provide option to not do this step for small families?
     # Populate cores in dtable before removing them from rtable
+    if verbose: print('Moving cores to deleted table...')
     cores = rtable[np.intersect1d(members, old_cores)]
     for core in cores:
         drow = dtable.row
@@ -863,18 +869,21 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt):
         drow.append()
     
     # !!! Functionalize finding rows in the Correlation table? !!!
+    if verbose: print('Updating correlation table...')
     ids = rtable.cols.id[:]
     ids = ids[members]
     id2 = ctable.cols.id2[:]
     idxc = np.where(np.in1d(id2,ids))[0]
     for c in idxc[::-1]:
         ctable.remove_row(c)
-        
+    
+    if verbose: print('Updating repeater table...')    
     # Remove rows from table and list
     for m in members[::-1]:
         rtable.remove_row(m)
         old_rrows.remove(m)
     
+    if verbose: print('Updating family table...')
     # Update members of Families table with new row locations
     transform[old_rrows] = range(len(rtable))
     np.set_printoptions(threshold=sys.maxsize)
@@ -889,6 +898,111 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt):
     ftable.cols.printme[-1] = 1
     rtable.flush()
     dtable.flush()
+    
+    if verbose: print('Done removing families!')
+
+
+def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
+    maxdays, seedtime, opt, verbose=False, list_only=False):
+    """
+    Searches for recent, small families and removes them.
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    ctable : Table object
+        Handle to the Correlation table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    ttable : Table object
+        Handle to the Triggers table.
+    minmembers : integer
+        Minimum number of members needed to keep a family.
+    maxdays : float
+        Maximum number of days.
+    seedtime : string
+        Date from which to measure maxdays.
+    opt : Options object
+        Describes run parameters.
+    verbose : bool, optional
+        Enable additional print statements.
+    list_only : bool, optional
+        Skip deletion step and return only the list.
+    
+    Returns
+    -------
+    removed_families : 
+        List of family numbers that were (or were slated to be) removed.
+    """
+    
+    # !!! Feed as UTCDateTime outside function?
+    if seedtime:
+        seedtime = UTCDateTime(seedtime)
+    else:
+        # Last trigger
+        seedtime = UTCDateTime(mdates.num2date(ttable[-1]["startTimeMPL"]))
+    
+    # If using list_only mode, automatically invoke verbose mode too
+    if list_only:
+        verbose = True
+    
+    if verbose:
+        print("::: table.removeSmallFamilies()")
+        print("::: - minmembers : {}".format(minmembers))
+        print("::: - maxdays    : {}".format(maxdays))
+        print("::: - seedtime   : {}".format(seedtime))
+        print()
+    
+    removed_families = []  # list of families to be removed
+    nremoved = 0  # total number of repeaters removed
+    if verbose:
+        print("::: Member count per Family :::")
+        print("#{:>12s} | {:>12s} | {:>12s} | {:<12s}".format(
+            "Family #", "Members", "Age (d)", "Fate"))
+    for i in range(len(ftable)):
+        # Initialize fate of family as "keep," for printing purposes only
+        fate = "keep"
+        # Number of repeaters in the family
+        n = len(np.fromstring(ftable[i]['members'], dtype=int, sep=' '))
+        
+        # a = age in days (measured from family beginning), see above
+        a = (seedtime - (UTCDateTime(mdates.num2date(ftable[i]["startTime"])
+             ))) / 86400
+        
+        # If family has too few members and is too old
+        if n < minmembers and a > maxdays:
+            removed_families.append(i)  # Append it to the list to remove
+            fate = "REMOVE"  # Update fate
+            nremoved += n  # Keep track of total number of repeaters removed
+        if verbose:
+            print("#{:>12d} | {:12d} | {:>12.2f} |  {:<12s}".format(i, n, a,
+                                                                        fate))
+    
+    if verbose:
+        print("\nRemoved families     : {}".format(removed_families))
+        print("# Families removed  : {}/{}".format(len(removed_families),
+                                                                len(ftable)))
+        percent_removed = nremoved/len(rtable)*100
+        print("# Repeaters removed : {}/{} ({:2.1f}%)\n".format(nremoved,
+                                               len(rtable), percent_removed))
+    
+    if list_only:
+        # If list_only (-l), do not execute removeFamilies()
+        print("Families listed were not removed!")
+        print("Remove -l flag to actually modify table.")
+    else:
+        # removeFamilies() if there are families to remove
+        if removed_families:
+            remove_families(rtable, ctable, dtable, ftable, removed_families,
+                                                                opt, verbose)
+        else:
+            if verbose:
+                print("No families to remove.")
+    
+    return removed_families
 
 
 def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
@@ -918,79 +1032,48 @@ def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
     """
     
     if len(ttable) > 0:
-
+        
         if ttable.cols.startTimeMPL[0] > mdates.date2num(
             np.datetime64('now')):
-            # Explicitly assumes the first trigger will have the issue.
+            # Explicitly assumes the first trigger will have the issue
             
             print('Found matplotlib version mismatch! Fixing...')
             reftime = mdates.date2num(np.datetime64('now'))
             epoch = mdates.date2num(np.datetime64('0000-12-31'))
             
-            # Fix triggers
-            for i in range(len(ttable.cols.startTimeMPL[:])):
-                if ttable.cols.startTimeMPL[i] > reftime:
-                    ttable.cols.startTimeMPL[i] = \
-                        ttable.cols.startTimeMPL[i] + epoch
+            # Loop over tables and entries in tables to fix
+            for table in [ttable, otable, rtable, dtable]:
+                for i in range(len(table)):
+                    if table.cols.startTimeMPL[i] > reftime:
+                        table.cols.startTimeMPLp[i] = \
+                            table.cols.startTimeMPL[i] + epoch
+                table.flush()
             
-            # Fix orphans
-            for i in range(len(otable.cols.startTimeMPL[:])):
-                if otable.cols.startTimeMPL[i] > reftime:
-                    otable.cols.startTimeMPL[i] = \
-                        otable.cols.startTimeMPL[i] + epoch
-            
-            # Fix repeaters
-            for i in range(len(rtable.cols.startTimeMPL[:])):
-                if rtable.cols.startTimeMPL[i] > reftime:
-                    rtable.cols.startTimeMPL[i] = \
-                        rtable.cols.startTimeMPL[i] + epoch
-                
-            # Fix deleted
-            for i in range(len(dtable.cols.startTimeMPL[:])):
-                if dtable.cols.startTimeMPL[i] > reftime:
-                    dtable.cols.startTimeMPL[i] = \
-                        dtable.cols.startTimeMPL[i] + epoch
-            
-            # Fix families
+            # Fix ftable separately because startTime instead of startTimeMPL
             for i in range(len(ftable.cols.startTime[:])):
                 if ftable.cols.startTime[i] > reftime:
                     ftable.cols.startTime[i] = \
                         ftable.cols.startTime[i] + epoch
+            ftable.flush()
         
         elif ttable.cols.startTimeMPL[0] < mdates.date2num(
             np.datetime64('1900-01-01')):
             # Same problem, but with the opposite sense, in case current
-            # version is outdated.
+            # version is outdated
             
             print('Found matplotlib version mismatch! Fixing...')
             reftime = mdates.date2num(np.datetime64('1900-01-01'))
             epoch = mdates.date2num(np.datetime64('1970-01-01'))
             
-            # Fix triggers
-            for i in range(len(ttable.cols.startTimeMPL[:])):
-                if ttable.cols.startTimeMPL[i] < reftime:
-                    ttable.cols.startTimeMPL[i] = \
-                        ttable.cols.startTimeMPL[i] + epoch
+            # Loop over tables and entries in tables to fix
+            for table in [ttable, otable, rtable, dtable]:
+                for i in range(len(table.cols.startTimeMPL[:])):
+                    if table.cols.startTimeMPL[i] < reftime:
+                        table.cols.startTimeMPL[i] = \
+                            table.cols.startTimeMPL[i] + epoch
+                table.flush()
             
-            # Fix orphans
-            for i in range(len(otable.cols.startTimeMPL[:])):
-                if otable.cols.startTimeMPL[i] < reftime:
-                    otable.cols.startTimeMPL[i] = \
-                        otable.cols.startTimeMPL[i] + epoch
-            
-            # Fix repeaters
-            for i in range(len(rtable.cols.startTimeMPL[:])):
-                if rtable.cols.startTimeMPL[i] < reftime:
-                    rtable.cols.startTimeMPL[i] = \
-                        rtable.cols.startTimeMPL[i] + epoch
-            
-            # Fix deleted
-            for i in range(len(dtable.cols.startTimeMPL[:])):
-                if dtable.cols.startTimeMPL[i] < reftime:
-                    dtable.cols.startTimeMPL[i] = \
-                        dtable.cols.startTimeMPL[i] + epoch
-            
-            # Fix families
+            # Fix ftable separately because startTime instead of startTimeMPL
             for i in range(len(ftable.cols.startTime[:])):
                 if ftable.cols.startTime[i] < reftime:
                     ftable.cols.startTime[i] = \
