@@ -905,7 +905,7 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
 def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
     maxdays, seedtime, opt, verbose=False, list_only=False):
     """
-    Searches for recent, small families and removes them.
+    Searches for old, small families and removes them.
     
     Parameters
     ----------
@@ -921,8 +921,8 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
         Handle to the Triggers table.
     minmembers : integer
         Minimum number of members needed to keep a family.
-    maxdays : float
-        Maximum number of days.
+    maxdays : float !!! change to "maxage"
+        Maximum age relative to seedtime (days).
     seedtime : string
         Date from which to measure maxdays.
     opt : Options object
@@ -938,30 +938,24 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
         List of family numbers that were (or were slated to be) removed.
     """
     
-    # !!! Feed as UTCDateTime outside function?
-    if seedtime:
-        seedtime = UTCDateTime(seedtime)
-    else:
-        # Last trigger
-        seedtime = UTCDateTime(mdates.num2date(ttable[-1]["startTimeMPL"]))
+    # !!! Need to consider further how to better incorporate the verbosity
+    # !!! and listing to better match the rest of the code
     
     # If using list_only mode, automatically invoke verbose mode too
     if list_only:
         verbose = True
     
     if verbose:
-        print("::: table.removeSmallFamilies()")
+        print("\n::: table.removeSmallFamilies()")
         print("::: - minmembers : {}".format(minmembers))
         print("::: - maxdays    : {}".format(maxdays))
-        print("::: - seedtime   : {}".format(seedtime))
-        print()
-    
-    removed_families = []  # list of families to be removed
-    nremoved = 0  # total number of repeaters removed
-    if verbose:
+        print("::: - seedtime   : {}\n".format(seedtime))
         print("::: Member count per Family :::")
         print("#{:>12s} | {:>12s} | {:>12s} | {:<12s}".format(
             "Family #", "Members", "Age (d)", "Fate"))
+    
+    removed_families = []  # list of families to be removed
+    nremoved = 0  # total number of repeaters removed
     for i in range(len(ftable)):
         # Initialize fate of family as "keep," for printing purposes only
         fate = "keep"
@@ -982,7 +976,7 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
                                                                         fate))
     
     if verbose:
-        print("\nRemoved families     : {}".format(removed_families))
+        print("\nRemoved families    : {}".format(removed_families))
         print("# Families removed  : {}/{}".format(len(removed_families),
                                                                 len(ftable)))
         percent_removed = nremoved/len(rtable)*100

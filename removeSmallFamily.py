@@ -6,6 +6,10 @@ import redpy.config
 import redpy.table
 import argparse
 
+import matplotlib.dates as mdates
+from obspy import UTCDateTime
+
+
 """
 Run this script to remove small families/clusters (i.e., families that have less than M members and are more than D days
 old). Reclusters and remakes images when done. This module works by determining the families that need to be removed,
@@ -62,10 +66,17 @@ def main(args):
     redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
     oldnClust = ftable.attrs.nClust
+    
+    # Convert args.seedtime to UTCDateTime
+    if args.seedtime:
+        seedtime = UTCDateTime(args.seedtime)
+    else:
+        # Last trigger
+        seedtime = UTCDateTime(mdates.num2date(ttable[-1]['startTimeMPL']))
 
     # Determines which families to remove, sends to table.removeFamilies(), outputs number of families removed
     cnums = redpy.table.remove_small_families(rtable, ctable, dtable, ftable, ttable, args.minmembers, args.maxdays,
-                                    args.seedtime, opt, list_only=args.list, verbose=args.verbose)
+                                    seedtime, opt, list_only=args.list, verbose=args.verbose)
 
     if len(cnums) > 0:
         # Only update plots if there are families removed
