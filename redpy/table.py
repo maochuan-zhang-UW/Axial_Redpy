@@ -995,4 +995,3 @@ def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
                 if ftable.cols.startTime[i] < reftime:
                     ftable.cols.startTime[i] = \
                         ftable.cols.startTime[i] + epoch
-
