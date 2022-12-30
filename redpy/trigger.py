@@ -5,12 +5,13 @@
 import glob, os, itertools
 
 import numpy as np
+import obspy
 
 from obspy import UTCDateTime
 from obspy.core.trace import Trace
 from obspy.core.stream import Stream
-from obspy.clients.fdsn import Client
 from obspy.clients.earthworm import Client as EWClient
+from obspy.clients.fdsn import Client as FDSNClient
 from obspy.clients.seedlink import Client as SeedLinkClient
 from obspy.signal.trigger import coincidence_trigger
 from scipy.fftpack import fft
@@ -19,6 +20,139 @@ from scipy.stats import kurtosis
 # !!! Be a better coder and address these warnings rather than ignore them
 import warnings
 warnings.filterwarnings("ignore")
+
+
+def get_client(opt):
+    """
+    Decides which Client to use to query data.
+    
+    Parameters
+    ----------
+    opt : Options object
+        Describes run parameters.
+    
+    Returns
+    -------
+    client : Client object
+        Handle to the appropriate Client.
+    """
+    
+    if '://' not in opt.server:
+        # Backward compatibility with previous setting files
+        if '.' not in opt.server:
+            client = FDSNClient(opt.server)
+        else:
+            client = EWClient(opt.server, opt.port)
+    # New server syntax (more options and server and port on same variable)
+    elif 'fdsnws://' in opt.server:
+        server = opt.server.split('fdsnws://',1)[1]
+        client = FDSNClient(server)
+    elif 'waveserver://' in opt.server:
+        server_str = opt.server.split('waveserver://',1)[1]
+        try:
+            server = server_str.split(':',1)[0]
+            port = server_str.split(':',1)[1]
+        except:
+            server = server_str
+            port = '16017'
+        client = EWClient(server, int(port))
+    elif 'seedlink://' in opt.server:
+        server_str = opt.server.split('seedlink://',1)[1]
+        try:
+            server = server_str.split(':',1)[0]
+            port = server_str.split(':',1)[1]
+        except:
+            server = server_str
+            port = '18000'
+        client = SeedLinkClient(server, port=int(port), timeout=1)
+        
+    return client
+
+
+def filter_merge(stmp, opt):
+    """
+    Bandpass filter then merge data so each channel is in one Trace.
+    
+    This function fundamentally also controls how data gaps are handled. The
+    ends are tapered to reduce the likelihood that they will be triggered on
+    with STA/LTA.
+    
+    !!! This function could probably use some work, as there are still some
+    !!! issues with how gaps are handled.
+    
+    Parameters
+    ----------
+    stmp : Stream object
+        Stream containing Traces to be filtered/merged.
+    opt : Options object
+        Describes run parameters.
+    
+    Returns
+    -------
+    stmp : Stream object
+        Processed Stream, with each Trace corresponding to a unique channel.
+    """
+    
+    # Replace -2**31 (Winston NaN token)
+    for m in range(len(stmp)):
+        stmp[m].data = np.where(stmp[m].data == -2**31, 0, stmp[m].data)
+    
+    # Bandpass filter, controlled by opt
+    stmp = stmp.filter('bandpass', freqmin=opt.fmin, freqmax=opt.fmax,
+                                                    corners=2, zerophase=True)
+    
+    # Hann window taper, with window length not to exceed the spacing between
+    # consecutive triggers
+    stmp = stmp.taper(0.05,type='hann',max_length=opt.mintrig)
+    
+    # Check for correct sampling rate
+    for m in range(len(stmp)):
+        if stmp[m].stats.sampling_rate != opt.samprate:
+            stmp[m] = stmp[m].resample(opt.samprate)
+    
+    # Merge, filling gaps with zeroes
+    stmp = stmp.merge(method=1, fill_value=0)
+    
+    return stmp
+
+
+def append_empty(st, n, opt):
+    """
+    Appends an empty Trace to the end of a Stream with proper SCNL information.
+    
+    Parameters
+    ----------
+    st : Stream object
+        Stream that will contain Traces for each channel.
+    n : integer
+        Index of channel within list.
+    opt : Options object
+        Describes run parameters.
+    
+    Returns
+    -------
+    st : Stream object
+        Input Stream with empty Trace appended.
+    """
+    
+    nets = opt.network.split(',')
+    stas = opt.station.split(',')
+    locs = opt.location.split(',')
+    chas = opt.channel.split(',')    
+    
+    print('No data found for {}.{}.{}.{}'.format(nets[n], stas[n], nets[n],
+                                                                   locs[n]))
+    
+    trtmp = Trace()
+    trtmp.stats.sampling_rate = opt.samprate
+    trtmp.stats.station = stas[n]
+    trtmp.stats.channel = chas[n]
+    trtmp.stats.network = nets[n]
+    trtmp.stats.location = locs[n]
+    
+    st = st.append(trtmp.copy())
+    
+    return st
 
 
 def get_data(tstart, tend, opt):
@@ -55,11 +189,16 @@ def get_data(tstart, tend, opt):
     
     if opt.server == 'file':
         
+        # !!! This method of loading from file is extremely slow!
+        # !!! Recommend only doing the header load ONCE rather than within
+        # !!! each time loop, create a dataframe/csvfile that can be passed
+        # !!! to this function that has starttime, endtime, scnl, filepath
+        # !!! that can be more rapidly searched than this monstrosity.        
+        
         # Generate list of files
-        if opt.server == 'file':
-            flist = list(itertools.chain.from_iterable(glob.iglob(os.path.join(
+        flist = list(itertools.chain.from_iterable(glob.iglob(os.path.join(
                 root,opt.filepattern)) for root, dirs, files in os.walk(
-                                                               opt.searchdir)))
+                                                              opt.searchdir)))
         
         # Determine which subset of files to load based on start and end times
         # and station name; we'll fully deal with stations below
@@ -84,13 +223,10 @@ def get_data(tstart, tend, opt):
                 stmp = stmp.extend(tmp)
         
         # Filter and merge
-        stmp = stmp.filter('bandpass', freqmin=opt.fmin, freqmax=opt.fmax,
-            corners=2, zerophase=True)
-        stmp = stmp.taper(0.05,type='hann',max_length=opt.mintrig)
-        for m in range(len(stmp)):
-            if stmp[m].stats.sampling_rate != opt.samprate:
-                stmp[m] = stmp[m].resample(opt.samprate)
-        stmp = stmp.merge(method=1, fill_value=0)
+        stmp = filter_merge(stmp, opt)
+        
+        # !!! Being able to search by SCNL above will also let me not have
+        # !!! to worry about ordering issues here.
         
         # Only grab stations/channels that we want and in order
         netlist = []
@@ -110,88 +246,31 @@ def get_data(tstart, tend, opt):
                              nets[n] in netlist[m] and locs[n] in loclist[m]):
                     st = st.append(stmp[m])
             if len(st) == n:
-                print("Couldn't find {}.{}.{}.{}".format(stas[n], chas[n], 
-                                                            nets[n], locs[n]))
-                trtmp = Trace()
-                trtmp.stats.sampling_rate = opt.samprate
-                trtmp.stats.station = stas[n]
-                st = st.append(trtmp.copy())
+                st = append_empty(st, n, opt)
     
     else:
         
-        if '://' not in opt.server:
-            # Backward compatibility with previous setting files
-            if '.' not in opt.server:
-                client = Client(opt.server)
-            else:
-                client = EWClient(opt.server, opt.port)
-        # New server syntax (more options and server and port on same variable)
-        elif 'fdsnws://' in opt.server:
-            server = opt.server.split('fdsnws://',1)[1]
-            client = Client(server)
-        elif 'waveserver://' in opt.server:
-            server_str = opt.server.split('waveserver://',1)[1]
-            try:
-                server = server_str.split(':',1)[0]
-                port = server_str.split(':',1)[1]
-            except:
-                server = server_str
-                port = '16017'
-            client = EWClient(server, int(port))
-        elif 'seedlink://' in opt.server:
-            server_str = opt.server.split('seedlink://',1)[1]
-            try:
-                server = server_str.split(':',1)[0]
-                port = server_str.split(':',1)[1]
-            except:
-                server = server_str
-                port = '18000'
-            client = SeedLinkClient(server, port=int(port), timeout=1)
+        client = get_client(opt)
         
         for n in range(len(stas)):
             try:
                 stmp = client.get_waveforms(nets[n], stas[n], locs[n], chas[n],
                         tstart, tend+opt.maxdt)
-                for m in range(len(stmp)):
-                    stmp[m].data = np.where(stmp[m].data == -2**31, 0,
-                        stmp[m].data) # replace -2**31 (Winston NaN token)
-                stmp = stmp.filter('bandpass', freqmin=opt.fmin,
-                    freqmax=opt.fmax, corners=2, zerophase=True)
-                stmp = stmp.taper(0.05,type='hann',max_length=opt.mintrig)
-                for m in range(len(stmp)):
-                    if stmp[m].stats.sampling_rate != opt.samprate:
-                        stmp[m] = stmp[m].resample(opt.samprate)
-                stmp = stmp.merge(method=1, fill_value=0)
+                stmp = filter_merge(stmp, opt)
             except (obspy.clients.fdsn.header.FDSNException):
-                try: # try again
+                # Try querying again in case timed out on accident
+                try:
                     stmp = client.get_waveforms(nets[n], stas[n], locs[n],
                             chas[n], tstart, tend+opt.maxdt)
-                    for m in range(len(stmp)):
-                        stmp[m].data = np.where(stmp[m].data == -2**31, 0,
-                            stmp[m].data) # replace -2**31 (Winston NaN token)
-                    stmp = stmp.filter('bandpass', freqmin=opt.fmin,
-                        freqmax=opt.fmax, corners=2, zerophase=True)
-                    stmp = stmp.taper(0.05,type='hann',max_length=opt.mintrig)
-                    for m in range(len(stmp)):
-                        if stmp[m].stats.sampling_rate != opt.samprate:
-                            stmp[m] = stmp[m].resample(opt.samprate)
-                    stmp = stmp.merge(method=1, fill_value=0)
-                except (obspy.clients.fdsn.header.FDSNException):
-                    print('No data found for {0}.{1}'.format(stas[n],nets[n]))
-                    trtmp = Trace()
-                    trtmp.stats.sampling_rate = opt.samprate
-                    trtmp.stats.station = stas[n]
-                    stmp = Stream().extend([trtmp.copy()])
+                    stmp = filter_merge(stmp, opt)
+                except:
+                    stmp = append_empty(Stream(), n, opt)
             
             # Last check for length; catches problem with empty waveserver
             if len(stmp) != 1:
-                print('No data found for {0}.{1}'.format(stas[n],nets[n]))
-                trtmp = Trace()
-                trtmp.stats.sampling_rate = opt.samprate
-                trtmp.stats.station = stas[n]
-                stmp = Stream().extend([trtmp.copy()])
-            
-            st.extend(stmp.copy())
+                st = append_empty(st, n, opt)
+            else:
+                st.extend(stmp.copy())
     
     # Edit 'start' time if using offset option
     if opt.maxdt:
