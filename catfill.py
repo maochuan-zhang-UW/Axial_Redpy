@@ -74,14 +74,14 @@ for event in eventlist:
     
     # Download and trigger
     if args.troubleshoot:
-        st, stC = redpy.trigger.getData(etime-5*opt.atrig,
+        st, stC = redpy.trigger.get_data(etime-5*opt.atrig,
                                         etime+5*opt.atrig, opt)
         alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
         # Reset ptime for refilling later
         rtable.attrs.ptime = []
     else:
         try:
-            st, stC = redpy.trigger.getData(etime-5*opt.atrig,
+            st, stC = redpy.trigger.get_data(etime-5*opt.atrig,
                                             etime+5*opt.atrig, opt)
             alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
             # Reset ptime for refilling later
@@ -91,7 +91,7 @@ for event in eventlist:
             alltrigs = []
     
 	# Clean out data spikes etc.
-    trigs, junk, junkFI, junkKurt = redpy.trigger.dataClean(alltrigs, opt, flag=1)
+    trigs, junk, junkFI, junkKurt = redpy.trigger.clean_triggers(alltrigs, opt, flag=1)
         
 	# Save junk triggers in separate table for quality checking purposes
     for i in range(len(junk)):

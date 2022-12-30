@@ -103,21 +103,21 @@ while tstart+n*opt.nsec < tend:
         endtime = tstart+(n+1)*opt.nsec+opt.atrig
         if endtime > tend:
             endtime = tend
-        st, stC = redpy.trigger.getData(tstart+n*opt.nsec-opt.atrig, endtime, opt)
+        st, stC = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
         alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
     else:
         try:
             endtime = tstart+(n+1)*opt.nsec+opt.atrig
             if endtime > tend:
                 endtime = tend
-            st, stC = redpy.trigger.getData(tstart+n*opt.nsec-opt.atrig, endtime, opt)
+            st, stC = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
             alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
         except:
             print('Could not download or trigger data... troubleshoot with -t')
             alltrigs = []
 
 	# Clean out data spikes etc.
-    trigs, junk, junkFI, junkKurt = redpy.trigger.dataClean(alltrigs, opt, flag=1)
+    trigs, junk, junkFI, junkKurt = redpy.trigger.clean_triggers(alltrigs, opt, flag=1)
 
 	# Save junk triggers in separate table for quality checking purposes
     for i in range(len(junk)):

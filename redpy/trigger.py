@@ -20,7 +20,8 @@ from scipy.stats import kurtosis
 import warnings
 warnings.filterwarnings("ignore")
 
-def getData(tstart, tend, opt):
+
+def get_data(tstart, tend, opt):
     """
     Download data from web or read from file.
     
@@ -280,9 +281,9 @@ def trigger(st, stC, rtable, opt):
         return []
 
 
-def dataClean(alltrigs, opt, flag=1):
+def clean_triggers(alltrigs, opt, flag=1):
     """
-    Cleans data of data spikes, calibration pulses, and teleseisms.
+    Cleans triggers of data spikes, calibration pulses, and teleseisms.
     
     Specifically, it attempts to weed out spikes and analog calibration pulses
     using kurtosis and outlier ratios; checks for teleseisms that have very low
