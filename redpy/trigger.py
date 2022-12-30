@@ -2,19 +2,21 @@
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 
+import glob, os, itertools
+
+import numpy as np
+
 from obspy import UTCDateTime
-import obspy
+from obspy.core.trace import Trace
+from obspy.core.stream import Stream
 from obspy.clients.fdsn import Client
 from obspy.clients.earthworm import Client as EWClient
 from obspy.clients.seedlink import Client as SeedLinkClient
-from obspy.core.trace import Trace
-from obspy.core.stream import Stream
 from obspy.signal.trigger import coincidence_trigger
-import numpy as np
-from scipy import stats
 from scipy.fftpack import fft
-import glob, os, itertools
+from scipy.stats import kurtosis
 
+# !!! Be a better coder and address these warnings rather than ignore them
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -289,10 +291,10 @@ def dataClean(alltrigs, opt, flag=1):
 
             if np.sum(np.abs(dat))!=0.0:
                 # Calculate kurtosis in window
-                k = stats.kurtosis(datcut)
+                k = kurtosis(datcut)
                 # Compute kurtosis of frequency amplitude spectrum next
                 datf = np.absolute(fft(dat))
-                kf = stats.kurtosis(datf)
+                kf = kurtosis(datf)
                 # Calculate outlier ratio using z ((data-median)/mad)
                 mad = np.nanmedian(np.absolute(dat - np.nanmedian(dat)))
                 z = (dat-np.median(dat))/mad
