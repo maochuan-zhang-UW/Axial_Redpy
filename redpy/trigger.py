@@ -25,8 +25,9 @@ def getData(tstart, tend, opt):
     """
     Download data from files in a folder, from IRIS, or a Earthworm waveserver
 
-    A note on SAC/miniSEED files: as this makes no assumptions about the naming scheme of
-    your data files, please ensure that your headers contain the correct SCNL information!
+    A note on SAC/miniSEED files: as this makes no assumptions about the naming
+    scheme of your data files, please ensure that your headers contain the
+    correct SCNL information!
 
     tstart: UTCDateTime of beginning of period of interest
     tend: UTCDateTime of end of period of interest
@@ -47,10 +48,11 @@ def getData(tstart, tend, opt):
         # Generate list of files
         if opt.server == 'file':
             flist = list(itertools.chain.from_iterable(glob.iglob(os.path.join(
-                root,opt.filepattern)) for root, dirs, files in os.walk(opt.searchdir)))
+                root,opt.filepattern)) for root, dirs, files in os.walk(
+                                                               opt.searchdir)))
 
-        # Determine which subset of files to load based on start and end times and
-        # station name; we'll fully deal with stations below
+        # Determine which subset of files to load based on start and end times
+        # and station name; we'll fully deal with stations below
         flist_sub = []
         for f in flist:
             # Load header only
@@ -72,8 +74,8 @@ def getData(tstart, tend, opt):
                 stmp = stmp.extend(tmp)
 
         # Filter and merge
-        stmp = stmp.filter('bandpass', freqmin=opt.fmin, freqmax=opt.fmax, corners=2,
-            zerophase=True)
+        stmp = stmp.filter('bandpass', freqmin=opt.fmin, freqmax=opt.fmax,
+            corners=2, zerophase=True)
         stmp = stmp.taper(0.05,type='hann',max_length=opt.mintrig)
         for m in range(len(stmp)):
             if stmp[m].stats.sampling_rate != opt.samprate:
@@ -94,11 +96,12 @@ def getData(tstart, tend, opt):
         # Find match of SCNL in header or fill empty
         for n in range(len(stas)):
             for m in range(len(stalist)):
-                if (stas[n] in stalist[m] and chas[n] in chalist[m] and nets[n] in
-                    netlist[m] and locs[n] in loclist[m]):
+                if (stas[n] in stalist[m] and chas[n] in chalist[m] and 
+                             nets[n] in netlist[m] and locs[n] in loclist[m]):
                     st = st.append(stmp[m])
             if len(st) == n:
-                print("Couldn't find "+stas[n]+'.'+chas[n]+'.'+nets[n]+'.'+locs[n])
+                print("Couldn't find {}.{}.{}.{}".format(stas[n], chas[n], 
+                                                            nets[n], locs[n]))
                 trtmp = Trace()
                 trtmp.stats.sampling_rate = opt.samprate
                 trtmp.stats.station = stas[n]
@@ -140,9 +143,10 @@ def getData(tstart, tend, opt):
                 stmp = client.get_waveforms(nets[n], stas[n], locs[n], chas[n],
                         tstart, tend+opt.maxdt)
                 for m in range(len(stmp)):
-                    stmp[m].data = np.where(stmp[m].data == -2**31, 0, stmp[m].data) # replace -2**31 (Winston NaN token) w 0
-                stmp = stmp.filter('bandpass', freqmin=opt.fmin, freqmax=opt.fmax,
-                    corners=2, zerophase=True)
+                    stmp[m].data = np.where(stmp[m].data == -2**31, 0,
+                        stmp[m].data) # replace -2**31 (Winston NaN token)
+                stmp = stmp.filter('bandpass', freqmin=opt.fmin,
+                    freqmax=opt.fmax, corners=2, zerophase=True)
                 stmp = stmp.taper(0.05,type='hann',max_length=opt.mintrig)
                 for m in range(len(stmp)):
                     if stmp[m].stats.sampling_rate != opt.samprate:
@@ -150,12 +154,13 @@ def getData(tstart, tend, opt):
                 stmp = stmp.merge(method=1, fill_value=0)
             except (obspy.clients.fdsn.header.FDSNException):
                 try: # try again
-                    stmp = client.get_waveforms(nets[n], stas[n], locs[n], chas[n],
-                            tstart, tend+opt.maxdt)
+                    stmp = client.get_waveforms(nets[n], stas[n], locs[n],
+                            chas[n], tstart, tend+opt.maxdt)
                     for m in range(len(stmp)):
-                        stmp[m].data = np.where(stmp[m].data == -2**31, 0, stmp[m].data) # replace -2**31 (Winston NaN token) w 0
-                    stmp = stmp.filter('bandpass', freqmin=opt.fmin, freqmax=opt.fmax,
-                        corners=2, zerophase=True)
+                        stmp[m].data = np.where(stmp[m].data == -2**31, 0,
+                            stmp[m].data) # replace -2**31 (Winston NaN token)
+                    stmp = stmp.filter('bandpass', freqmin=opt.fmin,
+                        freqmax=opt.fmax, corners=2, zerophase=True)
                     stmp = stmp.taper(0.05,type='hann',max_length=opt.mintrig)
                     for m in range(len(stmp)):
                         if stmp[m].stats.sampling_rate != opt.samprate:
@@ -196,7 +201,8 @@ def trigger(st, stC, rtable, opt):
     Run triggering algorithm on a stream of data.
 
     st: OBSPy stream of data
-    rtable: Repeater table contains reference time of previous trigger in samples
+    rtable: Repeater table contains reference time of previous trigger in
+        samples
     opt: Options object describing station/run parameters
 
     Returns triggered traces as OBSPy trace object updates ptime for next run
@@ -205,15 +211,15 @@ def trigger(st, stC, rtable, opt):
     tr = st[0]
     t = tr.stats.starttime
 
-    cft = coincidence_trigger(opt.trigalg, opt.trigon, opt.trigoff, stC, opt.nstaC,
-        sta=opt.swin, lta=opt.lwin, details=True)
+    cft = coincidence_trigger(opt.trigalg, opt.trigon, opt.trigoff, stC,
+        opt.nstaC, sta=opt.swin, lta=opt.lwin, details=True)
 
     if len(cft) > 0:
 
         ind = 0
 
-        # Slice out the data from st and save the maximum STA/LTA ratio value for
-        # use in orphan expiration
+        # Slice out the data from st and save the maximum STA/LTA ratio value
+        # for se in orphan expiration
 
         # Convert ptime from time of last trigger to seconds before start time
         if rtable.attrs.ptime:
@@ -234,8 +240,8 @@ def trigger(st, stC, rtable, opt):
                 # Cut out and append all data to first trace
                 tmp = st.slice(ttime - opt.ptrig, ttime + opt.atrig)
                 ttmp = tmp.copy()
-                ttmp = ttmp.trim(ttime - opt.ptrig, ttime + opt.atrig + 0.05, pad=True,
-                    fill_value=0)
+                ttmp = ttmp.trim(ttime - opt.ptrig, ttime + opt.atrig + 0.05,
+                    pad=True, fill_value=0)
                 ttmp[0].data = ttmp[0].data[0:opt.wshape] - np.mean(
                     ttmp[0].data[0:opt.wshape])
                 for s in range(1,len(ttmp)):
@@ -260,13 +266,14 @@ def trigger(st, stC, rtable, opt):
 def dataClean(alltrigs, opt, flag=1):
 
     """
-    Examine triggers and weed out spikes and calibration pulses using kurtosis and
-    outlier ratios
+    Examine triggers and weed out spikes and calibration pulses using kurtosis
+    and outlier ratios
 
     alltrigs: triggers output from triggering
     opt: opt from config
-    flag: 1 if defining window to check, 0 if want to check whole waveform for spikes
-        (note that different threshold values should be used for different window lengths)
+    flag: 1 if defining window to check, 0 if want to check whole waveform for
+        spikes (note that different threshold values should be used for
+        different window lengths)
 
     Returns good trigs (trigs) and several junk types (junk, junkFI, junkKurt)
     """
@@ -301,17 +308,20 @@ def dataClean(alltrigs, opt, flag=1):
                 # Outliers have z > 4.45
                 orm = len(z[z>4.45])/np.array(len(z)).astype(float)
 
-                if k >= opt.kurtmax or orm >= opt.oratiomax or kf >= opt.kurtfmax:
+                if k >= opt.kurtmax or orm >= opt.oratiomax or \
+                                                          kf >= opt.kurtfmax:
                     njunk+=1
 
                 winstart = int(opt.ptrig*opt.samprate - opt.winlen/10)
-                winend = int(opt.ptrig*opt.samprate - opt.winlen/10 + opt.winlen)
+                winend = int(opt.ptrig*opt.samprate - opt.winlen/10 + \
+                             opt.winlen)
                 fftwin = np.reshape(fft(dat[winstart:winend]),(opt.winlen,))
                 if np.median(np.abs(dat[winstart:winend]))!=0:
                     fi = np.log10(np.mean(np.abs(np.real(
                         fftwin[int(opt.fiupmin*opt.winlen/opt.samprate):int(
-                        opt.fiupmax*opt.winlen/opt.samprate)])))/np.mean(np.abs(np.real(
-                        fftwin[int(opt.filomin*opt.winlen/opt.samprate):int(
+                        opt.fiupmax*opt.winlen/opt.samprate)])))/np.mean(
+                        np.abs(np.real(fftwin[int(
+                        opt.filomin*opt.winlen/opt.samprate):int(
                         opt.filomax*opt.winlen/opt.samprate)]))))
                     if fi<opt.telefi:
                         ntele+=1
