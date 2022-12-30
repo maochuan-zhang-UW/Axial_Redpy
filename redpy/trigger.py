@@ -140,7 +140,7 @@ def append_empty(st, n, opt):
     locs = opt.location.split(',')
     chas = opt.channel.split(',')    
     
-    print('No data found for {}.{}.{}.{}'.format(nets[n], stas[n], nets[n],
+    print('No data found for {}.{}.{}.{}'.format(nets[n], stas[n], chas[n],
                                                                    locs[n]))
     
     trtmp = Trace()
