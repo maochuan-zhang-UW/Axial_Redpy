@@ -397,8 +397,6 @@ def calculate_window_amplitude(data, trigger_sample, opt):
     Calculates the maximum waveform amplitudes for 'windowAmp'.
     
     Calculations are done for the first half of the window for each station.
-    The window begins 10% of the window length prior to the trigger time,
-    matching the window used for cross-correlation calculations.
     
     Parameters
     ----------
@@ -415,13 +413,15 @@ def calculate_window_amplitude(data, trigger_sample, opt):
         Array of maximum amplitudes.
     """
     
-    # Shift window left by 10%
-    window_start = trigger_sample - opt.winlen/10
+    # !!! Enable shift by 10% later
+    window_start = trigger_sample #- opt.winlen/10
     
     amps = np.zeros(opt.nsta)
     for n in range(opt.nsta):
         amps[n] = np.max(np.abs(data[int((n*opt.wshape) + window_start):int(
             (n*opt.wshape) + window_start + opt.winlen/2)]))
+    
+    # !!! Also use the whole window instead of first half
     
     return amps
     
@@ -791,6 +791,7 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
                 rtable.cols.windowCoeff[m], rtable.cols.windowFFT[m], \
                     rtable.cols.FI[m] = redpy.correlation.calculate_window(
                     rtable.cols.waveform[m], rtable.cols.windowStart[m], opt)
+                # !!! Update amplitudes; call as update_window()?
             rtable.flush()
     
     # Perform merge, run clustering to find best new core
