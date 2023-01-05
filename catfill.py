@@ -86,6 +86,9 @@ for event in eventlist:
             alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
             # Reset ptime for refilling later
             rtable.attrs.ptime = []
+        except KeyboardInterrupt:
+            print('\nManually interrupting!\n')
+            raise KeyboardInterrupt
         except:
             print('Could not download or trigger data... troubleshoot with -t')
             alltrigs = []

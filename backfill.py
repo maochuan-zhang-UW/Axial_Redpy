@@ -112,6 +112,9 @@ while tstart+n*opt.nsec < tend:
                 endtime = tend
             st, stC = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
             alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
+        except KeyboardInterrupt:
+            print('\nManually interrupting!\n')
+            raise KeyboardInterrupt
         except:
             print('Could not download or trigger data... troubleshoot with -t')
             alltrigs = []
