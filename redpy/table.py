@@ -601,7 +601,7 @@ def move_orphan(rtable, otable, oindex, opt):
         rrow['windowCoeff'] = coeff
         rrow['windowFFT'] = fft
         rrow['FI'] = fi
-        otable.cols.windowCoeff[oindex] = 0
+        otable.cols.windowCoeff[oindex] = 0*otable.cols.windowCoeff[oindex]
         otable.cols.expires[oindex] = (UTCDateTime(
                                        orow['startTime'])-86400).isoformat()
     rrow['windowAmp'] = orow['windowAmp']
@@ -786,12 +786,7 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
             members = np.fromstring(ftable[famlist[n]]['members'], dtype=int,
                                     sep=' ')
             for m in members:
-                rtable.cols.windowStart[m] = \
-                    rtable.cols.windowStart[m] - laglist[n]
-                rtable.cols.windowCoeff[m], rtable.cols.windowFFT[m], \
-                    rtable.cols.FI[m] = redpy.correlation.calculate_window(
-                    rtable.cols.waveform[m], rtable.cols.windowStart[m], opt)
-                # !!! Update amplitudes; call as update_window()?
+                redpy.correlation.update_window(rtable, m, -laglist[n], opt)
             rtable.flush()
     
     # Perform merge, run clustering to find best new core

@@ -108,10 +108,13 @@ def get_window(row, opt):
     return windowCoeff, windowFFT, windowFI
 
 
-def update_window(xtable, rownum, windowStart, windowCoeff, windowFFT,
-        windowFI, opt):
+def update_window(xtable, rownum, lag, opt, coeff=[], fft=[], fi=[]):
     """
     Convenience function to set window parameters for a single row in a table.
+    
+    If coeff, fft, and fi are not passed, they are recalculated based on the
+    updated trigger time. All three must be passed, otherwise they will be
+    recalculated.
     
     Parameters
     ----------
@@ -119,22 +122,31 @@ def update_window(xtable, rownum, windowStart, windowCoeff, windowFFT,
         Handle to either the Repeaters or Orphans tables.
     rownum : integer
         Row number of the table to modify.
-    windowStart : integer
-        Trigger time in samples from start of waveform.
-    windowCoeff : float ndarray
-        Scaling coefficient to normalize cross-correlation for each station.
-    windowFFT : complex ndarray
-        Fourier transforms for each station.
-    windowFI : float ndarray
-        Frequency index for each station, NaNs where missing data.
+    lag : integer
+        Number of samples to add to the current trigger time.
     opt : Options object
         Describes run parameters.
+    coeff : float ndarray, optional
+        Scaling coefficient to normalize cross-correlation for each station.
+    fft : complex ndarray, optional
+        Fourier transforms for each station.
+    fi : float ndarray, optional
+        Frequency index for each station, NaNs where missing data.
     """
     
-    xtable.cols.windowStart[rownum] = windowStart
-    xtable.cols.windowCoeff[rownum] = windowCoeff
-    xtable.cols.windowFFT[rownum] = windowFFT
-    xtable.cols.FI[rownum] = windowFI
+    trigger = int(xtable.cols.windowStart[rownum] + lag)
+    
+    if not all([len(coeff), len(fft), len(fi)]):
+        coeff, fft, fi = calculate_window(xtable[rownum]['waveform'],
+            trigger, opt)
+    
+    # !!! Calculate amplitudes here too
+    
+    xtable.cols.windowStart[rownum] = trigger
+    xtable.cols.windowCoeff[rownum] = coeff
+    xtable.cols.windowFFT[rownum] = fft
+    xtable.cols.FI[rownum] = fi
+    
     xtable.flush()
 
 
@@ -439,9 +451,8 @@ def compare_trigger_to_orphans(rtable, otable, ctable, ftable, trig, idnum,
             
             # Or update the new window in otable, then move adopted orphan
             else:
-                update_window(otable, bestcor,
-                    int(opt.ptrig*opt.samprate + best_lag - maxlags[bestcor]),
-                    windowCoeff2, windowFFT2, windowFI2, opt)
+                update_window(otable, bestcor, best_lag - maxlags[bestcor],
+                    opt, coeff=windowCoeff2, fft=windowFFT2, fi=windowFI2)
                 redpy.table.move_orphan(rtable, otable, bestcor, opt)
                 redpy.table.populate_correlation(ctable, idnum, 
                                         rtable[-1]['id'], maxcor_aligned, opt)
@@ -721,10 +732,7 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
                     
                     # Assign new trigger time, update windows
                     for i in range(-written,0):
-                        new_trigger = int(rtable[i]['windowStart'] + best_lag)
-                        update_window(rtable, i, new_trigger, 
-                            *calculate_window(rtable[i]['waveform'],
-                                              new_trigger, opt), opt)
+                        update_window(rtable, i, best_lag, opt)
                         append_family_member(ftable, fnums[bestcor],
                                              len(rtable)+i, opt)
                 
@@ -769,12 +777,8 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
                         
                         # Assign new trigger time, update windows
                         for i in range(-written,0):
-                            new_trigger = int(
-                                rtable[i]['windowStart'] + best_lag + \
-                                maxlags_fam[np.argmax(maxcors_fam)])
-                            update_window(rtable, i, new_trigger, 
-                                *calculate_window(rtable[i]['waveform'],
-                                                  new_trigger, opt), opt)
+                            update_window(rtable, i, best_lag + \
+                                maxlags_fam[np.argmax(maxcors_fam)], opt)
                             append_family_member(ftable, fnums[bestcor],
                                                  len(rtable)+i, opt)
                     
