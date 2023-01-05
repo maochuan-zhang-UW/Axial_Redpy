@@ -74,16 +74,16 @@ for event in eventlist:
     
     # Download and trigger
     if args.troubleshoot:
-        st, stC = redpy.trigger.get_data(etime-5*opt.atrig,
+        st = redpy.trigger.get_data(etime-5*opt.atrig,
                                         etime+5*opt.atrig, opt)
-        alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
+        alltrigs = redpy.trigger.trigger(st, rtable, opt)
         # Reset ptime for refilling later
         rtable.attrs.ptime = []
     else:
         try:
-            st, stC = redpy.trigger.get_data(etime-5*opt.atrig,
+            st = redpy.trigger.get_data(etime-5*opt.atrig,
                                             etime+5*opt.atrig, opt)
-            alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
+            alltrigs = redpy.trigger.trigger(st, rtable, opt)
             # Reset ptime for refilling later
             rtable.attrs.ptime = []
         except KeyboardInterrupt:

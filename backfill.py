@@ -103,15 +103,15 @@ while tstart+n*opt.nsec < tend:
         endtime = tstart+(n+1)*opt.nsec+opt.atrig
         if endtime > tend:
             endtime = tend
-        st, stC = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
-        alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
+        st = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
+        alltrigs = redpy.trigger.trigger(st, rtable, opt)
     else:
         try:
             endtime = tstart+(n+1)*opt.nsec+opt.atrig
             if endtime > tend:
                 endtime = tend
-            st, stC = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
-            alltrigs = redpy.trigger.trigger(st, stC, rtable, opt)
+            st = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
+            alltrigs = redpy.trigger.trigger(st, rtable, opt)
         except KeyboardInterrupt:
             print('\nManually interrupting!\n')
             raise KeyboardInterrupt

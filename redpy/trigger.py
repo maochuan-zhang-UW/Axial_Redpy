@@ -100,6 +100,7 @@ def filter_merge(stmp, opt):
     # Bandpass filter, controlled by opt
     stmp = stmp.filter('bandpass', freqmin=opt.fmin, freqmax=opt.fmax,
                                                     corners=2, zerophase=True)
+    # !!! Demean? Detrend?
     
     # Hann window taper, with window length not to exceed the spacing between
     # consecutive triggers
@@ -176,8 +177,6 @@ def get_data(tstart, tend, opt):
     -------
     st : Stream object
         Stream containing continuous, filtered Traces for each channel.
-    stC : Stream object
-        Copy of st.
     """
     
     nets = opt.network.split(',')
@@ -279,12 +278,11 @@ def get_data(tstart, tend, opt):
             tr.stats.starttime = tr.stats.starttime-dts[n]
     
     st = st.trim(starttime=tstart, endtime=tend, pad=True, fill_value=0)
-    stC = st.copy()
     
-    return st, stC
+    return st
 
 
-def trigger(st, stC, rtable, opt):
+def trigger(st, rtable, opt):
     """
     Run triggering algorithm on a stream of data.
     
@@ -292,8 +290,6 @@ def trigger(st, stC, rtable, opt):
     ----------
     st : Stream object
         Stream containing continuous, filtered Traces for each channel.
-    stC : Stream object
-        Copy of st.
     rtable : Table object
         Handle to the Repeaters table.
     opt : Options object
@@ -308,7 +304,7 @@ def trigger(st, stC, rtable, opt):
     tr = st[0]
     t = tr.stats.starttime
     
-    cft = coincidence_trigger(opt.trigalg, opt.trigon, opt.trigoff, stC,
+    cft = coincidence_trigger(opt.trigalg, opt.trigon, opt.trigoff, st.copy(),
         opt.nstaC, sta=opt.swin, lta=opt.lwin, details=True)
     
     if len(cft) > 0:
