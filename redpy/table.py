@@ -520,7 +520,7 @@ def populate_orphan(otable, idnum, trig, opt):
     
     # Determine expiration date based on STA/LTA amplitude
     add_days = np.min([opt.maxorph,((opt.maxorph-opt.minorph)/opt.maxorph)*(
-        trig.stats.maxratio-opt.trigon)+opt.minorph])
+        trig.stats.maxratio)+opt.minorph])
     orow['expires'] = (trig.stats.starttime+add_days*86400).isoformat()
     
     orow.append()

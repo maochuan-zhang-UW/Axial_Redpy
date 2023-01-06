@@ -301,51 +301,68 @@ def trigger(st, rtable, opt):
         Triggered events with data from each channel concatenated.
     """
     
-    tr = st[0]
-    t = tr.stats.starttime
+    t = st[0].stats.starttime
     
+    # !!! Force trigger to load ttimes, ratios from file instead
     cft = coincidence_trigger(opt.trigalg, opt.trigon, opt.trigoff, st.copy(),
         opt.nstaC, sta=opt.swin, lta=opt.lwin, details=True)
+    ttimes = [cft[n]['time'] for n in range(len(cft))]
+    ratios = [np.max(cft[n]['cft_peaks'])-opt.trigon for n in range(len(cft))]
     
-    if len(cft) > 0:
+    if len(ttimes) > 0:
         
         ind = 0
-        
-        # Slice out the data from st and save the maximum STA/LTA ratio value
-        # for use in orphan expiration
         
         # Convert ptime from time of last trigger to seconds before start time
         if rtable.attrs.ptime:
             ptime = (UTCDateTime(rtable.attrs.ptime) - t)
         else:
             ptime = -opt.mintrig
+        
+        # Loop over triggers
+        for n, ttime in enumerate(ttimes):
             
-        for n in range(len(cft)):
-            
-            ttime = cft[n]['time'] # This is a UTCDateTime, not samples
-            
+            # Enforce minimum time between previous known trigger, edges of st
             if (ttime >= t + opt.atrig) and (ttime >= t + ptime +
-                opt.mintrig) and (ttime < t + len(tr.data)/opt.samprate -
+                opt.mintrig) and (ttime < t + len(st[0].data)/opt.samprate -
                 2*opt.atrig):
                 
+                # Update ptime
                 ptime = ttime - t
                 
-                # Cut out and append all data to first trace
-                tmp = st.slice(ttime - opt.ptrig, ttime + opt.atrig)
-                ttmp = tmp.copy()
-                ttmp = ttmp.trim(ttime - opt.ptrig, ttime + opt.atrig + 0.05,
-                    pad=True, fill_value=0)
-                ttmp[0].data = ttmp[0].data[0:opt.wshape] - np.mean(
-                    ttmp[0].data[0:opt.wshape])
-                for s in range(1,len(ttmp)):
-                    ttmp[0].data = np.append(ttmp[0].data, ttmp[s].data[
-                        0:opt.wshape] - np.mean(ttmp[s].data[0:opt.wshape]))
-                ttmp[0].stats.maxratio = np.max(cft[n]['cft_peaks'])
+                # Cut out a copy from st with a few samples of padding
+                tr = st.slice(ttime - opt.ptrig, ttime + opt.atrig + \
+                                                        2/opt.samprate).copy()
+                
+                # Trim, pad with zeros
+                tr = tr.trim(ttime - opt.ptrig, ttime + opt.atrig + \
+                                       2/opt.samprate, pad=True, fill_value=0)
+                
+                for s in range(len(tr)):
+                    
+                    # Cut out exact number of samples
+                    tr[s].data = tr[s].data[0:opt.wshape]
+                    
+                    # Demean  
+                    tr[s].data -= np.mean(tr[s].data)
+                    
+                    # !!! Preserve zeroes (replace demean)
+                    #tr[s].data[tr[s].data!=0] -= np.mean(
+                    #                                tr[s].data[tr[s].data!=0])
+                    
+                    # Append
+                    if s > 0:
+                        tr[0].data = np.append(tr[0].data, tr[s].data)
+                
+                # Set 'maxratio' for orphan expiration
+                tr[0].stats.maxratio = ratios[n]
+                
+                # Append to trigs list
                 if ind is 0:
-                    trigs = Stream(ttmp[0])
+                    trigs = Stream(tr[0])
                     ind = ind+1
                 else:
-                    trigs = trigs.append(ttmp[0])
+                    trigs = trigs.append(tr[0])
         
         if ind is 0:
             return []
