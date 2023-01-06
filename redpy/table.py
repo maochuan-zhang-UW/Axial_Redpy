@@ -20,7 +20,7 @@ def Repeaters(opt):
     The columns are as follows:
         id           : integer, unique ID number for the event.
         startTime    : string, UTC time of start of the waveform.
-        startTimeMPL : float, matplotlib datenumber associated with start time.
+        startTimeMPL : float, matplotlib datenumber associated with startTime.
         waveform     : float ndarray, filtered waveform data for each station,
                            concatenated.
         windowStart  : integer, trigger time, in samples from start of 
@@ -29,8 +29,8 @@ def Repeaters(opt):
                            for each station.
         windowFFT    : complex ndarray, Fourier transform of window for each
                            station, concatenated.
-        windowAmp    : float ndarray, maximum amplitude in first half of window
-                           for each station.
+        windowAmp    : float ndarray, maximum amplitude in first half of
+                           window for each station.
         FI           : float ndarray, frequency index for each station.
     
     Parameters
@@ -67,7 +67,7 @@ def Orphans(opt):
     The columns are as follows:
         id           : integer, unique ID number for the event.
         startTime    : string, UTC time of start of the waveform.
-        startTimeMPL : float, matplotlib datenumber associated with start time.
+        startTimeMPL : float, matplotlib datenumber associated with startTime.
         waveform     : float ndarray, filtered waveform data for each station,
                            concatenated.
         windowStart  : integer, trigger time, in samples from start of
@@ -76,8 +76,8 @@ def Orphans(opt):
                            for each station.
         windowFFT    : complex ndarray, Fourier transform of window for each
                            station, concatenated.
-        windowAmp    : float ndarray, maximum amplitude in first half of window
-                           for each station.
+        windowAmp    : float ndarray, maximum amplitude in first half of
+                           window for each station.
         FI           : float ndarray, frequency index for each station.
         expires      : string, UTC time of expiration date.
     
@@ -114,7 +114,7 @@ def Triggers(opt):
     Creates a dictionary defining the columns in the Triggers table.
     
     The columns are as follows:
-        startTimeMPL : float, matplotlib datenumber associated with start time.
+        startTimeMPL : float, matplotlib datenumber associated with startTime.
     
     Parameters
     ----------
@@ -141,7 +141,7 @@ def Deleted(opt):
     The columns are as follows:
         id           : integer, unique ID number for the event.
         startTime    : string, UTC time of start of the waveform.
-        startTimeMPL : float, matplotlib datenumber associated with start time.
+        startTimeMPL : float, matplotlib datenumber associated with startTime.
         waveform     : float ndarray, filtered waveform data for each station,
                            concatenated.
         windowStart  : integer, trigger time, in samples from start of
@@ -150,8 +150,8 @@ def Deleted(opt):
                            for each station.
         windowFFT    : complex ndarray, Fourier transform of window for each
                            station, concatenated.
-        windowAmp    : float ndarray, maximum amplitude in first half of window
-                           for each station.
+        windowAmp    : float ndarray, maximum amplitude in first half of
+                           window for each station.
         FI           : float ndarray, frequency index for each station.
     
     Parameters
@@ -516,7 +516,8 @@ def populate_orphan(otable, idnum, trig, opt):
     orow['windowStart'] = windowStart
     orow['windowCoeff'], orow['windowFFT'], orow['FI'] = \
         redpy.correlation.calculate_window(trig.data, windowStart, opt)
-    orow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart, opt)
+    orow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart,
+        opt)
     
     # Determine expiration date based on STA/LTA amplitude
     add_days = np.min([opt.maxorph,((opt.maxorph-opt.minorph)/opt.maxorph)*(
@@ -597,7 +598,7 @@ def move_orphan(rtable, otable, oindex, opt):
         # 0 so it will never correlate, and set it to expire as soon as a new
         # orphan is found.
         coeff, fft, fi = redpy.correlation.calculate_window(orow['waveform'],
-                                                      orow['windowStart'], opt)
+                                                    orow['windowStart'], opt)
         rrow['windowCoeff'] = coeff
         rrow['windowFFT'] = fft
         rrow['FI'] = fi
@@ -647,7 +648,8 @@ def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
     rrow['windowStart'] = windowStart
     rrow['windowCoeff'], rrow['windowFFT'], rrow['FI'] = \
         redpy.correlation.calculate_window(trig.data, windowStart, opt)
-    rrow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart, opt)
+    rrow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart,
+        opt)
     
     rrow.append()
     rtable.flush()

@@ -121,7 +121,7 @@ def filter_merge(stmp, opt):
 
 def append_empty(st, n, opt):
     """
-    Appends an empty Trace to the end of a Stream with proper SCNL information.
+    Appends a Trace to the end of a Stream with SCNL information but no data.
     
     Parameters
     ----------
@@ -162,9 +162,9 @@ def get_data(tstart, tend, opt):
     """
     Download data from web or read from file.
     
-    A note on SAC/miniSEED files: as this makes no assumptions about the naming
-    scheme of your data files, please ensure that your headers contain the
-    correct SCNL information!
+    A note on SAC/miniSEED files: as this makes no assumptions about the
+    naming scheme of your data files, please ensure that your headers contain
+    the correct SCNL information!
     
     Parameters
     ----------
@@ -255,14 +255,14 @@ def get_data(tstart, tend, opt):
         
         for n in range(len(stas)):
             try:
-                stmp = client.get_waveforms(nets[n], stas[n], locs[n], chas[n],
-                        tstart, tend+opt.maxdt)
+                stmp = client.get_waveforms(nets[n], stas[n], locs[n],
+                                      chas[n], tstart, tend+opt.maxdt)
                 stmp = filter_merge(stmp, opt)
             except (obspy.clients.fdsn.header.FDSNException):
                 # Try querying again in case timed out on accident
                 try:
                     stmp = client.get_waveforms(nets[n], stas[n], locs[n],
-                            chas[n], tstart, tend+opt.maxdt)
+                                          chas[n], tstart, tend+opt.maxdt)
                     stmp = filter_merge(stmp, opt)
                 except:
                     stmp = append_empty(Stream(), n, opt)
@@ -350,7 +350,7 @@ def trigger(st, rtable, opt):
                     
                     # !!! Preserve zeroes (replace demean)
                     #tr[s].data[tr[s].data!=0] -= np.mean(
-                    #                                tr[s].data[tr[s].data!=0])
+                    #                              tr[s].data[tr[s].data!=0])
                     
                     # Append
                     if s > 0:
@@ -380,8 +380,8 @@ def clean_triggers(alltrigs, opt):
     Cleans triggers of data spikes, calibration pulses, and teleseisms.
     
     Specifically, it attempts to weed out spikes and analog calibration pulses
-    using kurtosis and outlier ratios; checks for teleseisms that have very low
-    frequency index.
+    using kurtosis and outlier ratios; checks for teleseisms that have very
+    low frequency index.
     
     Parameters
     ----------
@@ -399,7 +399,8 @@ def clean_triggers(alltrigs, opt):
     jtype : integer list
         List with codes corresponding to which tests failed:
             0: FI too low (possible teleseism)
-            1: Kurtosis in time or frequency domains too high (spikes, sinewave)
+            1: Kurtosis in time or frequency domains too high (spikes,
+                sinewave noise)
             2: Both tests failed
     
     # !!! Future: Pass more information with jtype, store more in jtable

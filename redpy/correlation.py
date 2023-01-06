@@ -60,9 +60,10 @@ def calculate_window(waveform, windowStart, opt):
         # !!! This feels like it might throw away too much, as this could
         # !!! potentially only require two samples to be 0
         
-        # Proposed change (requires testing) would require fully 1/5th of the
-        # waveform to be exactly zero:
-        # if np.sort(np.abs(waveform[winstart:winend]))[int(opt.winlen/5)] == 0
+        # !!! Proposed change (requires testing) would require fully 1/5th of
+        # !!! the waveform to be exactly zero:
+        # !!! if np.sort(np.abs(waveform[winstart:winend]))[int(
+        # !!!                                             opt.winlen/5)] == 0
         if np.median(np.abs(waveform[winstart:winend]))==0:
             windowFI[n] = np.nan
         else:
@@ -82,7 +83,7 @@ def calculate_window(waveform, windowStart, opt):
 
 def get_window(row, opt):
     """
-    Convenience function to get window parameters from a single row in a table.
+    Convenience function to get window parameters from a single row in table.
     
     Parameters
     ----------
@@ -189,8 +190,8 @@ def xcorr_1x1(windowCoeff1, windowCoeff2, windowFFT1, windowFFT2, opt):
     for n in range(opt.nsta):
         coeff = windowCoeff1[n] * windowCoeff2[n]
         correlation_function = np.real(ifft(
-                   windowFFT1[n*opt.winlen:(n+1)*opt.winlen] * \
-                   np.conj(windowFFT2[n*opt.winlen:(n+1)*opt.winlen]))) * coeff
+                windowFFT1[n*opt.winlen:(n+1)*opt.winlen] * \
+                np.conj(windowFFT2[n*opt.winlen:(n+1)*opt.winlen]))) * coeff
         
         # Find index of maximum of the correlation function
         indx = np.argmax(correlation_function)
@@ -293,8 +294,8 @@ def compare_deleted(trigs, dtable, opt):
                                                dtable, opt)
         
         # If near match found, remove from trigger list. Assumes if it
-        # correlates at this level it likely would have correlated with another
-        # member of the full family.
+        # correlates at this level it likely would have correlated with
+        # another member of the full family.
         if np.max(maxcor) >= (opt.cmin-0.05):
             trigs.remove(trig)
     
@@ -307,8 +308,8 @@ def correlate_remaining_family(rtable, ctable, ftable, rnum, fnum, opt):
     
     This is intended to be run after a new event has correlated above the
     threshold with at least one other event (thus it being in the Repeaters
-    table) AND with the core of the family. Convenience function for populating
-    the Correlation table.
+    table) AND with the core of the family. Convenience function for
+    populating the Correlation table.
     
     Parameters
     ----------
@@ -655,10 +656,11 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
     # Otherwise, either update core or merge families.
     else:
         if len(famlist) == 1:
-            redpy.cluster.runFamOPTICS(rtable, ctable, ftable, famlist[0], opt)
+            redpy.cluster.runFamOPTICS(rtable, ctable, ftable, famlist[0],
+                                                                         opt)
         else:
             redpy.table.merge_families(rtable, ctable, ftable, famlist,
-                                                                  laglist, opt)
+                                                                laglist, opt)
 
 
 def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
@@ -811,7 +813,7 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
             rtable[-written]['windowFFT'], opt)
         if nthcor >= opt.cmin:
             redpy.table.populate_correlation(ctable, rtable[-written]['id'],
-                                                  rtable[i]['id'], maxcor, opt)
+                                                 rtable[i]['id'], maxcor, opt)
     
     # If no matches found, make new family
     if found == 0:
@@ -822,10 +824,11 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
     # Otherwise, either update core or merge multiple families
     else:
         if len(famlist) == 1:
-            redpy.cluster.runFamOPTICS(rtable, ctable, ftable, famlist[0], opt)
+            redpy.cluster.runFamOPTICS(rtable, ctable, ftable, famlist[0],
+                                                                          opt)
         else:
             redpy.table.merge_families(rtable, ctable, ftable, famlist,
-                                                                  laglist, opt)
+                                                                 laglist, opt)
 
 
 def do_comparison(rtable, otable, ctable, ftable, trig, idnum, windowCoeff,
@@ -860,7 +863,7 @@ def do_comparison(rtable, otable, ctable, ftable, trig, idnum, windowCoeff,
         Describes run parameters.
     """
     
-    # If there's a possible match with orphan(s), run the most complex function
+    # If there's a possible match with orphan(s), run most complex function
     if max(maxcors) > opt.cmin-0.05:
         compare_trigger_to_orphans(rtable, otable, ctable, ftable,
                     trig, idnum, windowCoeff, windowFFT, maxcors, maxlags,
