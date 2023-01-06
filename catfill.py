@@ -93,16 +93,12 @@ for event in eventlist:
             print('Could not download or trigger data... troubleshoot with -t')
             alltrigs = []
     
-	# Clean out data spikes etc.
-    trigs, junk, junkFI, junkKurt = redpy.trigger.clean_triggers(alltrigs, opt, flag=1)
-        
-	# Save junk triggers in separate table for quality checking purposes
+    # Clean out data spikes etc.
+    trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt)
+    
+    # Save junk triggers in separate table for quality checking purposes
     for i in range(len(junk)):
-        redpy.table.populate_junk(jtable, junk[i], 2, opt)
-    for i in range(len(junkKurt)):
-        redpy.table.populate_junk(jtable, junkKurt[i], 1, opt)
-    for i in range(len(junkFI)):
-        redpy.table.populate_junk(jtable, junkFI[i], 0, opt)
+        redpy.table.populate_junk(jtable, junk[i], jtype[i], opt)
     
     # Append times of triggers to ttable to compare total seismicity later
     redpy.table.populate_triggers(ttable, trigs, ttimes, opt)

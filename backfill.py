@@ -118,25 +118,24 @@ while tstart+n*opt.nsec < tend:
         except:
             print('Could not download or trigger data... troubleshoot with -t')
             alltrigs = []
-
-	# Clean out data spikes etc.
-    trigs, junk, junkFI, junkKurt = redpy.trigger.clean_triggers(alltrigs, opt, flag=1)
-
-	# Save junk triggers in separate table for quality checking purposes
+    
+    # Clean out data spikes etc.
+    trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt)
+    
+    # !!! This step already goes through and calculates the window, can I 
+    # !!! pass that down the line to save some duplicate calculations?
+    
+    # Save junk triggers in separate table for quality checking purposes
     for i in range(len(junk)):
-        redpy.table.populate_junk(jtable, junk[i], 2, opt) # Both types of junk
-    for i in range(len(junkKurt)):
-        redpy.table.populate_junk(jtable, junkKurt[i], 1, opt) # Just kurtosis junk
-    for i in range(len(junkFI)):
-        redpy.table.populate_junk(jtable, junkFI[i], 0, opt) # Just 'teleseisms'
-
+        redpy.table.populate_junk(jtable, junk[i], jtype[i], opt)
+    
     # Append times of triggers to ttable to compare total seismicity later
     redpy.table.populate_triggers(ttable, trigs, ttimes, opt)
-
+    
     # Check triggers against deleted events
     if len(dtable) > 0:
         trigs = redpy.correlation.compare_deleted(trigs, dtable, opt)
-
+    
     if len(trigs) > 0:
         id = rtable.attrs.previd
         if len(trigs) == 1:

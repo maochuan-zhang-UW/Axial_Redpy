@@ -17,6 +17,8 @@ from obspy.signal.trigger import coincidence_trigger
 from scipy.fftpack import fft
 from scipy.stats import kurtosis
 
+from redpy.correlation import calculate_window
+
 # !!! Be a better coder and address these warnings rather than ignore them
 import warnings
 warnings.filterwarnings("ignore")
@@ -373,7 +375,7 @@ def trigger(st, rtable, opt):
         return []
 
 
-def clean_triggers(alltrigs, opt, flag=1):
+def clean_triggers(alltrigs, opt):
     """
     Cleans triggers of data spikes, calibration pulses, and teleseisms.
     
@@ -387,81 +389,83 @@ def clean_triggers(alltrigs, opt, flag=1):
         Triggered events with data from each channel concatenated.
     opt : Options object
         Describes run parameters.
-    flag : integer, optional
-        Flag for whether to use window or full waveform. 1 if defining window
-        to check, 0 to check whole waveform for spikes (note that different
-        threshold values should be used for different window lengths).
     
     Returns
     -------
     trigs : Stream object
         Events from alltrigs that passed all tests.
     junk : Stream object
-        Events that failed both FI and kurtosis tests.
-    junkFI : Stream object
-        Events that failed FI test (teleseisms).
-    junkKurt : Stream object
-        Events that failed kurtosis test (data spikes, calibration pulses).
+        Events that failed a test.
+    jtype : integer list
+        List with codes corresponding to which tests failed:
+            0: FI too low (possible teleseism)
+            1: Kurtosis in time or frequency domains too high (spikes, sinewave)
+            2: Both tests failed
+    
+    # !!! Future: Pass more information with jtype, store more in jtable
     """
     
-    trigs=Stream()
-    junkFI=Stream()
-    junkKurt=Stream()
-    junk=Stream()
+    trigs = Stream()
+    junk = Stream()
+    jtype = []
+    
+    # Loop over triggers
     for i in range(len(alltrigs)):
         
         njunk = 0
         ntele = 0
         
+        # Get FI
+        windowCoeff, windowFFT, windowFI = calculate_window(alltrigs[i].data,
+            int(opt.ptrig*opt.samprate), opt)
+        
+        # Loop over channels
         for n in range(opt.nsta):
             
-            dat = alltrigs[i].data[n*opt.wshape:(n+1)*opt.wshape]
-            if flag == 1:
-                datcut=dat[range(int((opt.ptrig-opt.kurtwin/2)*opt.samprate),
-                    int((opt.ptrig+opt.kurtwin/2)*opt.samprate))]
-            else:
-                datcut=dat
+            # Check FI
+            fi = windowFI[n]
+            if fi<opt.telefi:
+                ntele+=1
             
+            # Get channel waveform
+            dat = alltrigs[i].data[n*opt.wshape:(n+1)*opt.wshape]
+            
+            # Cut out kurtosis window surrounding initial trigger
+            datcut = dat[range(int((opt.ptrig-opt.kurtwin/2)*opt.samprate),
+                                 int((opt.ptrig+opt.kurtwin/2)*opt.samprate))]
+            
+            # If not filled with zeros
             if np.sum(np.abs(dat))!=0.0:
+                
                 # Calculate kurtosis in window
                 k = kurtosis(datcut)
+                
                 # Compute kurtosis of frequency amplitude spectrum next
                 datf = np.absolute(fft(dat))
                 kf = kurtosis(datf)
+                
                 # Calculate outlier ratio using z ((data-median)/mad)
                 mad = np.nanmedian(np.absolute(dat - np.nanmedian(dat)))
                 z = (dat-np.median(dat))/mad
-                # Outliers have z > 4.45
-                orm = len(z[z>4.45])/np.array(len(z)).astype(float)
                 
-                if k >= opt.kurtmax or orm >= opt.oratiomax or \
+                # Outliers have z > 4.45
+                oratio = len(z[z>4.45])/np.array(len(z)).astype(float)
+                
+                if k >= opt.kurtmax or oratio >= opt.oratiomax or \
                                                           kf >= opt.kurtfmax:
                     njunk+=1
-                
-                winstart = int(opt.ptrig*opt.samprate - opt.winlen/10)
-                winend = int(opt.ptrig*opt.samprate - opt.winlen/10 + \
-                             opt.winlen)
-                fftwin = np.reshape(fft(dat[winstart:winend]),(opt.winlen,))
-                if np.median(np.abs(dat[winstart:winend]))!=0:
-                    fi = np.log10(np.mean(np.abs(np.real(
-                        fftwin[int(opt.fiupmin*opt.winlen/opt.samprate):int(
-                        opt.fiupmax*opt.winlen/opt.samprate)])))/np.mean(
-                        np.abs(np.real(fftwin[int(
-                        opt.filomin*opt.winlen/opt.samprate):int(
-                        opt.filomax*opt.winlen/opt.samprate)]))))
-                    if fi<opt.telefi:
-                        ntele+=1
         
         # Allow if there are enough good stations to correlate
         if njunk <= (opt.nsta-opt.ncor) and ntele <= opt.teleok:
             trigs.append(alltrigs[i])
         else:
+            junk.append(alltrigs[i])
             if njunk > 0:
                 if ntele > 0:
-                    junk.append(alltrigs[i])
+                    jtype.append(2) # Failed both
                 else:
-                    junkKurt.append(alltrigs[i])
+                    jtype.append(1) # Failed kurtosis
             else:
-                junkFI.append(alltrigs[i])
+                jtype.append(0) # Failed FI
     
-    return trigs, junk, junkFI, junkKurt
+    return trigs, junk, jtype
