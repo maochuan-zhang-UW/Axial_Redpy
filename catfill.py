@@ -62,6 +62,27 @@ eventlist = pd.to_datetime(df['Time UTC']).tolist()
 # Sort so events are processed in order of occurrence
 eventlist.sort()
 
+# Create or read in file key to improve file load times
+if opt.server == 'file':
+    
+    filekey = redpy.trigger.get_filekey(opt)
+    
+    tstart = UTCDateTime(eventlist[0])-5*opt.atrig
+    tend = UTCDateTime(eventlist[-1])+5*opt.atrig
+    
+    # Subset filekey to only time of interest
+    filekey = filekey.query("starttime < '{}' \
+                        and endtime > '{}'".format(
+                        tend+opt.maxdt+opt.atrig+opt.ptrig+60,
+                        tstart-opt.atrig-60))
+    
+    # Set start time of preload (if to be used) to just before first event
+    tend_preload = tstart
+    
+else:
+    filekey = []
+
+
 for event in eventlist:
     
     etime = UTCDateTime(event)
@@ -70,19 +91,36 @@ for event in eventlist:
     else:
         ttimes = 0
     
+    # Check if we need to preload waveform data from file into memory
+    if (opt.preload > 0) and (len(filekey) > 0):
+        if etime+5*opt.atrig > tend_preload:
+            if args.verbose:
+                print('Loading waveforms into memory...')
+                
+            # Determine end time to load
+            tend_preload = np.min([tend+opt.maxdt,
+                etime+opt.preload*86400+opt.maxdt])
+            
+            # Load into memory
+            st_preload = redpy.trigger.preload_data(
+                etime-5*opt.atrig, tend_preload, filekey, opt)
+    else:
+        st_preload = []
+    
+    
     if args.verbose: print(etime)
     
     # Download and trigger
     if args.troubleshoot:
         st = redpy.trigger.get_data(etime-5*opt.atrig,
-                                        etime+5*opt.atrig, opt)
+                                        etime+5*opt.atrig, filekey, st_preload, opt)
         alltrigs = redpy.trigger.trigger(st, rtable, opt)
         # Reset ptime for refilling later
         rtable.attrs.ptime = []
     else:
         try:
             st = redpy.trigger.get_data(etime-5*opt.atrig,
-                                            etime+5*opt.atrig, opt)
+                                            etime+5*opt.atrig, filekey, st_preload, opt)
             alltrigs = redpy.trigger.trigger(st, rtable, opt)
             # Reset ptime for refilling later
             rtable.attrs.ptime = []

@@ -5,8 +5,10 @@
 import argparse
 import redpy
 import numpy as np
+import pandas as pd
 import obspy
 from obspy import UTCDateTime
+from obspy.core.stream import Stream
 import time
 
 """
@@ -91,26 +93,61 @@ if len(ttable) > 0:
 else:
     ttimes = 0
 
+# Create or read in file key to improve file load times
+if opt.server == 'file':
+    
+    filekey = redpy.trigger.get_filekey(opt)
+    
+    # Subset filekey to only time of interest
+    filekey = filekey.query("starttime < '{}' \
+                        and endtime > '{}'".format(
+                        tend+opt.maxdt+opt.atrig+opt.ptrig+60,
+                        tstart-opt.atrig-60))
+    
+    # Set start time of preload (if to be used) to tstart
+    tend_preload = tstart
+    
+else:
+    filekey = []
+
 n = 0
 rlen = len(rtable)
 while tstart+n*opt.nsec < tend:
 
     ti = time.time()
     print(tstart+n*opt.nsec)
-
+    
+    # Check if we need to preload waveform data from file into memory
+    if (opt.preload > 0) and (len(filekey) > 0):
+        if tstart+(n+1)*opt.nsec+opt.maxdt > tend_preload:
+            if args.verbose:
+                print('Loading waveforms into memory...')
+                
+            # Determine end time to load
+            tend_preload = np.min([tend+opt.maxdt,
+                tstart+n*opt.nsec+opt.preload*86400+opt.maxdt])
+            
+            # Load into memory
+            st_preload = redpy.trigger.preload_data(
+                tstart+n*opt.nsec-opt.atrig, tend_preload, filekey, opt)
+    else:
+        st_preload = []
+    
     # Download and trigger
     if args.troubleshoot:
         endtime = tstart+(n+1)*opt.nsec+opt.atrig
         if endtime > tend:
             endtime = tend
-        st = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
+        st = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime,
+                                                     filekey, st_preload, opt)
         alltrigs = redpy.trigger.trigger(st, rtable, opt)
     else:
         try:
             endtime = tstart+(n+1)*opt.nsec+opt.atrig
             if endtime > tend:
                 endtime = tend
-            st = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime, opt)
+            st = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime,
+                                                     filekey, st_preload, opt)
             alltrigs = redpy.trigger.trigger(st, rtable, opt)
         except KeyboardInterrupt:
             print('\nManually interrupting!\n')

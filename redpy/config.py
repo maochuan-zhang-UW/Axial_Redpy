@@ -49,6 +49,8 @@ class Options(object):
             if using IRIS or waveserver)
         filepattern: Wildcard for selecting subset of files based on their name
             (default "*")
+        preload: If using local files, how many days of waveform data to load
+            into memory to reduce file read operations (default 10.0)
         nsec: Number of seconds to download from server at a time (default 3600 s)
 
         WINDOWING PARAMETERS:
@@ -188,6 +190,8 @@ class Options(object):
             'Settings','searchdir') else './'
         self.filepattern=config.get('Settings','filepattern') if config.has_option(
             'Settings','filepattern') else '*'
+        self.preload=confi.get('Settings','preload') if config.has_option(
+            'Settings','preload') else 10.
         self.nsec=config.getint('Settings','nsec') if config.has_option(
             'Settings','nsec') else 3600
         self.trigalg=config.get('Settings','trigalg') if config.has_option(
