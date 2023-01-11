@@ -190,7 +190,7 @@ class Options(object):
             'Settings','searchdir') else './'
         self.filepattern=config.get('Settings','filepattern') if config.has_option(
             'Settings','filepattern') else '*'
-        self.preload=confi.get('Settings','preload') if config.has_option(
+        self.preload=config.get('Settings','preload') if config.has_option(
             'Settings','preload') else 10.
         self.nsec=config.getint('Settings','nsec') if config.has_option(
             'Settings','nsec') else 3600
