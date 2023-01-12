@@ -159,7 +159,7 @@ def append_empty(st, n, opt):
     return st
 
 
-def get_filekey(opt):
+def get_filekey(opt, args):
     """
     Reads or generates a table that keys file names to a subset of metadata.
     
@@ -174,6 +174,8 @@ def get_filekey(opt):
     ----------
     opt : Options object
         Describes run parameters.
+    args : ArugmentParser object
+        Passes arguments from command line for verbosity.
     
     Returns
     -------

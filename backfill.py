@@ -96,7 +96,7 @@ else:
 # Create or read in file key to improve file load times
 if opt.server == 'file':
     
-    filekey = redpy.trigger.get_filekey(opt)
+    filekey = redpy.trigger.get_filekey(opt, args)
     
     # Subset filekey to only time of interest
     filekey = filekey.query("starttime < '{}' \
