@@ -2,304 +2,167 @@
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 
-import numpy as np
 import configparser
+
+import numpy as np
 
 class Options(object):
 
     def __init__(self, configfile='settings.cfg'):
-
         """
-        Defines the settings that are often passed to routines and that define the table.
-        These are also written to the attributes of the table for posterity.
-
-        Requires a configuration file with section header [Settings] on the first line and
-        any of the following configurations below it. Passing a configuration file with
-        only the header defaults to a test run laid out with the settings below. Format of
-        the file below the header is simply:
-
-        name=value
-
-        where name is the name of the parameter, and value is either a string (no quotes)
-        or number. Comments are allowed on separate lines beginning with a #, and the
-        parameters may be in any order desired. An example configuration file called
-        'settings.cfg' is included in the distribution that contains all of the default
-        settings and may be edited. The name of the configfile used is also stored.
-
-        TABLE DEFINITIONS:
-        title: Name of the table, used also in plotting titles (default 'REDPy Catalog')
-        filename: Filename/path for the table, should end in .h5 (default 'redpytable.h5')
-        outputPath: Absolute or relative path to outputs (defaults to current directory)
-        groupName: Short string describing the name of the station, may not contain spaces
-            (default 'default')
-
-        STATION PARAMETERS:
-        nsta: Number of stations (default 8)
-        station: String of ordered station names
-            (default 'SEP,YEL,HSR,SHW,EDM,STD,JUN,SOS')
-        channel: String of channels of interest, no wildcards
-            (default 'EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ')
-        network: String of network code (default 'UW,UW,UW,UW,UW,UW,UW,UW')
-        location: String of location code (default '--,--,--,--,--,--,--,--')
-        samprate: Sampling rate of that station (default 100.0 Hz)
-        server: Source of data (fdsnws://server, waveserver://ws_name:ws_port,
-            seedlink://sl_IP,sl_port; default "IRIS", otherwise "file")
-        port: Port number for server (deprecated, default 16017, not used if using IRIS)
-        searchdir: Path to directory with local files ending in / (default './', not used
-            if using IRIS or waveserver)
-        filepattern: Wildcard for selecting subset of files based on their name
-            (default "*")
-        preload: If using local files, how many days of waveform data to load
-            into memory to reduce file read operations (default 10.0)
-        nsec: Number of seconds to download from server at a time (default 3600 s)
-
-        WINDOWING PARAMETERS:
-        winlen: Length of window for cross-correlation (default 1024 samples, 2^n is best)
-        ptrig: Length of time cut prior to trigger (default 10.0 s)
-        atrig: Length of time cut after trigger (default 20.0 s)
-        wshape: A derived value (cannot be explicitly defined) corresponding to the number
-            of samples that will be cut based on ptrig and atrig
-
-        TRIGGERING PARAMETERS:
-        trigalg: Trigger algorithm to be used for STALTA (default 'classicstalta')
-        lwin: Length of long window for STALTA (default 7.0 s)
-        swin: Length of short window for STALTA (default 0.8 s)
-        trigon: Cutoff ratio for triggering STALTA (default 3.0)
-        trigoff: Cutoff ratio for ending STALTA trigger (default 2.0)
-        mintrig: A derived value (set to 75% of winlen) for the minimum spacing between
-            subsequent triggers
-        nstaC: Minimum number of stations a trigger must show up on (default 4)
-        offset: Optional time offset to advance waveforms as a list of positive floats
-            (default 0.0)
-        kurtmax: Maximum kurtosis allowed for event window, to eliminate spikes; ~80-100
-            is appropriate for 5 s window, ~130 for 15 s, ~200 for 25 s (default 80.0)
-        kurtfmax: Maximum kurtosis of frequency amplitude spectrum to eliminate
-            calibration pulses with unnaturally harmonic signals; be careful not
-            to set too low or you could eliminate real harmonic events (default 150.0)
-        kurtwin: Length of window to use for kurtosis, in seconds, around the trigger
-            time, will be centered on the trigger time (default 5 s)
-        oratiomax: Maximum ratio of outliers to total number of datapoints in trace
-            (default 0.15 (15%))
-
-        FILTERING PARAMETERS:
-        fmin: Lower band of bandpass filter (default 1.0 Hz)
-        fmax: Upper band of bandpass filter (default 10.0 Hz)
-
-        FREQUENCY INDEX WINDOWS:
-        filomin: Lower bound on low window (default 1.0 Hz)
-        filomax: Upper bound on low window (default 2.5 Hz)
-        fiupmin: Lower bound on upper window (default 5.0 Hz)
-        fiupmax: Upper bound on upper window (default 10.0 Hz)
-        fispanlow: Lower bound of frequency index for occurrencefi plot (default -0.5)
-        fispanhigh: Upper bound of frequency index for occurrencefi plot (default 0.5)
-
-        CLUSTERING PARAMETERS:
-        cmin: Minimum correlation to be considered a repeater (default 0.7)
-        ncor: Number of stations correlation must be exceeded on (default 4)
-
-        ORPHAN EXPIRATION PARAMETERS
-        minorph: Minimum amount of time (days) to keep the smaller orphans alive
-            (corresponds to trigon) (default 7 days)
-        maxorph: Maximum amount of time (days) to keep the largest orphans alive
-            (corresponds to trigon+7) (default 30 days)
-
-        PLOTTING PARAMETERS
-        plotformat: List and order of plots to be included on the timeline, separated by
-            either , (new row) or + (group into tabs) without spaces. List of currently
-            supported plot types are: eqrate, fi, occurrence, occurrencefi, and longevity
-            (default 'eqrate,fi,occurrence+occurrencefi,longevity')
-        minplot: Minimum number of members required in order to be plotted to full 
-            overview timeline (default 5)
-        mminplot: Minimum number of members required in order to be plotted to meta
-            timeline (default 0 (all members plotted)) 
-        dybin: Width of bin in days for full histogram (default 1 day)
-        hrbin: Width of bin in hours for recent histogram (default 1 hour)
-        mhrbin: Width of bin in hours for meta histogram (default 1 hour)
-        occurbin: Width of bin for occurrence plot; specified in .cfg as hours,
-            converted to days in redpy/config (default 1 hr -> 1/24 day)
-        recbin: Width of bin for recent occurrence; specified in .cfg as hours,
-            converted to days in redpy/config (default 1 hr -> 1/24 day)
-        mrecbin: Width of bin for recent occurrence in meta plot; specified in .cfg as
-            hours, converted to days in redpy/config (default 1 hr -> 1/24 day)
-        fixedheight: Whether the occurrence plot should have the same height as the other
-            subplots or expand in height as more families are plotted (default False)
-        recplot: Number of days for 'recent' plot (default 14 days)
-        mrecplot: Number of days for meta plot (default 14 days)
-        plotsta: Station index in station list to be plotted (default 2)
-        verbosecatalog: Add additional columns to the catalog file (default False)
-        amplims: Use 'global' or 'family' to define amplitude plot limits (default global)
-
-        COMCAT PARAMETERS
-        checkComCat: Use ComCat to find located seismicity that might match repeaters
-            (default False)
-        stalats: List of station latitudes (defaults to MSH network:
-            '46.200210,46.209550,46.174280,46.193470,46.197170,46.237610,46.147060,
-            46.243860')
-        stalons: List of station longitudes (defaults to MSH network:
-            '-122.190600,-122.188990,-122.180650,-122.236350,-122.151210,-122.223960,
-            -122.152430,-122.137870')
-        serr: Seconds of allowable difference in trigger and projected arrival time
-            (default 5.0 s)
-        locdeg: Degrees of distance to be considered a local event (default 0.5 degrees)
-        regdeg: Degrees of distance to be considered a regional event (default 2.0 degrees)
-        regmag: Minimum magnitude for regional events (default M2.5)
-        telemag: Minimum magnitude for teleseismic events (default M4.5)
-        matchMax: Number of largest events to match (default 0 (all))
-          
-        This list will likely expand.       
+        DOCSTRING HERE
         """
-
+        
         self.configfile = configfile
-
-        # Load parameters from config file
+        
+        # !!! Currently same order as settings.cfg; both need to be reorganized
+        # Define defaults in a dictionary
+        defaults = { 
+            
+            # RUN PARAMETERS
+            'title'          : 'REDPy Catalog',
+            'outputPath'     : '',
+            'groupName'      : 'default',
+            'filename'       : 'redpytable.h5',
+            'minorph'        : 0.05,
+            'maxorph'        : 7.0,
+            'nsec'           : 3600,
+            
+            # STATION PARAMETERS
+            'nsta'           : 8,
+            'station'        : 'SEP,YEL,HSR,SHW,EDM,STD,JUN,SOS',
+            'channel'        : 'EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ',
+            'network'        : 'UW,UW,UW,UW,UW,UW,UW,UW',
+            'location'       : '--,--,--,--,--,--,--,--',
+            'samprate'       : 100.,
+            'fmin'           : 1.,
+            'fmax'           : 10.,
+            'filomin'        : 1.,
+            'filomax'        : 2.5,
+            'fiupmin'        : 5.,
+            'fiupmax'        : 10.,
+            'fispanlow'      : -0.5,
+            'fispanhigh'     : 0.5,
+            
+            # DATA SOURCE
+            'server'         : 'IRIS',
+            'port'           : 16017,
+            'searchdir'      : './',
+            'filepattern'    : '*',
+            'preload'        : 10.,
+            
+            # TRIGGERING SETTINGS
+            'trigalg'        : 'classicstalta',
+            'nstaC'          : 5,
+            'lwin'           : 8.,  # 7
+            'swin'           : 0.7, # 0.8
+            'trigon'         : 3.,
+            'trigoff'        : 2.,
+            'offset'         : '0',
+            
+            # CROSS-CORRELATION PARAMETERS
+            'winlen'         : 1024,
+            'cmin'           : 0.7,
+            'ncor'           : 4,
+            
+            # PLOTTING PARAMETERS
+            'plotformat'     :  'eqrate,fi,occurrence+occurrencefi,longevity',
+            'printsta'       : 2,
+            'minplot'        : 5,
+            'dybin'          : 1.,
+            'hrbin'          : 1.,
+            'occurbin'       : 1., # convert to decimal days
+            'recbin'         : 1., # convert to decimal days
+            'fixedheight'    : False,
+            'recplot'        : 14.,
+            'mminplot'       : 0,
+            'mhrbin'         : 1.,
+            'mrecbin'        : 1., # convert to decimal days
+            'mrecplot'       : 30.,
+            'verbosecatalog' : False,
+            'anotfile'       : '',
+            'amplims'        : 'global', # enforce else 'family'
+            
+            # CHECK COMCAT (/EXTERNAL) CATALOG
+            'checkComCat'    : False,
+            'stalats'        : '46.200210,46.209550,46.174280,' + \
+                '46.193470,46.197170,46.237610,46.147060,46.243860',
+            'stalons'        : '-122.190600,-122.188990,-122.180650,' + \
+                '-122.236350,-122.151210,-122.223960,-122.152430,-122.137870',
+            'serr'           : 5.,
+            'locdeg'         : 0.5,
+            'regdeg'         : 2.,
+            'regmag'         : 2.5,
+            'telemag'        : 4.5,
+            'matchMax'       : 0,
+            
+            # AUTOMATED SPIKE AND TELESEISM REMOVAL
+            'kurtwin'        : 5.,
+            'kurtmax'        : 80.,
+            'kurtfmax'       : 150.,
+            'oratiomax'      : 0.15,
+            'telefi'         : -1.,
+            'teleok'         : 2 # 1
+            
+        }
+        
+        # Read from configfile
         config = configparser.ConfigParser()
         config.read(self.configfile)
-
-        # Set parameters to default if not in config file
-        self.title=config.get('Settings','title') if config.has_option(
-            'Settings','title') else 'REDPy Catalog'
-        self.filename=config.get('Settings','filename') if config.has_option(
-            'Settings','filename') else 'redpytable.h5'
-        self.outputPath=config.get('Settings','outputPath') if config.has_option(
-            'Settings','outputPath') else ''
-        self.groupName=config.get('Settings','groupName') if config.has_option(
-            'Settings','groupName') else 'default'
-        self.groupDesc=config.get('Settings','groupDesc') if config.has_option(
-            'Settings','groupDesc') else 'Default Test Run'
-        self.nsta=config.getint('Settings','nsta') if config.has_option(
-            'Settings','nsta') else 8
-        self.station=config.get('Settings','station') if config.has_option(
-            'Settings','station') else 'SEP,YEL,HSR,SHW,EDM,STD,JUN,SOS'
-        self.channel=config.get('Settings','channel') if config.has_option(
-            'Settings','channel') else 'EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ'
-        self.network=config.get('Settings','network') if config.has_option(
-            'Settings','network') else 'UW,UW,UW,UW,UW,UW,UW,UW'
-        self.location=config.get('Settings','location') if config.has_option(
-            'Settings','location') else '--,--,--,--,--,--,--,--'
-        self.samprate=config.getfloat('Settings','samprate') if config.has_option(
-            'Settings','samprate') else 100.
-        self.nstaC=config.getint('Settings','nstaC') if config.has_option(
-            'Settings','nstaC') else 5
-        self.printsta=config.getint('Settings','printsta') if config.has_option(
-            'Settings','printsta') else 2
-        self.server=config.get('Settings','server') if config.has_option(
-            'Settings','server') else 'IRIS'
-        self.port=config.getint('Settings','port') if config.has_option(
-            'Settings','port') else 16017
-        self.searchdir=config.get('Settings','searchdir') if config.has_option(
-            'Settings','searchdir') else './'
-        self.filepattern=config.get('Settings','filepattern') if config.has_option(
-            'Settings','filepattern') else '*'
-        self.preload=config.getfloat('Settings','preload') if config.has_option(
-            'Settings','preload') else 10.
-        self.nsec=config.getint('Settings','nsec') if config.has_option(
-            'Settings','nsec') else 3600
-        self.trigalg=config.get('Settings','trigalg') if config.has_option(
-            'Settings','trigalg') else 'classicstalta'
-        self.lwin=config.getfloat('Settings','lwin') if config.has_option(
-            'Settings','lwin') else 7.
-        self.swin=config.getfloat('Settings','swin') if config.has_option(
-            'Settings','swin') else 0.8
-        self.trigon=config.getfloat('Settings','trigon') if config.has_option(
-            'Settings','trigon') else 3.
-        self.trigoff=config.getfloat('Settings','trigoff') if config.has_option(
-            'Settings','trigoff') else 2.
-        self.offset=config.get('Settings','offset') if config.has_option(
-            'Settings','offset') else '0'
-        self.kurtmax=config.getfloat('Settings','kurtmax') if config.has_option(
-            'Settings','kurtmax') else 80.
-        self.kurtfmax=config.getfloat('Settings','kurtfmax') if config.has_option(
-            'Settings','kurtfmax') else 150.
-        self.oratiomax=config.getfloat('Settings','oratiomax') if config.has_option(
-            'Settings','oratiomax') else 0.15
-        self.kurtwin=config.getfloat('Settings','kurtwin') if config.has_option(
-            'Settings','kurtwin') else 5.
-        self.winlen=config.getint('Settings','winlen') if config.has_option(
-            'Settings','winlen') else 1024
-        self.fmin=config.getfloat('Settings','fmin') if config.has_option(
-            'Settings','fmin') else 1.
-        self.fmax=config.getfloat('Settings','fmax') if config.has_option(
-            'Settings','fmax') else 10.
-        self.filomin=config.getfloat('Settings','filomin') if config.has_option(
-            'Settings','filomin') else 1.
-        self.filomax=config.getfloat('Settings','filomax') if config.has_option(
-            'Settings','filomax') else 2.5
-        self.fiupmin=config.getfloat('Settings','fiupmin') if config.has_option(
-            'Settings','fiupmin') else 5.
-        self.fiupmax=config.getfloat('Settings','fiupmax') if config.has_option(
-            'Settings','fiupmax') else 10.
-        self.fispanlow=config.getfloat('Settings','fispanlow') if config.has_option(
-            'Settings','fispanlow') else -0.5
-        self.fispanhigh=config.getfloat('Settings','fispanhigh') if config.has_option(
-            'Settings','fispanhigh') else 0.5
-        self.telefi=config.getfloat('Settings','telefi') if config.has_option(
-            'Settings','telefi') else -1.
-        self.teleok=config.getint('Settings','teleok') if config.has_option(
-            'Settings','teleok') else 1
-        self.cmin=config.getfloat('Settings','cmin') if config.has_option(
-            'Settings','cmin') else 0.7
-        self.ncor=config.getint('Settings','ncor') if config.has_option(
-            'Settings','ncor') else 4
-        self.minorph=config.getfloat('Settings','minorph') if config.has_option(
-            'Settings','minorph') else 0.05
-        self.maxorph=config.getfloat('Settings','maxorph') if config.has_option(
-            'Settings','maxorph') else 7.
-        self.plotformat=config.get('Settings','plotformat') if config.has_option(
-             'Settings','plotformat') else 'eqrate,fi,occurrence+occurrencefi,longevity'
-        self.minplot=config.getint('Settings','minplot') if config.has_option(
-            'Settings','minplot') else 5
-        self.dybin=config.getfloat('Settings','dybin') if config.has_option(
-            'Settings','dybin') else 1.
-        self.hrbin=config.getfloat('Settings','hrbin') if config.has_option(
-            'Settings','hrbin') else 1.
-        # settings.cfg (hours) immediately converted to days
-        self.occurbin=config.getfloat('Settings','occurbin')/24 if config.has_option(
-            'Settings','occurbin') else 1/24
-        # settings.cfg (hours) immediately converted to days
-        self.recbin=config.getfloat('Settings','recbin')/24 if config.has_option(
-            'Settings','recbin') else 1/24
-        self.recplot=config.getfloat('Settings','recplot') if config.has_option(
-            'Settings','recplot') else 14.
-        self.mminplot=config.getint('Settings','mminplot') if config.has_option(
-            'Settings','mminplot') else 0
-        self.mhrbin=config.getfloat('Settings','mhrbin') if config.has_option(
-            'Settings','mhrbin') else 1.
-        self.mrecbin=config.getfloat('Settings','mrecbin')/24 if config.has_option(
-            'Settings','mrecbin') else 1/24
-        self.mrecplot=config.getfloat('Settings','mrecplot') if config.has_option(
-            'Settings','mrecplot') else 30. # Default to last month instead of 2 weeks
-        self.fixedheight=config.getboolean('Settings','fixedheight') if config.has_option(
-            'Settings','fixedheight') else False
-        self.printVerboseCat=config.getboolean('Settings','verbosecatalog') if config.has_option(
-            'Settings','verbosecatalog') else False
-        self.amplims=config.get('Settings','amplims') if config.has_option(
-            'Settings','amplims') else 'global'
-        self.anotfile=config.get('Settings','anotfile') if config.has_option(
-            'Settings','anotfile') else ''
-        self.checkComCat=config.getboolean('Settings','checkComCat') if config.has_option(
-            'Settings','checkComCat') else False
-        self.matchMax=config.getint('Settings','matchMax') if config.has_option(
-            'Settings','matchMax') else 0
-        self.stalats=config.get('Settings','stalats') if config.has_option(
-            'Settings','stalats') else ('46.200210,46.209550,46.174280,46.193470,'
-                '46.197170,46.237610,46.147060,46.243860')
-        self.stalons=config.get('Settings','stalons') if config.has_option(
-            'Settings','stalons') else ('-122.190600,-122.188990,-122.180650,-122.236350,'
-                '-122.151210,-122.223960,-122.152430,-122.137870')
-        self.serr=config.getfloat('Settings','serr') if config.has_option(
-            'Settings','serr') else 5.
-        self.locdeg=config.getfloat('Settings','locdeg') if config.has_option(
-            'Settings','locdeg') else 0.5
-        self.regdeg=config.getfloat('Settings','regdeg') if config.has_option(
-            'Settings','regdeg') else 2.
-        self.regmag=config.getfloat('Settings','regmag') if config.has_option(
-            'Settings','regmag') else 2.5
-        self.telemag=config.getfloat('Settings','telemag') if config.has_option(
-            'Settings','telemag') else 4.5
-
-        # Derived Settings
-        self.ptrig=1.5*self.winlen/self.samprate
-        self.atrig=3*self.winlen/self.samprate
-        self.mintrig=0.75*self.winlen/self.samprate
+        
+        # Assign values, enforcing type from defaults
+        for key in defaults:
+            if config.has_option('Settings',key):
+                if type(defaults[key]) == int:
+                    setattr(self, key, config.getint('Settings',key))
+                elif type(defaults[key]) == float:
+                    setattr(self, key, config.getfloat('Settings',key))
+                elif type(defaults[key]) == bool:
+                    setattr(self, key, config.getboolean('Settings',key))
+                else: # Last option is string
+                    setattr(self, key, config.get('Settings',key))
+            else:
+                setattr(self, key, defaults[key])
+        
+        # Do any conversions necessary
+        for key in ['occurbin', 'recbin', 'mrecbin']:
+            setattr(self, key, getattr(self, key)/24)
+        
+        # Check for any renamed parameters to allow old config files to be used
+        # !!! None so far
+        
+        # Enforce parameters to make sense
+        for key in ['station', 'channel', 'network', 'location']:
+            if len(getattr(self, key).split(',')) != self.nsta:
+                raise ValueError(
+                    '{} length and nsta mismatch, check {}'.format(key,
+                                                                configfile))
+        for key in ['nstaC', 'ncor', 'teleok']:
+            if getattr(self,key) > self.nsta:
+                raise ValueError(
+                    '{} larger than nsta, check {}'.format(key, configfile))
+        if self.printsta >= self.nsta:
+            raise ValueError(
+                'printsta must be 0-{}, check {}'.format(self.nsta-1,
+                                                                configfile))
+        for key in ['filomin', 'filomax', 'fiupmin', 'fiupmax']:
+            if (getattr(self,key) < self.fmin) or \
+               (getattr(self,key) > self.fmax):
+                raise ValueError(
+                    '{} not within filter passband, check {}'.format(key,
+                                                                configfile))
+        for key in ['fmax', 'fmin']:
+            if (getattr(self,key) > self.samprate/2):
+                raise ValueError(
+                    '{} above Nyquist, check {}'.format(key, configfile))
+        if (self.amplims != 'global') and (self.amplims != 'family'):
+            raise ValueError(
+                'Use either global or family for amplims, check {}'.format(
+                                                                configfile))
+        
+        # Define derived parameters
+        self.ptrig = 1.5*self.winlen/self.samprate
+        self.atrig = 3*self.winlen/self.samprate
+        self.mintrig = 0.75*self.winlen/self.samprate
         self.wshape = int((self.ptrig + self.atrig)*self.samprate) + 1
         self.maxdt = np.max(np.fromstring(self.offset, sep=','))

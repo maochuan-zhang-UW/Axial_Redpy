@@ -63,7 +63,7 @@ def createPlots(rtable, ftable, ttable, ctable, otable, opt):
     if len(rtable)>1:
         plotTimelines(rtable, ftable, ttable, opt)
         if np.sum(ftable.cols.printme[:]):
-            if opt.printVerboseCat == True:
+            if opt.verbosecatalog == True:
                 printVerboseCatalog(rtable, ftable, ctable, opt)
             else:
                 printCatalog(rtable, ftable, opt)
