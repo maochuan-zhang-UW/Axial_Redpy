@@ -119,7 +119,7 @@ while tstart+n*opt.nsec < tend:
     
     # Check if we need to preload waveform data from file into memory
     if (opt.preload > 0) and (len(filekey) > 0):
-        if tstart+(n+1)*opt.nsec+opt.maxdt > tend_preload:
+        if np.min([tend+opt.maxdt,tstart+(n+1)*opt.nsec+opt.maxdt]) > tend_preload:
             if args.verbose:
                 print('Loading waveforms into memory...')
                 
