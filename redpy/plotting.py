@@ -21,6 +21,7 @@ import glob
 import urllib
 import urllib.request
 from obspy import UTCDateTime
+from obspy.clients.fdsn.client import Client
 from obspy.geodetics import locations2degrees
 from obspy.taup import TauPyModel
 import cartopy.crs as ccrs
@@ -57,7 +58,12 @@ def createPlots(rtable, ftable, ttable, ctable, otable, opt):
     opt: Options object describing station/run parameters
 
     """
-
+    
+    if opt.checkComCat==True:
+        external_catalogs = prepare_catalog(ttable, opt)
+    else:
+        external_catalogs = []
+    
     printTriggerCatalog(ttable, opt)
     printOrphanCatalog(otable, opt)
     if len(rtable)>1:
@@ -73,16 +79,246 @@ def createPlots(rtable, ftable, ttable, ctable, otable, opt):
             #printEventsperDay(rtable, ftable, opt)
             plotCores(rtable, ftable, opt)
             plotFamilies(rtable, ftable, ctable, opt)
-            plotFamilyHTML(rtable, ftable, opt)
+            plotFamilyHTML(rtable, ftable, external_catalogs, opt)
             ftable.cols.printme[:] = np.zeros((len(ftable),))
             ftable.cols.lastprint[:] = np.arange(len(ftable))
     else:
         print('Nothing to plot!')
-
+    
+    # !!! Fix behavior here if something fails along the way
     # Rename any .tmp files
     tmplist = glob.glob('{}{}/clusters/*.tmp'.format(opt.outputPath, opt.groupName))
     for tmp in tmplist:
         os.rename(tmp,tmp[0:-4])
+
+
+### NEW FUNCTION FOR CREATING/UPDATING CATALOG
+
+def prepare_catalog(ttable, opt):
+    """
+    Downloads and formats event catalog from external datacenter.
+    
+    Data are queried from three regions (local, regional, teleseismic) based
+    on the settings in opt. Times are taken from the first and last trigger
+    times in ttable, so if there are large gaps in ttable, this function is
+    agnostic to them. Updates the catalog if a file exists to reduce query
+    overhead.
+    
+    Parameters
+    ----------
+    ttable : Table object
+        Handle to the Triggers table.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    external_catalogs : list of pandas DataFrames
+    """
+    
+    # Right now the only option is to check ComCat itself (or NCEDC I guess)
+    # Otherwise, would need to determine path based on whether a catalog is
+    # a file provided by the user, or whether to go check an FDSN repository
+    
+    ttimes = ttable.cols.startTimeMPL[:]
+    tmin = UTCDateTime(matplotlib.dates.num2date(np.min(ttimes)))-1800
+    tmax = UTCDateTime(matplotlib.dates.num2date(np.max(ttimes)))+opt.ptrig+30
+    
+    external_catalogs = []
+    
+    for region in ['local', 'regional', 'teleseismic']:
+        
+        fname = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                             'external_{}.txt'.format(region))
+        
+        if os.path.exists(fname):
+            
+            # Load existing file
+            df = pd.read_csv(fname, delimiter='|')
+            
+            # !!! If I wanted to remove some recent events to get the
+            # !!! most updated event solutions, I could do it here
+            
+            # Get missing events before and after currently saved events
+            if len(df) > 0:
+                
+                tmin_df = UTCDateTime(np.min(df['Time']))-1
+                tmax_df = UTCDateTime(np.max(df['Time']))+1
+                
+                df_before = query_external(region, tmin, tmin_df, opt)
+                df_after = query_external(region, tmax_df, tmax, opt)
+                
+                df = pd.concat([df_before, df, df_after], axis=0,
+                               ignore_index=True)
+                
+            else:
+                
+                # Query the entire time again
+                df = query_external(region, tmin, tmax, opt)
+                
+        else:
+            
+            # Query in full
+            df = query_external(region, tmin, tmax, opt)
+            
+        # Save to file
+        df.to_csv(fname, index=False, sep='|')
+        
+        external_catalogs.append(df)
+    
+    return external_catalogs
+
+def query_external(region, tmin, tmax, opt):
+    """
+    Handles querying and formatting the external event catalog.
+    
+    Currently only supports querying the USGS FDSN (ComCat). Other datacenters
+    could be used, so long as they support the default FDSN 'text' format,
+    with columns separated by | instead of commas.
+    
+    Parameters
+    ----------
+    region : str
+        String describing which of the three distance regions to use.
+    tmin : UTCDateTime object
+        Start time for catalog query.
+    tmax : UTCDateTime object
+        End time for catalog query.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    df : pandas DataFrame
+        Formatted event catalog.
+    """
+    
+    latc = np.mean(np.array(opt.stalats.split(',')).astype(float))
+    lonc = np.mean(np.array(opt.stalons.split(',')).astype(float))
+    
+    datacenter = 'USGS' # Eventually may have options to choose here
+    
+    if region in 'local':
+        minrad = 0
+        maxrad = opt.locdeg
+        minmag = -10
+        phase_list=['p','s','P','S']
+    elif region in 'regional':
+        minrad = opt.locdeg
+        maxrad = opt.regdeg
+        minmag = opt.regmag
+        phase_list = ['p','s','P','S','PP','SS']
+    else:
+        minrad = opt.regdeg
+        maxrad = 180
+        minmag = opt.telemag
+        phase_list = ['P','S','PP','SS','PcP','ScS','PKiKP','PKIKP']
+    
+    # This assumes a lot about the path to get stuff
+    base_url = Client(datacenter).base_url
+    query_url = base_url + '/fdsnws/event/1/query' + \
+                '?starttime={}'.format(tmin) + \
+                '&endtime={}'.format(tmax) + \
+                '&latitude={}'.format(latc) + \
+                '&longitude={}'.format(lonc) + \
+                '&maxradius={}'.format(maxrad) + \
+                '&minradius={}'.format(minrad) + \
+                '&minmagnitude={}'.format(minmag) + \
+                '&orderby=time-asc&format=text&limit=10000'
+    
+    df = pd.read_csv(query_url, delimiter='|')
+    
+    # If the limit is returned
+    if (len(df) == 10000):
+        
+        # Continue to query until we find the end
+        offset = 0
+        while not (len(df) % 10000):
+            
+            offset += 10000
+            df2 = pd.read_csv(query_url+'&offset={}'.format(offset),
+                                                                delimiter='|')
+            
+            if len(df2) > 0:
+                df = df.append(df2, ignore_index=True)
+            else:
+                # Remainder will still be 0 so we'd be stuck in the loop
+                break
+    
+    # Clean column names
+    df.columns = df.columns.str.replace(' ','')
+    df.columns = df.columns.str.replace('#','')
+    
+    # Remove 'unnecessary' columns to reduce space
+    df.drop(columns=['Author','Catalog','Contributor',
+                'ContributorID','MagType','MagAuthor','EventType'],
+                errors='ignore', inplace=True)
+    
+    # Calculate arrivals
+    df = calculate_arrivals(df, latc, lonc, phase_list, opt)
+    
+    return df
+
+def calculate_arrivals(df, latc, lonc, phase_list, opt):
+    """
+    Calculates the arrivals of given phases from source to study area.
+    
+    Traces rays through a very simple model (iasp91), then appends the times
+    of arrivals to the end of the DataFrame.
+    
+    Parameters
+    ----------
+    df : pandas DataFrame
+        Event catalog, with columns for time and location.
+    latc : float
+        Latitude of study area centroid.
+    lonc : float
+        Longitude of study area centroid.
+    phase_list : list
+        List of seismic phase arrivals to trace.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    df : pandas DataFrame
+        Event catalog, with arrival times appended.
+    """
+    
+    # Add columns for predefined phases
+    for phase in phase_list:
+        df['Arrival_{}'.format(phase)] = 'NaN'
+            
+    # Loop over events to fill those columns
+    if len(df) > 0:
+        
+        taupymodel_runs = 0
+        model = TauPyModel(model="iasp91")
+        
+        for i in range(len(df)):
+            
+            # Calculate distance of separation (degrees)
+            deg = locations2degrees(df['Latitude'][i],
+                                           df['Longitude'][i], latc, lonc)
+                    
+            # TauPyModel misbehaves if it's used too much
+            # Determine if it needs to be reloaded (every 100 runs)
+            taupymodel_runs += 1
+            if np.remainder(taupymodel_runs,100) == 0:
+                model = TauPyModel(model="iasp91")
+            
+            # Calculate arrivals based on event depth
+            arrivals = model.get_travel_times(
+                        source_depth_in_km=max(0,df['Depth/km'][i]),
+                        distance_in_degree=deg, phase_list=phase_list)
+                    
+            if len(arrivals) > 0:
+                for a in range(len(arrivals)):
+                    df['Arrival_{}'.format(arrivals[a].name)][i] = \
+                               '{}'.format(UTCDateTime(df['Time'][i]) + \
+                                                             arrivals[a].time)
+    
+    return df
 
 
 ### BOKEH OVERVIEW RENDERING ###
@@ -1355,7 +1591,7 @@ def plotSingleFamily(rtable, ftable, ctable, startTimeMPL, windowAmp, windowStar
     plt.close(fig)
 
 
-def plotFamilyHTML(rtable, ftable, opt):
+def plotFamilyHTML(rtable, ftable, external_catalogs, opt):
 
     """
     Creates the HTML for the individual family pages.
@@ -1372,12 +1608,17 @@ def plotFamilyHTML(rtable, ftable, opt):
     startTime = rtable.cols.startTime[:]
     startTimeMPL = rtable.cols.startTimeMPL[:]
     windowStart = rtable.cols.windowStart[:]
+    windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
     fi = rtable.cols.FI[:]
+    fmembers = ftable.cols.members[:]
+    fcores = ftable.cols.core[:]
+    printme = ftable.cols.printme[:]
+    lastprint = ftable.cols.lastprint[:]
 
     for cnum in range(ftable.attrs.nClust):
 
-        fam = np.fromstring(ftable[cnum]['members'], dtype=int, sep=' ')
-        core = ftable[cnum]['core']
+        fam = np.fromstring(fmembers[cnum], dtype=int, sep=' ')
+        core = fcores[cnum]
 
         # Prep catalog
         catalogind = np.argsort(startTimeMPL[fam])
@@ -1388,7 +1629,7 @@ def plotFamilyHTML(rtable, ftable, opt):
         maxind = fam[catalogind[-1]]
         coreind = np.where(fam==core)[0][0]
 
-        if ftable.cols.printme[cnum] != 0 or ftable.cols.lastprint[cnum] != cnum:
+        if printme[cnum] != 0 or lastprint[cnum] != cnum:
             if cnum>0:
                 prev = "<a href='{0}.html'>&lt; Cluster {0}</a>".format(cnum-1)
             else:
@@ -1429,14 +1670,14 @@ def plotFamilyHTML(rtable, ftable, opt):
                     axis=1)),prev,next))
 
                 if opt.checkComCat:
-                    checkComCat(rtable, ftable, cnum, f, startTime, windowStart, opt)
+                    checkComCat(windowAmp, ftable, cnum, f, startTime, windowStart, external_catalogs, opt)
 
                 f.write("""
                 </center></body></html>
                 """)
 
 
-def checkComCat(rtable, ftable, cnum, f, startTime, windowStart, opt):
+def checkComCat(windowAmp, ftable, cnum, f, startTime, windowStart, external_catalogs, opt):
     """
     Checks repeater trigger times with projected arrival times from ANSS Comprehensive
     Earthquake Catalog (ComCat) and writes these to HTML and image files. Will also
@@ -1453,7 +1694,7 @@ def checkComCat(rtable, ftable, cnum, f, startTime, windowStart, opt):
     Traces through iasp91 global velocity model; checks for local, regional, and
     teleseismic matches for limited set of phase arrivals
     """
-
+    
     pc = ['Potential', 'Conflicting']
     model = TauPyModel(model="iasp91")
     mc = 0
@@ -1463,10 +1704,7 @@ def checkComCat(rtable, ftable, cnum, f, startTime, windowStart, opt):
     stalons = np.array(opt.stalons.split(',')).astype(float)
     latc = np.mean(stalats)
     lonc = np.mean(stalons)
-
-    if opt.matchMax > 0:
-        windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
-
+    
     members = np.fromstring(ftable[cnum]['members'], dtype=int, sep=' ')
     if opt.matchMax == 0 or opt.matchMax > len(members):
         order = np.argsort(startTime[members])
@@ -1479,124 +1717,92 @@ def checkComCat(rtable, ftable, cnum, f, startTime, windowStart, opt):
         matchstring = ('</br><b>ComCat matches ({} largest events):</b></br>'
             '<div style="overflow-y: auto; height:100px; width:1200px;">').format(
             opt.matchMax)
-
+    
+    pc = ['Potential', 'Conflicting']
+    region = ['local', 'regional', 'teleseismic']
+    prestring = ['', '<div style="color:red">', '<div style="color:red">']
+    poststring = ['</br>', '</div>', '</div>']
+    nfound = 0
+    localfound = 0
+    llats = np.array([])
+    llons = np.array([])
+    ldeps = np.array([])
+    
     for m in members[order]:
+        
         t = UTCDateTime(startTime[m])+windowStart[m]/opt.samprate
-        cc_url = ('http://earthquake.usgs.gov/fdsnws/event/1/query?'
-                  'starttime={}&endtime={}&format=text').format(t-1800,t+30)
-        try:
-            comcat = pd.read_csv(cc_url,delimiter='|')
-            otime = comcat['Time'].tolist()
-            lat = comcat['Latitude'].tolist()
-            lon = comcat['Longitude'].tolist()
-            dep = comcat['Depth/km'].tolist()
-            mag = comcat['Magnitude'].tolist()
-            place = comcat['EventLocationName'].tolist()
-        except (urllib.error.HTTPError, urllib.error.URLError):
-            otime = []
-            lat = []
-            lon = []
-            dep = []
-            mag = []
-            place = []
-
-        # Check if near Northern California, then go to NCEDC for additional events but
-        # for shorter time interval
-        if latc > 34 and latc < 42 and lonc > -124 and lonc < -116:
-            cc_urlnc = ('http://ncedc.org/fdsnws/event/1/query?'
-                        'starttime={}&endtime={}&format=text').format((t-60).isoformat(),
-                        (t+30).isoformat())
-            try:
-                ncedc = pd.read_csv(cc_urlnc,delimiter='|')
-                otime.extend(ncedc[' Time '].tolist())
-                lat.extend(ncedc[' Latitude '].tolist())
-                lon.extend(ncedc[' Longitude '].tolist())
-                dep.extend(ncedc[' Depth/km '].tolist())
-                mag.extend(ncedc[' Magnitude '].tolist())
-                place.extend(ncedc[' EventLocationName'].tolist())
-            except (ValueError, urllib.error.HTTPError, urllib.error.URLError):
-                pass
-
-        n0 = 0
-        for c in range(len(otime)):
-            deg = locations2degrees(lat[c],lon[c],latc,lonc)
-            dt = t-UTCDateTime(otime[c])
-
-            if deg <= opt.locdeg:
-                mc += 1
-                if np.remainder(mc,100) == 0:
-                    model = TauPyModel(model="iasp91")
-                arrivals = model.get_travel_times(source_depth_in_km=max(0,dep[c]),
-                    distance_in_degree=deg, phase_list=['p','s','P','S'])
-                if len(arrivals) > 0:
-                    pt = np.zeros((len(arrivals),))
-                    pname = []
-                    for a in range(len(arrivals)):
-                        pt[a] = arrivals[a].time - dt
-                        pname.append(arrivals[a].name)
-                    if np.min(abs(pt)) < opt.serr:
-                        amin = np.argmin(abs(pt))
-                        matchstring+=('{} local match: {} ({:5.3f}, {:6.3f}) {:3.1f}km '
-                            'M{:3.2f} - {} - ({}) {:4.2f} s</br>').format(pc[n0],otime[c],
-                            lat[c],lon[c],dep[c],mag[c],place[c],pname[amin],pt[amin])
-                        n0 = 1
-                        l = l+1
-                        if l == 1:
-                            llats = np.array(lat[c])
-                            llons = np.array(lon[c])
-                            ldeps = np.array(dep[c])
-                        else:
-                            llats = np.append(llats,lat[c])
-                            llons = np.append(llons,lon[c])
-                            ldeps = np.append(ldeps,dep[c])
-            elif deg <= opt.regdeg and mag[c] >= opt.regmag:
-                mc += 1
-                if np.remainder(mc,100) == 0:
-                    model = TauPyModel(model="iasp91")
-                arrivals = model.get_travel_times(source_depth_in_km=max(0,dep[c]),
-                    distance_in_degree=deg, phase_list=['p','s','P','S','PP','SS'])
-                if len(arrivals) > 0:
-                    pt = np.zeros((len(arrivals),))
-                    pname = []
-                    for a in range(len(arrivals)):
-                        pt[a] = arrivals[a].time - dt
-                        pname.append(arrivals[a].name)
-                    if np.min(abs(pt)) < opt.serr:
-                        amin = np.argmin(abs(pt))
-                        matchstring+=('<div style="color:red">{} regional match: {} '
-                            '({:5.3f}, {:6.3f}) {:3.1f}km M{:3.2f} - {} - ({}) {:4.2f} '
-                            's</div>').format(pc[n0],otime[c],lat[c],lon[c],dep[c],
-                            mag[c],place[c],pname[amin],pt[amin])
-                        n0 = 1
-            elif deg > opt.regdeg and mag[c] >= opt.telemag:
-                mc += 1
-                if np.remainder(mc,100) == 0:
-                    model = TauPyModel(model="iasp91")
-                arrivals = model.get_travel_times(source_depth_in_km=max(0,dep[c]),
-                    distance_in_degree=deg, phase_list=['P','S','PP','SS','PcP','ScS',
-                        'PKiKP','PKIKP'])
-                if len(arrivals) > 0:
-                    pt = np.zeros((len(arrivals),))
-                    pname = []
-                    for a in range(len(arrivals)):
-                        pt[a] = arrivals[a].time - dt
-                        pname.append(arrivals[a].name)
-                    if np.min(abs(pt)) < opt.serr:
-                        amin = np.argmin(abs(pt))
-                        matchstring+=('<div style="color:red">{} teleseismic match: {} '
-                            '({:5.3f}, {:3.1f}) {:4.2f}km M{:3.2f} - {} - ({}) {:4.2f} '
-                            's</div>').format(pc[n0],otime[c],lat[c],lon[c],dep[c],
-                            mag[c],place[c],pname[amin],pt[amin])
-                        n0 = 1
-        if n0>1:
-            n = n+1
-        else:
-            n = n+n0
-    if n>0:
+        
+        cflag = 0
+        
+        for r, cat in enumerate(external_catalogs):
+            
+            # Get the arrival names only from Arrival_ column names
+            anames = [cat.filter(like='Arrival').columns[i].split('_')[1] \
+                      for i in range(len(cat.filter(like='Arrival').columns))]
+            
+            # Get arrivals as a numpy array of strings
+            arrivals = cat.filter(like='Arrival').to_numpy().astype(str)
+            
+            # Find arrivals within opt.serr seconds
+            matched = np.any(((arrivals >= format(t-opt.serr)) & \
+                              (arrivals <= format(t+opt.serr))),axis=1)
+            
+            # Subset to only those that were found
+            found = arrivals[matched]
+            
+            if len(found) > 0:
+                
+                # Convert from strings to time differences
+                vfunc = np.vectorize(lambda x,t:np.abs(UTCDateTime(x)-t))
+                found[found=='NaN'] = 'nan' # Just in case
+                found[found!='nan'] = vfunc(found[found!='nan'],t)
+                
+                # Convert to float, otherwise numpy complains
+                found[found=='nan'] = np.nan
+                found = found.astype(float)
+                
+                # Loop over what was found
+                for i in range(len(found)):
+                    
+                    # Get the row and column of the best matching arrival
+                    bestmatch = np.argwhere(found == np.nanmin(found))[0]
+                    
+                    # Write the line here...
+                    catmatch = cat[matched].iloc[bestmatch[0]]
+                    
+                    matchstring += ('{}{} {} match: {} ({:5.6f}, {:6.6f}) '
+                            '{:3.1f}km M{:3.1f} - {} - ({}) '
+                            '{:4.2f} s{}').format(
+                            prestring[r], pc[cflag], region[r],
+                            catmatch['Time'],
+                            catmatch['Latitude'], catmatch['Longitude'],
+                            catmatch['Depth/km'], catmatch['Magnitude'],
+                            catmatch['EventLocationName'],
+                            anames[bestmatch[1]],np.nanmin(found),
+                            poststring[r])
+                    
+                    if r == 0:
+                        localfound += 1
+                        llats = np.append(llats, catmatch['Latitude'])
+                        llons = np.append(llons, catmatch['Longitude'])
+                        ldeps = np.append(ldeps, catmatch['Depth/km'])
+                    
+                    # Overwrite that match with NaNs so we get next best
+                    found[bestmatch[0],:] = np.nan
+                    
+                    # Set cflag = 1 for 'conflicting'
+                    cflag = 1
+                
+                nfound += 1
+    
+    if nfound > 0:
+        
         matchstring+='</div>'
-        matchstring+='Total potential matches: {}</br>'.format(n)
-        matchstring+='Potential local matches: {}</br>'.format(l)
-        if l>0:
+        matchstring+='Total potential matches: {}</br>'.format(nfound)
+        matchstring+='Potential local matches: {}</br>'.format(localfound)
+        
+        if localfound > 0:
+            
             # Make map centered on seismicity
             stamen_terrain = cimgt.StamenTerrain()
             fig = plt.figure()
@@ -1642,15 +1848,18 @@ def checkComCat(rtable, ftable, cnum, f, startTime, windowStart, opt):
             ax.text((sbllon+sbelon)/2., sbllat, '10 km', ha='center',
                 transform=text_transform)
 
-            plt.title('{} potential local matches (~{:3.1f} km depth)'.format(l,
+            plt.title('{} potential local matches (~{:3.1f} km depth)'.format(localfound,
                 np.mean(ldeps)))
             plt.tight_layout()
             plt.savefig('{}{}/clusters/map{}.png'.format(opt.outputPath, opt.groupName,
                 cnum), dpi=100)
             plt.close()
             f.write('<img src="map{}.png"></br>'.format(cnum))
+            
     else:
+        
         matchstring+='No matches found</br></div>'
+        
     f.write(matchstring)
 
 

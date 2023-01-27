@@ -92,7 +92,11 @@ if args.famplot:
     redpy.plotting.plotFamilies(rtable, ftable, ctable, opt)
 
 if args.html:
-    redpy.plotting.plotFamilyHTML(rtable, ftable, opt)
+    if opt.checkComCat==True:
+        external_catalogs = redpy.plotting.prepare_catalog(ttable, opt)
+    else:
+        external_catalogs = []
+    redpy.plotting.plotFamilyHTML(rtable, ftable, external_catalogs, opt)
 
 if args.html or args.famplot:
     ftable.cols.printme[:] = np.zeros((len(ftable),))
