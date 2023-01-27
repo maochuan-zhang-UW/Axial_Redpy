@@ -32,7 +32,7 @@ def get_client(opt):
     Parameters
     ----------
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -88,7 +88,7 @@ def filter_merge(stmp, opt):
     stmp : Stream object
         Stream containing Traces to be filtered/merged.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -131,7 +131,7 @@ def append_empty(st, n, opt):
     n : integer
         Index of channel within list.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -173,7 +173,7 @@ def get_filekey(opt, args):
     Parameters
     ----------
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     args : ArugmentParser object
         Passes arguments from command line for verbosity.
     
@@ -240,7 +240,7 @@ def preload_data(tstart, tend, filekey, opt):
     filekey : DataFrame object
         Table containing filenames matching search parameters with metadata.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -297,7 +297,7 @@ def get_data(tstart, tend, filekey, st_preload, opt):
         Preloaded waveform data from files on disk. Empty if querying from a
         server.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -417,7 +417,7 @@ def trigger(st, rtable, opt):
     rtable : Table object
         Handle to the Repeaters table.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -510,7 +510,7 @@ def clean_triggers(alltrigs, opt):
     alltrigs : Stream object
         Triggered events with data from each channel concatenated.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------

@@ -924,7 +924,7 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
     seedtime : string
         Date from which to measure maxdays.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     verbose : bool, optional
         Enable additional print statements.
     list_only : bool, optional

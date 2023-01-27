@@ -29,7 +29,7 @@ def calculate_window(waveform, windowStart, opt):
     windowStart : integer
         Sample of trigger time relative to waveform start.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -90,7 +90,7 @@ def get_window(row, opt):
     row : Row object
         Single row from either Repeaters or Orphans tables
     opt : Options object
-        Describes run parameters.        
+        Describes the run parameters.
     
     Returns
     -------
@@ -126,7 +126,7 @@ def update_window(xtable, rownum, lag, opt, coeff=[], fft=[], fi=[]):
     lag : integer
         Number of samples to add to the current trigger time.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     coeff : float ndarray, optional
         Scaling coefficient to normalize cross-correlation for each station.
     fft : complex ndarray, optional
@@ -238,7 +238,7 @@ def xcorr_1xtable(windowCoeff, windowFFT, xtable, opt):
     xtable : Table object
         Either a table or subset of a table that contains 'window' columns.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -275,7 +275,7 @@ def compare_deleted(trigs, dtable, opt):
     dtable : Table object
         Deleted table (i.e., manually removed from rtable)
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -324,7 +324,7 @@ def correlate_remaining_family(rtable, ctable, ftable, rnum, fnum, opt):
     fnum : integer
         Family number to compare to.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     """
     
     # Get corresponding rnums for members and cores
@@ -345,7 +345,8 @@ def correlate_remaining_family(rtable, ctable, ftable, rnum, fnum, opt):
     # Write matches to Correlation table
     if np.max(nthcors) >= opt.cmin:
         for i in np.where(nthcors>=opt.cmin)[0]:
-            redpy.table.populate_correlation(ctable, repeater_id,
+            if repeater_id != family_ids[i]:
+                redpy.table.populate_correlation(ctable, repeater_id,
                                              family_ids[i], maxcors[i], opt)
 
 
@@ -362,7 +363,7 @@ def append_family_member(ftable, fnum, rnum, opt):
     rnum : integer
         Member (row) from Repeaters table to append.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     """
     
     # Decode string then append a space and rnum
@@ -407,7 +408,7 @@ def compare_trigger_to_orphans(rtable, otable, ctable, ftable, trig, idnum,
         Correlation coefficients of trigger to all orphans on the opt.ncor-th
         station.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     """
     
     # Loop through potential matches, adjusting windows as necessary
@@ -508,7 +509,7 @@ def update_with_trigger(rtable, ftable, trig, idnum, windowStart, lag, fnum,
     famlist : integer list
         Family numbers matched so far.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     
     Returns
     -------
@@ -562,7 +563,7 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
     windowFFT : complex ndarray
         Fourier transform of trigger on all stations, concatenated.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     """
     
     # Get cores
@@ -680,7 +681,7 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
     written : integer
         Number of new repeaters written to Repeaters table. 
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     """
     
     famlist = []
@@ -807,6 +808,7 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
             core_maxcors = np.delete(core_maxcors, bestcor)
     
     # Make sure to save correlation of new events with each other
+    # !!! This section is likely unnecessary and a possible bug
     for i in range(-written+1,0):
         maxcor, maxlag, nthcor = xcorr_1x1(rtable[i]['windowCoeff'],
             rtable[-written]['windowCoeff'], rtable[i]['windowFFT'],
@@ -814,6 +816,7 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
         if nthcor >= opt.cmin:
             redpy.table.populate_correlation(ctable, rtable[-written]['id'],
                                                  rtable[i]['id'], maxcor, opt)
+    # !!! END
     
     # If no matches found, make new family
     if found == 0:
@@ -860,7 +863,7 @@ def do_comparison(rtable, otable, ctable, ftable, trig, idnum, windowCoeff,
         Correlation coefficients of trigger to all orphans on the opt.ncor-th
         station.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     """
     
     # If there's a possible match with orphan(s), run most complex function
@@ -907,7 +910,7 @@ def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
     troubleshoot : bool
         Flag to bypass try/catch and allow code to fail.
     opt : Options object
-        Describes run parameters.
+        Describes the run parameters.
     """
     
     # !!! Need to check if this step can be skipped
