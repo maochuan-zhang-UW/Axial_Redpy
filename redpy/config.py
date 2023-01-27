@@ -7,10 +7,18 @@ import configparser
 import numpy as np
 
 class Options(object):
-
+    
     def __init__(self, configfile='settings.cfg'):
         """
-        DOCSTRING HERE
+        Options (opt) contains all of the settings from the configuration file.
+        
+        The file is read in, compared with a dictionary of defaults, type and
+        appropriate values are enforced, and derived settings are calculated.
+        
+        Parameters
+        ----------
+        configfile : str
+            Name of configuration file to read.
         """
         
         self.configfile = configfile
