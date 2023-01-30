@@ -42,7 +42,7 @@ matplotlib.rcParams['font.size'] = 8.0
 matplotlib.rcParams['pdf.fonttype'] = 42
 
 
-def createPlots(rtable, ftable, ttable, ctable, otable, opt):
+def create_plots(rtable, ftable, ttable, ctable, otable, opt):
     """
     Creates all output files.
     
@@ -75,7 +75,7 @@ def createPlots(rtable, ftable, ttable, ctable, otable, opt):
     if len(rtable) > 1:
         
         # Render Bokeh timelines
-        plotTimelines(rtable, ftable, ttable, opt)
+        create_timelines(rtable, ftable, ttable, opt)
         
         # If there are changes to the catalog
         if np.sum(ftable.cols.printme[:]):
@@ -89,11 +89,11 @@ def createPlots(rtable, ftable, ttable, ctable, otable, opt):
             printCoresCatalog(rtable, ftable, opt)
             
             # Make images
-            plotCores(rtable, ftable, opt)
-            plotFamilies(rtable, ftable, ctable, opt)
+            create_core_images(rtable, ftable, opt)
+            create_family_images(rtable, ftable, ctable, opt)
             
             # Make HTML files
-            plotFamilyHTML(rtable, ftable, external_catalogs, opt)
+            create_family_html(rtable, ftable, external_catalogs, opt)
             
             # Reset printing columns
             ftable.cols.printme[:] = np.zeros((len(ftable),))
@@ -102,7 +102,7 @@ def createPlots(rtable, ftable, ttable, ctable, otable, opt):
     else:
         print('Nothing to plot!')
     
-    # Rename any .tmp files created in plotCores()
+    # Rename any .tmp files created in create_core_images()
     tmplist = glob.glob(os.path.join('{}{}'.format(opt.outputPath,
                                            opt.groupName),'clusters','*.tmp'))
     for tmp in tmplist:
@@ -128,7 +128,7 @@ def prepare_catalog(ttable, opt):
     
     Returns
     -------
-    external_catalogs : list of pandas DataFrames
+    external_catalogs : list of DataFrame objects
     """
     
     ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig
@@ -343,7 +343,7 @@ def calculate_arrivals(df, latc, lonc, phase_list, opt):
     return df
 
 
-def plotTimelines(rtable, ftable, ttable, opt):
+def create_timelines(rtable, ftable, ttable, opt):
     """
     Creates HTML bokeh timelines: overview, overview_recent, and meta_recent.
     
@@ -417,13 +417,13 @@ def plotTimelines(rtable, ftable, ttable, opt):
         filepath = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
                             '{}.html'.format(file))
         
-        renderBokehTimeline(ftable, rtimes, fi, longevity, famstarts,
+        assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
             alltrigs, barpad, plotformat, binsize, obinsize, mintime, minplot,
             fixedheight, filepath, htmltitle, divtitle, opt)
 
 
-def renderBokehTimeline(ftable, rtimes, fi, longevity, famstarts, alltrigs,
-        barpad, plotformat, rbinsize, obinsize, mintime, minplot,
+def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
+        alltrigs, barpad, plotformat, rbinsize, obinsize, mintime, minplot,
         fixedheight, filepath, htmltitle, divtitle, opt):
     """
     Assembles an interactive HTML timeline with given parameters using Bokeh.
@@ -479,31 +479,32 @@ def renderBokehTimeline(ftable, rtimes, fi, longevity, famstarts, alltrigs,
         
         if p == 'eqrate':
             # Plot EQ Rates (Repeaters and Orphans)
-            plots.append(plotRate(alltrigs, rtimes, rbinsize, mintime,
+            plots.append(subplot_rate(alltrigs, rtimes, rbinsize, mintime,
                                                                 maxtime, opt))
             tabtitles = tabtitles+['Event Rate']
         
         elif p == 'fi':
             # Plot Frequency Index
-            plots.append(plotFI(alltrigs, rtimes, fi, mintime, maxtime, opt))
+            plots.append(subplot_fi(alltrigs, rtimes, fi, mintime, maxtime,
+                                                                         opt))
             tabtitles = tabtitles+['FI']
         
         elif p == 'longevity':
             # Plot Cluster Longevity
-            plots.append(plotLongevity(alltrigs, famstarts, longevity,
+            plots.append(subplot_longevity(alltrigs, famstarts, longevity,
                                                mintime, maxtime, barpad, opt))
             tabtitles = tabtitles+['Longevity']
         
         elif p == 'occurrence':
             # Plot family occurrence
-            plots.append(plotFamilyOccurrence(alltrigs, rtimes, famstarts,
+            plots.append(subplot_occurrence(alltrigs, rtimes, famstarts,
                              longevity, fi, ftable, mintime, maxtime, minplot,
                              obinsize, barpad, 'rate', fixedheight, opt))
             tabtitles = tabtitles+['Occurrence (Color by Rate)']
         
         elif p == 'occurrencefi':
             # Plot family occurrence with color by FI
-            plots.append(plotFamilyOccurrence(alltrigs, rtimes, famstarts,
+            plots.append(subplot_occurrence(alltrigs, rtimes, famstarts,
                              longevity, fi, ftable, mintime, maxtime, minplot,
                              obinsize, barpad, 'fi', fixedheight, opt))
             tabtitles = tabtitles+['Occurrence (Color by FI)']
@@ -548,7 +549,7 @@ def renderBokehTimeline(ftable, rtimes, fi, longevity, famstarts, alltrigs,
     save(o)
 
 
-def bokehFigure(**kwargs):
+def bokeh_figure(**kwargs):
     """
     Builds foundation for the bokeh subplots.
     
@@ -586,8 +587,8 @@ def bokehFigure(**kwargs):
     return fig
 
 
-def plotRate(alltrigs, rtimes, binsize, mintime, maxtime, opt, useBokeh=True,
-                                                                     ax=None):
+def subplot_rate(alltrigs, rtimes, binsize, mintime, maxtime, opt,
+                                                      useBokeh=True, ax=None):
     """
     Creates subplot for rate of orphans and repeaters.
     
@@ -633,7 +634,7 @@ def plotRate(alltrigs, rtimes, binsize, mintime, maxtime, opt, useBokeh=True,
         maxtime+binsize, binsize))
     
     if useBokeh:
-        fig = bokehFigure(title=title)
+        fig = bokeh_figure(title=title)
         fig.yaxis.axis_label = 'Events'
         fig.line(matplotlib.dates.num2date(hT[0:-1]+dt_offset), histT-histR,
             color='black', legend_label='Orphans')
@@ -656,7 +657,7 @@ def plotRate(alltrigs, rtimes, binsize, mintime, maxtime, opt, useBokeh=True,
         return ax
 
 
-def plotFI(alltrigs, rtimes, fi, mintime, maxtime, opt, useBokeh=True,
+def subplot_fi(alltrigs, rtimes, fi, mintime, maxtime, opt, useBokeh=True,
                                                                      ax=None):
     """
     Creates subplot for frequency index scatterplot.
@@ -689,7 +690,7 @@ def plotFI(alltrigs, rtimes, fi, mintime, maxtime, opt, useBokeh=True,
     """
     
     if useBokeh:
-        fig = bokehFigure(title='Frequency Index')
+        fig = bokeh_figure(title='Frequency Index')
         fig.yaxis.axis_label = 'FI'
         # Always plot at least one invisible point
         fig.circle(matplotlib.dates.num2date(np.max(alltrigs)), 0,
@@ -713,8 +714,8 @@ def plotFI(alltrigs, rtimes, fi, mintime, maxtime, opt, useBokeh=True,
         return ax
 
 
-def plotLongevity(alltrigs, famstarts, longevity, mintime, maxtime, barpad,
-                                                 opt, useBokeh=True, ax=None):
+def subplot_longevity(alltrigs, famstarts, longevity, mintime, maxtime,
+                                         barpad, opt, useBokeh=True, ax=None):
     """
     Creates subplot for longevity.
     
@@ -748,7 +749,7 @@ def plotLongevity(alltrigs, famstarts, longevity, mintime, maxtime, barpad,
     """
     
     if useBokeh:
-        fig = bokehFigure(y_axis_type='log',
+        fig = bokeh_figure(y_axis_type='log',
             y_range=[0.01, np.sort(alltrigs)[-1]-np.sort(alltrigs)[0]],
             title='Cluster Longevity')
         fig.yaxis.axis_label = 'Days'
@@ -763,7 +764,7 @@ def plotLongevity(alltrigs, famstarts, longevity, mintime, maxtime, barpad,
     # Plot Data
     for n in range(len(famstarts)):
         
-        add_line, add_larrow, add_rarrow, x1, x2 = generateLines(mintime,
+        add_line, add_larrow, add_rarrow, x1, x2 = determine_lines(mintime,
             maxtime, barpad, famstarts[n], longevity[n])
         
         # Draw a line for the longevity data (turns off if data don't fall
@@ -812,7 +813,7 @@ def plotLongevity(alltrigs, famstarts, longevity, mintime, maxtime, barpad,
         return ax
 
 
-def plotFamilyOccurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
+def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
     mintime, maxtime, minplot, binsize, barpad, colorby, fixedheight, opt,
                                                       useBokeh=True, ax=None):
     """
@@ -865,7 +866,7 @@ def plotFamilyOccurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
     """
     
     if useBokeh:
-        fig = bokehFigure(tools=[createHoverTool(),
+        fig = bokeh_figure(tools=[family_hover_tool(),
             'pan,box_zoom,reset,save,tap'], title='Occurrence Timeline',
             plot_height=250, plot_width=1250)
         fig.yaxis.axis_label = 'Cluster by Date' + (
@@ -935,7 +936,7 @@ def plotFamilyOccurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
             
             if max(rtimes[members])>mintime:
                 
-                add_line, add_larrow, add_rarrow, x1, x2 = generateLines(
+                add_line, add_larrow, add_rarrow, x1, x2 = determine_lines(
                     mintime, maxtime, barpad, famstarts[clustNum],
                     longevity[clustNum])
                 
@@ -1060,16 +1061,16 @@ def plotFamilyOccurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
                 cloc1 = n*15-165
         
         if colorby is 'rate':
-                color_bar = ColorBar(color_mapper=determineColorMapper(
+                color_bar = ColorBar(color_mapper=determine_color_mapper(
                     binsize), ticker=LogTicker(), border_line_color='#eeeeee',
                     location=(7,cloc1), orientation='horizontal', width=150,
                     height=15, title='Events per {}'.format(
-                    determineLegendText(binsize)), padding=15,
+                    determine_legend_text(binsize)), padding=15,
                     major_tick_line_alpha=0,
                     formatter=LogTickFormatter(min_exponent=4))
         elif colorby is 'fi':
-                color_bar = ColorBar(color_mapper=determineColorMapperFI(opt),
-                    border_line_color='#eeeeee', location=(7,cloc1),
+                color_bar = ColorBar(color_mapper=determine_color_mapper_fi(
+                    opt), border_line_color='#eeeeee', location=(7,cloc1),
                     orientation='horizontal', width=150, height=15,
                     title='Mean Frequency Index', padding=15,
                     major_tick_line_alpha=0)
@@ -1082,7 +1083,7 @@ def plotFamilyOccurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
         return ax
 
 
-def determineLegendText(binsize):
+def determine_legend_text(binsize):
     """
     Determines legend wording based on bin size.
     
@@ -1111,7 +1112,7 @@ def determineLegendText(binsize):
     return legtext
 
 
-def determineColorMapper(binsize):
+def determine_color_mapper(binsize):
     """
     Determines logarithmic color map for occurrence plot based on bin size.
     
@@ -1137,7 +1138,7 @@ def determineColorMapper(binsize):
     return color_mapper
 
 
-def determineColorMapperFI(opt):
+def determine_color_mapper_fi(opt):
     """
     Determines color map for occurrencefi plot based on opt.fispan.
     
@@ -1161,9 +1162,9 @@ def determineColorMapperFI(opt):
     return color_mapper
 
 
-def createHoverTool():
+def family_hover_tool():
     """
-    Creates family hover preview.
+    Generates HoverTool for family hover preview.
     
     Returns
     -------
@@ -1188,9 +1189,9 @@ def createHoverTool():
     return hover
 
 
-def generateLines(mintime, maxtime, barpad, famstart, longev):
+def determine_lines(mintime, maxtime, barpad, famstart, longev):
     """
-    Generates arrows and line positions for occurrence/longevity timelines.
+    Determines arrows and line positions for occurrence/longevity timelines.
     
     Parameters
     ----------
@@ -1263,8 +1264,8 @@ def generateLines(mintime, maxtime, barpad, famstart, longev):
 
 ### PDF OVERVIEW ###
 
-def customPDFoverview(rtable, ftable, ttable, tmin, tmax, binsize, minmembers,
-    occurheight, plotformat, opt):
+def create_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
+                                    minmembers, occurheight, plotformat, opt):
     """
     Generate a static PDF version of the overview plot for publication.
     
@@ -1332,7 +1333,7 @@ def customPDFoverview(rtable, ftable, ttable, tmin, tmax, binsize, minmembers,
     # Hack a reference axis
     figref = plt.figure(figsize=(9,1))
     axref = figref.add_subplot(1,1,1)
-    axref = plotRate(alltrigs, rtimes, binsize, mintime, maxtime, opt,
+    axref = subplot_rate(alltrigs, rtimes, binsize, mintime, maxtime, opt,
         useBokeh=False, ax=axref)
     
     fig = plt.figure(figsize=(9, figheight))
@@ -1343,16 +1344,16 @@ def customPDFoverview(rtable, ftable, ttable, tmin, tmax, binsize, minmembers,
         if p == 'eqrate':
             ### Rate ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = plotPDFAnnotations(ax, mintime, maxtime, opt)
-            ax = plotRate(alltrigs, rtimes, binsize, mintime, maxtime, opt,
-                useBokeh=False, ax=ax)
+            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = subplot_rate(alltrigs, rtimes, binsize, mintime, maxtime,
+                opt, useBokeh=False, ax=ax)
             pnum = pnum + 1
         
         elif p == 'fi':
             ### FI ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = plotPDFAnnotations(ax, mintime, maxtime, opt)
-            ax = plotFI(alltrigs, rtimes, fi, mintime, maxtime, opt,
+            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = subplot_fi(alltrigs, rtimes, fi, mintime, maxtime, opt,
                 useBokeh=False, ax=ax)
             pnum = pnum + 1
         
@@ -1360,29 +1361,29 @@ def customPDFoverview(rtable, ftable, ttable, tmin, tmax, binsize, minmembers,
             ### Occurrence ###
             ax = fig.add_subplot(nsub, 1, (pnum+1, pnum+occurheight),
                 sharex=axref)
-            ax = plotPDFAnnotations(ax, mintime, maxtime, opt)
-            ax = plotFamilyOccurrence(alltrigs, rtimes, famstarts, longevity,
+            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = subplot_occurrence(alltrigs, rtimes, famstarts, longevity,
                 fi, ftable, mintime, maxtime, minmembers, binsize, barpad,
                 'rate', True, opt, useBokeh=False, ax=ax)
-            addPDFColorbar(fig, figheight, pnum, nsub, 'rate', binsize, opt)
+            add_pdf_colorbar(fig, figheight, pnum, nsub, 'rate', binsize, opt)
             pnum = pnum + occurheight
         
         elif p == 'occurrencefi':
             ### Occurrence ###
             ax = fig.add_subplot(nsub, 1, (pnum+1, pnum+occurheight),
                 sharex=axref)
-            ax = plotPDFAnnotations(ax, mintime, maxtime, opt)
-            ax = plotFamilyOccurrence(alltrigs, rtimes, famstarts, longevity,
+            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = subplot_occurrence(alltrigs, rtimes, famstarts, longevity,
                 fi, ftable, mintime, maxtime, minmembers, binsize, barpad,
                 'fi', True, opt, useBokeh=False, ax=ax)
-            addPDFColorbar(fig, figheight, pnum, nsub, 'fi', binsize, opt)
+            add_pdf_colorbar(fig, figheight, pnum, nsub, 'fi', binsize, opt)
             pnum = pnum + occurheight
         
         elif p == 'longevity':
             ### Longevity ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = plotPDFAnnotations(ax, mintime, maxtime, opt)
-            ax = plotLongevity(alltrigs, famstarts, longevity, mintime,
+            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = subplot_longevity(alltrigs, famstarts, longevity, mintime,
                 maxtime, barpad, opt, useBokeh=False, ax=ax)
             pnum = pnum + 1
         
@@ -1395,7 +1396,7 @@ def customPDFoverview(rtable, ftable, ttable, tmin, tmax, binsize, minmembers,
     plt.close(fig)
 
 
-def addPDFColorbar(fig, figheight, pnum, nsub, colorby, binsize, opt):
+def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize, opt):
     """
     Adds a colorbar to PDF occurrence plots.
     
@@ -1421,7 +1422,7 @@ def addPDFColorbar(fig, figheight, pnum, nsub, colorby, binsize, opt):
     bottom = (nsub-pnum)/nsub - 0.9/figheight
     cax = fig.add_axes([0.1, bottom, 0.2, 0.2/figheight])
     if colorby is 'rate':
-        cax.set_title('Events per {}'.format(determineLegendText(binsize)),
+        cax.set_title('Events per {}'.format(determine_legend_text(binsize)),
             loc='left', style='italic')
     else:
         cax.set_title('Mean Frequency Index', loc='left', style='italic')
@@ -1447,7 +1448,7 @@ def addPDFColorbar(fig, figheight, pnum, nsub, colorby, binsize, opt):
     cax.tick_params(length=0)
 
 
-def plotPDFAnnotations(ax, mintime, maxtime, opt):
+def add_pdf_annotations(ax, mintime, maxtime, opt):
     """
     Plots annotations on PDF figure.
     
@@ -1480,7 +1481,7 @@ def plotPDFAnnotations(ax, mintime, maxtime, opt):
 
 ### FAMILY PAGES ###
 
-def plotCores(rtable, ftable, opt):
+def create_core_images(rtable, ftable, opt):
     """
     Plots core waveforms as *.png files in the clusters folder.
     
@@ -1533,11 +1534,11 @@ def plotCores(rtable, ftable, opt):
             plt.close(fig)
 
 
-def plotFamilies(rtable, ftable, ctable, opt):
+def create_family_images(rtable, ftable, ctable, opt):
     """
     Creates multi-paneled family plots for all families that need plotting.
     
-    This function wraps plotSingleFamily() and outputs all files as *.png
+    This function wraps assemble_family_image() and outputs all files as *.png
     files in the clusters folder.
     
     Parameters
@@ -1566,12 +1567,12 @@ def plotFamilies(rtable, ftable, ctable, opt):
         
         if ftable.cols.printme[cnum] != 0:
             
-            plotSingleFamily(rtable, ftable, ctable, startTimeMPL, windowAmp,
-                windowStart, fi, ids, id1, id2, ccc, 'png', 100, cnum, 0, 0,
-                opt)
+            assemble_family_image(rtable, ftable, ctable, startTimeMPL,
+                windowAmp, windowStart, fi, ids, id1, id2, ccc, 'png', 100,
+                cnum, 0, 0, opt)
 
 
-def plotSingleFamily(rtable, ftable, ctable, startTimeMPL, windowAmp,
+def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     windowStart, fi, ids, id1, id2, ccc, oformat, dpi, cnum, tmin, tmax, opt):
     """
     Creates a multi-paneled family plot for the specified family 'cnum'.
@@ -1858,7 +1859,7 @@ def plotSingleFamily(rtable, ftable, ctable, startTimeMPL, windowAmp,
     plt.close(fig)
 
 
-def plotFamilyHTML(rtable, ftable, external_catalogs, opt):
+def create_family_html(rtable, ftable, external_catalogs, opt):
     """
     Creates the HTML for the individual family pages.
     
@@ -1869,6 +1870,8 @@ def plotFamilyHTML(rtable, ftable, external_catalogs, opt):
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
+    external_catalogs : list of DataFrame objects
+        External catalogs to check against, with 'Arrivals_' columns.
     opt : Options object
         Describes the run parameters.
     """
@@ -1943,7 +1946,7 @@ def plotFamilyHTML(rtable, ftable, external_catalogs, opt):
                     axis=1)),prev,next))
                 
                 if opt.checkComCat:
-                    checkComCat(windowAmp, ftable, cnum, f, startTime,
+                    match_external(windowAmp, ftable, cnum, f, startTime,
                         windowStart, external_catalogs, opt)
                 
                 f.write("""
@@ -1951,7 +1954,7 @@ def plotFamilyHTML(rtable, ftable, external_catalogs, opt):
                 """)
 
 
-def checkComCat(windowAmp, ftable, cnum, f, startTime, windowStart,
+def match_external(windowAmp, ftable, cnum, f, startTime, windowStart,
                                                       external_catalogs, opt):
     """
     Checks repeater trigger times with arrival times from external catalog.
@@ -2152,7 +2155,7 @@ def checkComCat(windowAmp, ftable, cnum, f, startTime, windowStart,
     f.write(matchstring)
 
 
-def cleanHTML(oldnClust, newnClust, opt):
+def remove_old_html(oldnClust, newnClust, opt):
     """
     Removes HTML files from deleted/moved family pages.
     
@@ -2176,7 +2179,7 @@ def cleanHTML(oldnClust, newnClust, opt):
 
 ### USER-GENERATED ###
 
-def plotReport(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
+def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     """
     Creates more detailed output plots for a single family in '/reports'.
     
@@ -2519,7 +2522,7 @@ def plotReport(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
         """)
 
 
-def createJunkPlots(jtable, opt):
+def create_junk_images(jtable, opt):
     """
     Creates images of waveforms contained in the junk table.
     

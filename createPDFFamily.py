@@ -82,7 +82,7 @@ else:
 
 for fnum in args.famnum:
     if args.verbose: print("Creating PDF for family {}...".format(fnum))
-    redpy.plotting.plotSingleFamily(rtable, ftable, ctable, startTimeMPL, windowAmp, 
+    redpy.plotting.assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp, 
         windowStart, fi, ids, id1, id2, ccc, 'pdf', 100, fnum, tmin, tmax, opt)
 
 if args.verbose: print("Closing table...")

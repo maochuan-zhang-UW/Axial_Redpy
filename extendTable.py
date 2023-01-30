@@ -169,7 +169,7 @@ ftableto.attrs.nClust = ftablefrom.attrs.nClust
 ftableto.flush()
 
 if args.verbose: print("Creating plots...")
-redpy.plotting.createPlots(rtableto, ftableto, ttableto, ctableto, otableto, optto)
+redpy.plotting.create_plots(rtableto, ftableto, ttableto, ctableto, otableto, optto)
 
 if args.verbose: print("Closing tables...")
 h5filefrom.close()

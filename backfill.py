@@ -220,7 +220,7 @@ while tstart+n*opt.nsec < tend:
 print("Caught up to: {}".format(endtime-opt.atrig))
 
 if args.verbose: print("Updating plots...")
-redpy.plotting.createPlots(rtable, ftable, ttable, ctable, otable, opt)
+redpy.plotting.create_plots(rtable, ftable, ttable, ctable, otable, opt)
 
 if args.verbose: print("Closing table...")
 h5file.close()

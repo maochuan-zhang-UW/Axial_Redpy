@@ -66,7 +66,7 @@ except OSError:
 
 for fnum in args.famnum:
     if args.verbose: print("Creating report for family {}...".format(fnum))
-    redpy.plotting.plotReport(rtable, ftable, ctable, fnum, args.ordered,
+    redpy.plotting.create_report(rtable, ftable, ctable, fnum, args.ordered,
         args.matrixtofile, opt)
 
 if args.verbose: print("Closing table...")

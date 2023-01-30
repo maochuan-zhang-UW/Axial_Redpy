@@ -62,7 +62,7 @@ terr = opt.winlen/opt.samprate
 
 # I'll append the best candidate family and the number of seconds the event times differ,
 # so that the user can identify questionable matches. I may add the ability to assume a
-# location and do some simple ray-tracing like in checkComCat(), but at this point I'm
+# location and do some simple ray-tracing like in match_external(), but at this point I'm
 # not convinced it's necessary. Column dt here is the REDPy trigger time - csv catalog
 # time; if it is negative, REDPy either triggered early or it may not be a match.
 # Amplitude is amplitude on printed station.

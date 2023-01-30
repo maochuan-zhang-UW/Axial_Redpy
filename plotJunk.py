@@ -49,7 +49,7 @@ h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
     redpy.table.open_table(opt)
 
 if args.verbose: print("Creating junk plots...")
-redpy.plotting.createJunkPlots(jtable, opt)
+redpy.plotting.create_junk_images(jtable, opt)
 
 if args.verbose: print("Closing table...")
 h5file.close()

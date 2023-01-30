@@ -53,10 +53,10 @@ oldnClust = ftable.attrs.nClust
 redpy.table.remove_families(rtable, ctable, dtable, ftable, args.famnum, opt, args.verbose)
 
 if args.verbose: print("Creating plots...")
-redpy.plotting.createPlots(rtable, ftable, ttable, ctable, otable, opt)
+redpy.plotting.create_plots(rtable, ftable, ttable, ctable, otable, opt)
 
 if args.verbose: print("Cleaning up .html files...")
-redpy.plotting.cleanHTML(oldnClust, ftable.attrs.nClust, opt)
+redpy.plotting.remove_old_html(oldnClust, ftable.attrs.nClust, opt)
 
 if args.verbose: print("Closing table...")
 h5file.close()

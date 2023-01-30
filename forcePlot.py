@@ -89,20 +89,20 @@ if args.startfam or args.endfam:
 if args.verbose: print("Creating requested plots...")
 
 if args.famplot:
-    redpy.plotting.plotFamilies(rtable, ftable, ctable, opt)
+    redpy.plotting.create_family_images(rtable, ftable, ctable, opt)
 
 if args.html:
     if opt.checkComCat==True:
         external_catalogs = redpy.plotting.prepare_catalog(ttable, opt)
     else:
         external_catalogs = []
-    redpy.plotting.plotFamilyHTML(rtable, ftable, external_catalogs, opt)
+    redpy.plotting.create_family_html(rtable, ftable, external_catalogs, opt)
 
 if args.html or args.famplot:
     ftable.cols.printme[:] = np.zeros((len(ftable),))
     ftable.cols.lastprint[:] = np.arange(len(ftable))
 else:
-    redpy.plotting.createPlots(rtable, ftable, ttable, ctable, otable, opt)
+    redpy.plotting.create_plots(rtable, ftable, ttable, ctable, otable, opt)
 
 
 if args.verbose: print("Closing table...")

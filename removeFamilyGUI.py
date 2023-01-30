@@ -52,7 +52,7 @@ def remove(*args):
         
     if len(removethese) > 0:
         print("Creating plots...")
-        redpy.plotting.createPlots(rtable, ftable, ttable, ctable, otable, opt)
+        redpy.plotting.create_plots(rtable, ftable, ttable, ctable, otable, opt)
 
 def close(*args):
     """
@@ -182,7 +182,7 @@ for tmp in dlist:
     os.remove(tmp) 
     
 if args.verbose: print("Cleaning up .html files...")
-redpy.plotting.cleanHTML(oldnClust, ftable.attrs.nClust, opt)
+redpy.plotting.remove_old_html(oldnClust, ftable.attrs.nClust, opt)
     
 print("Closing table...")
 h5file.close()
