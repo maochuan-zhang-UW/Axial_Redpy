@@ -81,7 +81,7 @@ def main(args):
     if len(cnums) > 0:
         # Only update plots if there are families removed
         if args.verbose: print("Creating plots...")
-        redpy.plotting.create_plots(rtable, ftable, ttable, ctable, otable, opt)
+        redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
 
         if args.verbose: print("Cleaning up old .html & .png files...")
         redpy.plotting.remove_old_html(oldnClust, ftable.attrs.nClust, opt)

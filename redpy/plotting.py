@@ -42,7 +42,7 @@ matplotlib.rcParams['font.size'] = 8.0
 matplotlib.rcParams['pdf.fonttype'] = 42
 
 
-def create_plots(rtable, ftable, ttable, ctable, otable, opt):
+def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
     """
     Creates all output files.
     

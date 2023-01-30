@@ -102,7 +102,7 @@ if args.html or args.famplot:
     ftable.cols.printme[:] = np.zeros((len(ftable),))
     ftable.cols.lastprint[:] = np.arange(len(ftable))
 else:
-    redpy.plotting.create_plots(rtable, ftable, ttable, ctable, otable, opt)
+    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
 
 
 if args.verbose: print("Closing table...")
