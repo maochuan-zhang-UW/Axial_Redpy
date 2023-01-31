@@ -1532,27 +1532,49 @@ def create_core_images(rtable, ftable, opt):
     for r in cores:
         n = n+1
         if ftable.cols.printme[n] == 1:
-            fig = plt.figure(figsize=(5, 1))
-            ax = plt.Axes(fig, [0., 0., 1., 1.])
-            ax.set_axis_off()
-            fig.add_axes(ax)
             
+            # Prepare waveform for plotting
             waveform = r['waveform'][opt.printsta*opt.wshape:(
                                                    opt.printsta+1)*opt.wshape]
             tmp = waveform[max(0, r['windowStart']-int(
                 opt.ptrig*opt.samprate)):min(opt.wshape,
                 r['windowStart']+int(opt.atrig*opt.samprate))]
-            dat = tmp[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
+            data = tmp[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
                 opt.ptrig*opt.samprate + opt.winlen*1.5)]/r['windowAmp'][
                                                                  opt.printsta]
-            dat[dat>1] = 1
-            dat[dat<-1] = -1
+            # Clip amplitudes
+            data[data>1] = 1
+            data[data<-1] = -1
             
-            ax.plot(dat,'k',linewidth=0.25)
-            plt.autoscale(tight=True)
-            plt.savefig('{}{}/clusters/{}.png'.format(opt.outputPath,
-                opt.groupName, n), dpi=100)
-            plt.close(fig)
+            wiggle_plot(data, (5, 1), '{}{}/clusters/{}.png'.format(
+                opt.outputPath, opt.groupName, n), opt)
+
+
+def wiggle_plot(data, figsize, outfile, opt):
+    """
+    Plots a waveform with no decorations (e.g., for a core image).
+    
+    Parameters
+    ----------
+    data : float ndarray
+        Waveform data to plot.
+    figsize : tuple
+        Output figure size as (width, height).
+    outfile : str
+        Path and filename for saving the figure.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
+    fig = plt.figure(figsize=figsize)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+    
+    ax.plot(data,'k',linewidth=0.25)
+    plt.autoscale(tight=True)
+    plt.savefig(outfile, dpi=100)
+    plt.close(fig)
 
 
 def create_family_images(rtable, ftable, ctable, opt):
@@ -2568,27 +2590,21 @@ def create_junk_images(jtable, opt):
     printJunk(jtable, opt)
     
     for r in jtable:
-        fig = plt.figure(figsize=(15, 0.5))
-        ax = plt.Axes(fig, [0., 0., 1., 1.])
-        ax.set_axis_off()
-        fig.add_axes(ax)
-        
         for s in range(opt.nsta):
-            waveformc = r['waveform'][s*opt.wshape:(s+1)*opt.wshape]
-            tmpc = waveformc[r['windowStart']:r['windowStart']+opt.wshape]
-            datc = tmpc[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
+            
+            # Prepare waveform for each station individually
+            waveform = r['waveform'][s*opt.wshape:(s+1)*opt.wshape]
+            tmp = waveform[r['windowStart']:r['windowStart']+opt.wshape]
+            datc = tmp[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
                 opt.ptrig*opt.samprate + opt.winlen*1.5)]
             datc = datc/np.max(np.abs(datc)+1.0/1000)
             datc[datc>1] = 1
             datc[datc<-1] = -1
             if s == 0:
-                dat = datc
+                data = datc
             else:
-                dat = np.append(dat,datc)
+                data = np.append(data,datc)
         
-        ax.plot(dat,'k',linewidth=0.25)
-        plt.autoscale(tight=True)
-        plt.savefig('{}{}/junk/{}-{}.png'.format(opt.outputPath,
-            opt.groupName, (UTCDateTime(r['startTime'])+opt.ptrig).strftime(
-            '%Y%m%d%H%M%S'), r['isjunk']), dpi=100)
-        plt.close(fig)
+        wiggle_plot(data, (15, 0.5), '{}{}/junk/{}-{}.png'.format(
+            opt.outputPath, opt.groupName, (UTCDateTime(r['startTime']) + \
+            opt.ptrig).strftime('%Y%m%d%H%M%S'), r['isjunk']), opt)
