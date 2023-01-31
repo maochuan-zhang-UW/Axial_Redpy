@@ -2592,14 +2592,16 @@ def create_junk_images(jtable, opt):
     for r in jtable:
         for s in range(opt.nsta):
             
-            # Prepare waveform for each station individually
+            # Prepare waveform for each channel individually
             waveform = r['waveform'][s*opt.wshape:(s+1)*opt.wshape]
             tmp = waveform[r['windowStart']:r['windowStart']+opt.wshape]
             datc = tmp[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
                 opt.ptrig*opt.samprate + opt.winlen*1.5)]
             datc = datc/np.max(np.abs(datc)+1.0/1000)
+            # Clip amplitudes
             datc[datc>1] = 1
             datc[datc<-1] = -1
+            # Concatenate all channels together
             if s == 0:
                 data = datc
             else:
