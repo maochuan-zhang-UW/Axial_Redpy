@@ -145,37 +145,39 @@ def prepare_catalog(ttable, opt):
         if os.path.exists(fname):
             
             # Load existing file
-            df = pd.read_csv(fname, delimiter='|')
+            catalog = pd.read_csv(fname, delimiter='|')
             
             # !!! If I wanted to remove some recent events to get the
             # !!! most updated event solutions, I could do it here
             
             # Get missing events before and after currently saved events
-            if len(df) > 0:
+            if len(catalog) > 0:
                 
-                tmin_df = UTCDateTime(np.min(df['Time']))-1
-                tmax_df = UTCDateTime(np.max(df['Time']))+1
+                tmin_catalog = UTCDateTime(np.min(catalog['Time']))-1
+                tmax_catalog = UTCDateTime(np.max(catalog['Time']))+1
                 
-                df_before = query_external(region, tmin, tmin_df, opt)
-                df_after = query_external(region, tmax_df, tmax, opt)
+                catalog_before = query_external(region, tmin, tmin_catalog,
+                                                                          opt)
+                catalog_after = query_external(region, tmax_catalog, tmax,
+                                                                          opt)
                 
-                df = pd.concat([df_before, df, df_after], axis=0,
-                               ignore_index=True)
+                catalog = pd.concat([catalog_before, catalog, catalog_after],
+                                                    axis=0, ignore_index=True)
                 
             else:
                 
                 # Query the entire time again
-                df = query_external(region, tmin, tmax, opt)
+                catalog = query_external(region, tmin, tmax, opt)
                 
         else:
             
             # Query in full
-            df = query_external(region, tmin, tmax, opt)
+            catalog = query_external(region, tmin, tmax, opt)
             
         # Save to file
-        df.to_csv(fname, index=False, sep='|')
+        catalog.to_csv(fname, index=False, sep='|')
         
-        external_catalogs.append(df)
+        external_catalogs.append(catalog)
     
     return external_catalogs
 
@@ -201,12 +203,12 @@ def query_external(region, tmin, tmax, opt):
     
     Returns
     -------
-    df : pandas DataFrame
+    catalog : pandas DataFrame
         Formatted event catalog.
     """
     
-    latc = np.mean(np.array(opt.stalats.split(',')).astype(float))
-    lonc = np.mean(np.array(opt.stalons.split(',')).astype(float))
+    latitude_center = np.mean(np.array(opt.stalats.split(',')).astype(float))
+    longitude_center = np.mean(np.array(opt.stalons.split(',')).astype(float))
     
     datacenter = 'USGS' # Eventually may have options to choose here
     
@@ -231,29 +233,29 @@ def query_external(region, tmin, tmax, opt):
     query_url = base_url + '/fdsnws/event/1/query' + \
                 '?starttime={}'.format(tmin) + \
                 '&endtime={}'.format(tmax) + \
-                '&latitude={}'.format(latc) + \
-                '&longitude={}'.format(lonc) + \
+                '&latitude={}'.format(latitude_center) + \
+                '&longitude={}'.format(longitude_center) + \
                 '&maxradius={}'.format(maxrad) + \
                 '&minradius={}'.format(minrad) + \
                 '&minmagnitude={}'.format(minmag) + \
                 '&orderby=time-asc&format=text&limit=10000'
     
     try:
-        df = pd.read_csv(query_url, delimiter='|')
+        catalog = pd.read_csv(query_url, delimiter='|')
         
         # If the limit is returned
-        if (len(df) == 10000):
+        if (len(catalog) == 10000):
             
             # Continue to query until we find the end
             offset = 0
-            while not (len(df) % 10000):
+            while not (len(catalog) % 10000):
                 
                 offset += 10000
-                df2 = pd.read_csv(query_url+'&offset={}'.format(offset),
+                catalog2 = pd.read_csv(query_url+'&offset={}'.format(offset),
                                                                 delimiter='|')
                 
-                if len(df2) > 0:
-                    df = df.append(df2, ignore_index=True)
+                if len(catalog2) > 0:
+                    catalog = catalog.append(catalog2, ignore_index=True)
                 else:
                     # Remainder will still be 0 so we'd be stuck in the loop
                     break
@@ -261,27 +263,29 @@ def query_external(region, tmin, tmax, opt):
     except:
         
         # Pass an empty dataframe with the correct columns
-        df = pd.DataFrame(columns=['EventID','Time','Latitude','Longitude',
-                                  'Depth/km','Magnitude','EventLocationName'])
+        catalog = pd.DataFrame(columns=['EventID', 'Time', 'Latitude',
+                     'Longitude', 'Depth/km','Magnitude','EventLocationName'])
         print('Failed to download {} event catalog from {}'.format(region,
                                                                   datacenter))
     
     # Clean column names
-    df.columns = df.columns.str.replace(' ','')
-    df.columns = df.columns.str.replace('#','')
+    catalog.columns = catalog.columns.str.replace(' ','')
+    catalog.columns = catalog.columns.str.replace('#','')
     
     # Remove 'unnecessary' columns to reduce space
-    df.drop(columns=['Author','Catalog','Contributor',
-                'ContributorID','MagType','MagAuthor','EventType'],
+    catalog.drop(columns=['Author', 'Catalog', 'Contributor',
+                'ContributorID', 'MagType', 'MagAuthor', 'EventType'],
                 errors='ignore', inplace=True)
     
     # Calculate arrivals
-    df = calculate_arrivals(df, latc, lonc, phase_list, opt)
+    catalog = calculate_arrivals(catalog, latitude_center, longitude_center,
+                                                              phase_list, opt)
     
-    return df
+    return catalog
 
 
-def calculate_arrivals(df, latc, lonc, phase_list, opt):
+def calculate_arrivals(catalog, latitude_center, longitude_center, phase_list,
+                                                                         opt):
     """
     Calculates the arrivals of given phases from source to study area.
     
@@ -290,11 +294,11 @@ def calculate_arrivals(df, latc, lonc, phase_list, opt):
     
     Parameters
     ----------
-    df : pandas DataFrame
+    catalog : pandas DataFrame
         Event catalog, with columns for time and location.
-    latc : float
+    latitude_center : float
         Latitude of study area centroid.
-    lonc : float
+    longitude_center : float
         Longitude of study area centroid.
     phase_list : list
         List of seismic phase arrivals to trace.
@@ -303,25 +307,27 @@ def calculate_arrivals(df, latc, lonc, phase_list, opt):
     
     Returns
     -------
-    df : pandas DataFrame
+    catalog : pandas DataFrame
         Event catalog, with arrival times appended.
     """
     
     # Add columns for predefined phases
     for phase in phase_list:
-        df['Arrival_{}'.format(phase)] = 'NaN'
+        catalog['Arrival_{}'.format(phase)] = 'NaN'
             
     # Loop over events to fill those columns
-    if len(df) > 0:
+    if len(catalog) > 0:
         
         taupymodel_runs = 0
         model = TauPyModel(model="iasp91")
         
-        for i in range(len(df)):
+        for i in range(len(catalog)):
             
             # Calculate distance of separation (degrees)
-            deg = locations2degrees(df['Latitude'][i],
-                                           df['Longitude'][i], latc, lonc)
+            deg = locations2degrees(catalog['Latitude'][i],
+                                    catalog['Longitude'][i],
+                                    latitude_center,
+                                    longitude_center)
                     
             # TauPyModel misbehaves if it's used too much
             # Determine if it needs to be reloaded (every 100 runs)
@@ -331,16 +337,16 @@ def calculate_arrivals(df, latc, lonc, phase_list, opt):
             
             # Calculate arrivals based on event depth
             arrivals = model.get_travel_times(
-                        source_depth_in_km=max(0,df['Depth/km'][i]),
+                        source_depth_in_km=max(0, catalog['Depth/km'][i]),
                         distance_in_degree=deg, phase_list=phase_list)
                     
             if len(arrivals) > 0:
                 for a in range(len(arrivals)):
-                    df['Arrival_{}'.format(arrivals[a].name)][i] = \
-                               '{}'.format(UTCDateTime(df['Time'][i]) + \
+                    catalog['Arrival_{}'.format(arrivals[a].name)][i] = \
+                               '{}'.format(UTCDateTime(catalog['Time'][i]) + \
                                                              arrivals[a].time)
     
-    return df
+    return catalog
 
 
 def create_timelines(rtable, ftable, ttable, opt):
@@ -378,8 +384,8 @@ def create_timelines(rtable, ftable, ttable, opt):
         if i == 0: # overview.html
             barpad = (max(alltrigs)-min(alltrigs))*0.01
             plotformat = opt.plotformat
-            binsize = opt.dybin
-            obinsize = opt.occurbin
+            binsize_hist = opt.dybin
+            binsize_occur = opt.occurbin
             mintime = min(alltrigs)
             minplot = opt.minplot
             fixedheight = opt.fixedheight
@@ -388,8 +394,8 @@ def create_timelines(rtable, ftable, ttable, opt):
         elif i == 1: # overview_recent.html
             barpad = opt.recplot*0.01
             plotformat = opt.plotformat
-            binsize = opt.hrbin/24
-            obinsize = opt.recbin
+            binsize_hist = opt.hrbin/24
+            binsize_occur = opt.recbin
             mintime = max(alltrigs)-opt.recplot
             minplot = 0
             fixedheight = opt.fixedheight
@@ -400,8 +406,8 @@ def create_timelines(rtable, ftable, ttable, opt):
         else: # meta_recent.html
             barpad = opt.mrecplot*0.01
             plotformat = opt.plotformat.replace(',','+')
-            binsize = opt.mhrbin/24
-            obinsize = opt.mrecbin
+            binsize_hist = opt.mhrbin/24
+            binsize_occur = opt.mrecbin
             mintime = max(alltrigs)-opt.mrecplot
             minplot = opt.mminplot
             fixedheight = True
@@ -418,13 +424,13 @@ def create_timelines(rtable, ftable, ttable, opt):
                             '{}.html'.format(file))
         
         assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
-            alltrigs, barpad, plotformat, binsize, obinsize, mintime, minplot,
-            fixedheight, filepath, htmltitle, divtitle, opt)
+            alltrigs, barpad, plotformat, binsize_hist, binsize_occur,
+            mintime, minplot, fixedheight, filepath, htmltitle, divtitle, opt)
 
 
 def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
-        alltrigs, barpad, plotformat, rbinsize, obinsize, mintime, minplot,
-        fixedheight, filepath, htmltitle, divtitle, opt):
+        alltrigs, barpad, plotformat, binsize_hist, binsize_occur,
+        mintime, minplot, fixedheight, filepath, htmltitle, divtitle, opt):
     """
     Assembles an interactive HTML timeline with given parameters using Bokeh.
     
@@ -447,9 +453,9 @@ def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
     plotformat : str
         Formatted list of plots to be rendered, separated by ',' or '+' where
         ',' denotes a new row and '+' groups the plots in tabs.
-    rbinsize : float
+    binsize_hist : float
         Width (in days) of time bins for rate plot histogram.
-    obinsize : float
+    binsize_occur : float
         Width (in days) of time bins for occurrence plot histogram.
     mintime : float
         Minimum time to plot as matplotlib date; generates arrows if a family
@@ -479,7 +485,7 @@ def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
         
         if p == 'eqrate':
             # Plot EQ Rates (Repeaters and Orphans)
-            plots.append(subplot_rate(alltrigs, rtimes, rbinsize, mintime,
+            plots.append(subplot_rate(alltrigs, rtimes, binsize_hist, mintime,
                                                                 maxtime, opt))
             tabtitles = tabtitles+['Event Rate']
         
@@ -499,34 +505,37 @@ def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
             # Plot family occurrence
             plots.append(subplot_occurrence(alltrigs, rtimes, famstarts,
                              longevity, fi, ftable, mintime, maxtime, minplot,
-                             obinsize, barpad, 'rate', fixedheight, opt))
+                             binsize_occur, barpad, 'rate', fixedheight, opt))
             tabtitles = tabtitles+['Occurrence (Color by Rate)']
         
         elif p == 'occurrencefi':
             # Plot family occurrence with color by FI
             plots.append(subplot_occurrence(alltrigs, rtimes, famstarts,
                              longevity, fi, ftable, mintime, maxtime, minplot,
-                             obinsize, barpad, 'fi', fixedheight, opt))
+                             binsize_occur, barpad, 'fi', fixedheight, opt))
             tabtitles = tabtitles+['Occurrence (Color by FI)']
         
         else:
             print('{} is not a valid plot type. Moving on.'.format(p))
     
     # Set ranges
-    for i in plots:
-        i.x_range = plots[0].x_range
+    for p in plots:
+        p.x_range = plots[0].x_range
     
     # Add annotations
     if opt.anotfile != '':
-        df = pd.read_csv(opt.anotfile)
-        for j in plots:
-            for row in df.itertuples():
-                spantime = (datetime.datetime.strptime(row[1],
+        annotations = pd.read_csv(opt.anotfile)
+        for p in plots:
+            for a in range(len(annotations)):
+                spantime = (datetime.datetime.strptime(annotations['Time'][a],
                     '%Y-%m-%dT%H:%M:%S')-datetime.datetime(1970,1,1)
                     ).total_seconds()
-                j.add_layout(Span(location=spantime*1000, dimension='height',
-                    line_color=row[2], line_width=row[3], line_dash=row[4],
-                    line_alpha=row[5], level='underlay'))
+                p.add_layout(Span(location=spantime*1000, dimension='height',
+                    line_color=annotations['Color'][a],
+                    line_width=annotations['Weight'][a],
+                    line_dash=annotations['Line Type'][a],
+                    line_alpha=annotations['Alpha'][a],
+                    level='underlay'))
     
     # Create output and save
     gridplot_items = [[Div(text=divtitle, width=1000, margin=(-40,5,-10,5))]]
@@ -587,7 +596,7 @@ def bokeh_figure(**kwargs):
     return fig
 
 
-def subplot_rate(alltrigs, rtimes, binsize, mintime, maxtime, opt,
+def subplot_rate(alltrigs, rtimes, binsize_hist, mintime, maxtime, opt,
                                                       useBokeh=True, ax=None):
     """
     Creates subplot for rate of orphans and repeaters.
@@ -598,8 +607,8 @@ def subplot_rate(alltrigs, rtimes, binsize, mintime, maxtime, opt,
         Array containing times of all triggers
     rtimes : float ndarray
         Times of repeaters as matplotlib dates.
-    binsize : float
-        Width (in days) of histogram time bin.
+    binsize_hist : float
+        Width (in days) of time bins for rate plot histogram.
     mintime : float
         Minimum time to plot as matplotlib date.
     maxtime : float
@@ -619,19 +628,20 @@ def subplot_rate(alltrigs, rtimes, binsize, mintime, maxtime, opt,
         If useBokeh is False, returns a matplotlib Axis handle.
     """
     
-    dt_offset = binsize/2 # used to create the lines
+    dt_offset = binsize_hist/2 # used to create the lines
     
-    hr_days = 'Day Bin' if binsize>=1 else 'Hour Bin'
-    if binsize >= 1:
-        title = 'Repeaters vs. Orphans by {:.1f} Day Bin'.format(binsize)
+    hr_days = 'Day Bin' if binsize_hist>=1 else 'Hour Bin'
+    if binsize_hist >= 1:
+        title = 'Repeaters vs. Orphans by {:.1f} Day Bin'.format(binsize_hist)
     else:
-        title = 'Repeaters vs. Orphans by {:.1f} Hour Bin'.format(binsize*24)
+        title = 'Repeaters vs. Orphans by {:.1f} Hour Bin'.format(
+                                                              binsize_hist*24)
     
     # Create histogram of events/dybin
     histT, hT = np.histogram(alltrigs, bins=np.arange(mintime,
-        maxtime+binsize, binsize))
+        maxtime+binsize_hist, binsize_hist))
     histR, hR = np.histogram(rtimes, bins=np.arange(mintime,
-        maxtime+binsize, binsize))
+        maxtime+binsize_hist, binsize_hist))
     
     if useBokeh:
         fig = bokeh_figure(title=title)
@@ -814,8 +824,8 @@ def subplot_longevity(alltrigs, famstarts, longevity, mintime, maxtime,
 
 
 def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
-    mintime, maxtime, minplot, binsize, barpad, colorby, fixedheight, opt,
-                                                      useBokeh=True, ax=None):
+    mintime, maxtime, minplot, binsize_occur, barpad, colorby, fixedheight,
+                                                 opt, useBokeh=True, ax=None):
     """
     Creates subplot for family occurrence.
     
@@ -841,8 +851,8 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
         Maximum time to plot as matplotlib date.
     minplot : int
         Minimum number of members in a family to include.
-    binsize : float
-        Width (in days) of histogram time bin.
+    binsize_occur : float
+        Width (in days) of time bins for occurrence plot histogram.
     barpad : float
         Horizontal padding for hover and arrows (usually ~1% of window range).
     colorby : str
@@ -901,16 +911,17 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
         
         # Create histogram of events/hour
         hist, h = np.histogram(rtimes[members], bins=np.arange(min(
-            rtimes[members]), max(rtimes[members]+binsize), binsize))
+            rtimes[members]), max(rtimes[members]+binsize_occur),
+            binsize_occur))
         if useBokeh:
             d1 = matplotlib.dates.num2date(h[np.where(hist>0)])
-            d2 = matplotlib.dates.num2date(h[np.where(hist>0)]+binsize)
+            d2 = matplotlib.dates.num2date(h[np.where(hist>0)]+binsize_occur)
         else:
             d1 = h[np.where(hist>0)]
         
         if colorby is 'rate':
             histlog = np.log10(hist[hist>0])
-            if binsize >= 1:
+            if binsize_occur >= 1:
                 ind = [int(min(255,255*(i/3))) for i in histlog]
             else:
                 ind = [int(min(255,255*(i/2))) for i in histlog]
@@ -921,8 +932,8 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
             # Loop through bins to get summed fi
             for i in range(len(hist)):
                 # Find indicies of rtimes[members] within bins
-                idxs = np.where(np.logical_and(rtimes[members]>=h[i],
-                                               rtimes[members]<h[i]+binsize))
+                idxs = np.where(np.logical_and(rtimes[members] >= h[i],
+                                      rtimes[members] < h[i] + binsize_occur))
                 # Sum fi for those events
                 fisum[i] = np.sum(fi[members[idxs]])
             # Convert to mean fi
@@ -988,14 +999,14 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
                     # Potentially slow if many patches
                     for i in range(len(d1)):
                         x = matplotlib.dates.num2date(np.array(d1)[i])
-                        w = datetime.timedelta(binsize)
+                        w = datetime.timedelta(binsize_occur)
                         if (x >= matplotlib.dates.num2date(mintime)) and (
                             x <= matplotlib.dates.num2date(maxtime)):
                             ax.add_patch(matplotlib.patches.Rectangle((x,
                                 n - 0.3), w,0.6, facecolor=colors[i],
                                 edgecolor=None, fill=True))
                             if x+w > matplotlib.dates.num2date(x2):
-                                x2 = np.array(d1)[i]+binsize
+                                x2 = np.array(d1)[i] + binsize_occur
                 
                 # Add label
                 if useBokeh:
@@ -1062,10 +1073,11 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
         
         if colorby is 'rate':
                 color_bar = ColorBar(color_mapper=determine_color_mapper(
-                    binsize), ticker=LogTicker(), border_line_color='#eeeeee',
-                    location=(7,cloc1), orientation='horizontal', width=150,
-                    height=15, title='Events per {}'.format(
-                    determine_legend_text(binsize)), padding=15,
+                    binsize_occur), ticker=LogTicker(),
+                    border_line_color='#eeeeee', location=(7,cloc1),
+                    orientation='horizontal', width=150, height=15,
+                    title='Events per {}'.format(
+                    determine_legend_text(binsize_occur)), padding=15,
                     major_tick_line_alpha=0,
                     formatter=LogTickFormatter(min_exponent=4))
         elif colorby is 'fi':
@@ -1083,14 +1095,14 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
         return ax
 
 
-def determine_legend_text(binsize):
+def determine_legend_text(binsize_occur):
     """
     Determines legend wording based on bin size.
     
     Parameters
     ----------
-    binsize : float
-        Width (in days) of histogram time bin.
+    binsize_occur : float
+        Width (in days) of time bins for occurrence plot histogram.
     
     Returns
     -------
@@ -1098,28 +1110,28 @@ def determine_legend_text(binsize):
         Formatted string for legend.
     """
     
-    if binsize == 1/24:
+    if binsize_occur == 1/24:
         legtext = 'Hour'
-    elif binsize == 1:
+    elif binsize_occur == 1:
         legtext = 'Day'
-    elif binsize == 7:
+    elif binsize_occur == 7:
         legtext = 'Week'
-    elif binsize < 2:
-        legtext = '{} Hours'.format(binsize*24)
+    elif binsize_occur < 2:
+        legtext = '{} Hours'.format(binsize_occur*24)
     else:
-        legtext = '{} Days'.format(binsize)
+        legtext = '{} Days'.format(binsize_occur)
     
     return legtext
 
 
-def determine_color_mapper(binsize):
+def determine_color_mapper(binsize_occur):
     """
     Determines logarithmic color map for occurrence plot based on bin size.
     
     Parameters
     ----------
-    binsize : float
-        Width (in days) of histogram time bin.
+    binsize_occur : float
+        Width (in days) of time bins for occurrence plot histogram.
     
     Returns
     -------
@@ -1130,7 +1142,7 @@ def determine_color_mapper(binsize):
     colormap = matplotlib.cm.get_cmap('YlOrRd')
     bokehpalette = [matplotlib.colors.rgb2hex(m) for m in colormap(
         np.arange(colormap.N)[::-1])]
-    if binsize >= 1:
+    if binsize_occur >= 1:
         color_mapper = LogColorMapper(palette=bokehpalette, low=1, high=1000)
     else:
         color_mapper = LogColorMapper(palette=bokehpalette, low=1, high=100)
@@ -1284,7 +1296,7 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
     tmax : float
         Maximum time on timeline axes as matplotlib date (0 for default tmax).
     binsize : float
-        Width (in days) of histogram time bin.
+        Width (in days) of both rate and occurrence histogram time bins.
     minmembers : int
         Minimum number of members for a family to be included in occurrence
         timeline.
@@ -1297,6 +1309,10 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
     opt : Options object
         Describes the run parameters.
     """
+    
+    # !!! Add functionality to separate binsizes
+    binsize_hist = binsize
+    binsize_occur = binsize
     
     # !!! This variable technically still needs the windowStart added to it
     # !!! Same for alltrigs needing opt.ptrig...
@@ -1333,8 +1349,8 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
     # Hack a reference axis
     figref = plt.figure(figsize=(9,1))
     axref = figref.add_subplot(1,1,1)
-    axref = subplot_rate(alltrigs, rtimes, binsize, mintime, maxtime, opt,
-        useBokeh=False, ax=axref)
+    axref = subplot_rate(alltrigs, rtimes, binsize_hist, mintime, maxtime,
+        opt, useBokeh=False, ax=axref)
     
     fig = plt.figure(figsize=(9, figheight))
     
@@ -1345,8 +1361,8 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
             ### Rate ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
-            ax = subplot_rate(alltrigs, rtimes, binsize, mintime, maxtime,
-                opt, useBokeh=False, ax=ax)
+            ax = subplot_rate(alltrigs, rtimes, binsize_hist, mintime,
+                maxtime, opt, useBokeh=False, ax=ax)
             pnum = pnum + 1
         
         elif p == 'fi':
@@ -1363,9 +1379,10 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
                 sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
             ax = subplot_occurrence(alltrigs, rtimes, famstarts, longevity,
-                fi, ftable, mintime, maxtime, minmembers, binsize, barpad,
-                'rate', True, opt, useBokeh=False, ax=ax)
-            add_pdf_colorbar(fig, figheight, pnum, nsub, 'rate', binsize, opt)
+                fi, ftable, mintime, maxtime, minmembers, binsize_occur,
+                barpad, 'rate', True, opt, useBokeh=False, ax=ax)
+            add_pdf_colorbar(fig, figheight, pnum, nsub, 'rate',
+                binsize_occur, opt)
             pnum = pnum + occurheight
         
         elif p == 'occurrencefi':
@@ -1374,9 +1391,10 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
                 sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
             ax = subplot_occurrence(alltrigs, rtimes, famstarts, longevity,
-                fi, ftable, mintime, maxtime, minmembers, binsize, barpad,
-                'fi', True, opt, useBokeh=False, ax=ax)
-            add_pdf_colorbar(fig, figheight, pnum, nsub, 'fi', binsize, opt)
+                fi, ftable, mintime, maxtime, minmembers, binsize_occur,
+                barpad, 'fi', True, opt, useBokeh=False, ax=ax)
+            add_pdf_colorbar(fig, figheight, pnum, nsub, 'fi',
+                binsize_occur, opt)
             pnum = pnum + occurheight
         
         elif p == 'longevity':
@@ -1396,7 +1414,7 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
     plt.close(fig)
 
 
-def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize, opt):
+def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize_occur, opt):
     """
     Adds a colorbar to PDF occurrence plots.
     
@@ -1412,8 +1430,8 @@ def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize, opt):
         Total number of subplots,
     colorby : str
         Determines colormap to use ('rate' or 'fi')
-    binsize : float
-        Width (in days) of histogram time bin.
+    binsize_occur : float
+        Width (in days) of time bins for occurrence plot histogram.
     opt : Options object
         Describes the run parameters.
     """
@@ -1422,8 +1440,8 @@ def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize, opt):
     bottom = (nsub-pnum)/nsub - 0.9/figheight
     cax = fig.add_axes([0.1, bottom, 0.2, 0.2/figheight])
     if colorby is 'rate':
-        cax.set_title('Events per {}'.format(determine_legend_text(binsize)),
-            loc='left', style='italic')
+        cax.set_title('Events per {}'.format(
+            determine_legend_text(binsize_occur)), loc='left', style='italic')
     else:
         cax.set_title('Mean Frequency Index', loc='left', style='italic')
     cax.get_yaxis().set_visible(False)
@@ -1432,7 +1450,7 @@ def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize, opt):
     if colorby is 'rate':
         cax.imshow(gradient, aspect='auto', cmap='YlOrRd_r',
             interpolation='bilinear')
-        if binsize >= 1:
+        if binsize_occur >= 1:
             cax.set_xticks((0,333.3,666.6,1000))
             cax.set_xticklabels(('1','10','100','1000'))
         else:
@@ -1469,12 +1487,15 @@ def add_pdf_annotations(ax, mintime, maxtime, opt):
     """
     
     if opt.anotfile != '':
-        df = pd.read_csv(opt.anotfile)
-        for row in df.itertuples():
-            plotdate = matplotlib.dates.date2num(np.datetime64(row[1]))
+        annotations = pd.read_csv(opt.anotfile)
+        for a in range(len(annotations)):
+            plotdate = matplotlib.dates.date2num(np.datetime64(
+                annotations['Time'][a]))
             if (plotdate >= mintime) and (plotdate <= maxtime):
-                ax.axvline(plotdate, color=row[2], lw=row[3], ls=row[4],
-                    alpha=row[5], zorder=-1)
+                ax.axvline(plotdate, color=annotations['Color'][a],
+                    lw=annotations['Weight'][a],
+                    ls=annotations['Line Style'][a],
+                    alpha=annotations['Alpha'][a], zorder=-1)
     
     return ax
 
@@ -1987,8 +2008,8 @@ def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
     l = 0
     stalats = np.array(opt.stalats.split(',')).astype(float)
     stalons = np.array(opt.stalons.split(',')).astype(float)
-    latc = np.mean(stalats)
-    lonc = np.mean(stalons)
+    latitude_center = np.mean(stalats)
+    longitude_center = np.mean(stalons)
     
     members = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     if opt.matchMax == 0 or opt.matchMax > len(members):
@@ -2203,7 +2224,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     
     # Read in annotation file (if it exists)
     if opt.anotfile != '':
-        df = pd.read_csv(opt.anotfile)
+        annotations = pd.read_csv(opt.anotfile)
     
     # Set up variables
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
@@ -2279,13 +2300,15 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o0.xaxis.axis_label = 'Date'
     o0.yaxis.axis_label = 'Counts'
     if opt.anotfile != '':
-        for row in df.itertuples():
-            spantime = (datetime.datetime.strptime(row[1]
+        for a in range(len(annotations)):
+            spantime = (datetime.datetime.strptime(annotations['Time'][a]
                 ,'%Y-%m-%dT%H:%M:%S')-datetime.datetime(
                 1970, 1, 1)).total_seconds()
             o0.add_layout(Span(location=spantime*1000, dimension='height',
-                line_color=row[2], line_width=row[3], line_dash=row[4],
-                line_alpha=row[5]))
+                line_color=annotations['Color'][a],
+                line_width=annotations['Weight'][a],
+                line_dash=annotations['Line Style'][a],
+                line_alpha=annotations['Alpha'][a]))
     if opt.nsta <= 8:
         palette = all_palettes['YlOrRd'][9]
     else:
@@ -2308,13 +2331,15 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o1.xaxis.axis_label = 'Date'
     o1.yaxis.axis_label = 'Interval (hr)'
     if opt.anotfile != '':
-        for row in df.itertuples():
-            spantime = (datetime.datetime.strptime(row[1]
+        for a in range(len(annotations)):
+            spantime = (datetime.datetime.strptime(annotations['Time'][a]
                 ,'%Y-%m-%dT%H:%M:%S')-datetime.datetime(
                 1970, 1, 1)).total_seconds()
-            o1.add_layout(Span(location=spantime*1000, dimension='height',
-                line_color=row[2], line_width=row[3], line_dash=row[4],
-                line_alpha=row[5]))
+            o0.add_layout(Span(location=spantime*1000, dimension='height',
+                line_color=annotations['Color'][a],
+                line_width=annotations['Weight'][a],
+                line_dash=annotations['Line Style'][a],
+                line_alpha=annotations['Alpha'][a]))
     o1.circle(matplotlib.dates.num2date(catalog[1:]), spacing, color='red',
         line_alpha=0, size=4, fill_alpha=0.5)
     
@@ -2327,13 +2352,15 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o2.xaxis.axis_label = 'Date'
     o2.yaxis.axis_label = 'CCC'
     if opt.anotfile != '':
-        for row in df.itertuples():
-            spantime = (datetime.datetime.strptime(row[1]
+        for a in range(len(annotations)):
+            spantime = (datetime.datetime.strptime(annotations['Time'][a]
                 ,'%Y-%m-%dT%H:%M:%S')-datetime.datetime(
                 1970, 1, 1)).total_seconds()
-            o2.add_layout(Span(location=spantime*1000, dimension='height',
-                line_color=row[2], line_width=row[3], line_dash=row[4],
-                line_alpha=row[5]))
+            o0.add_layout(Span(location=spantime*1000, dimension='height',
+                line_color=annotations['Color'][a],
+                line_width=annotations['Weight'][a],
+                line_dash=annotations['Line Style'][a],
+                line_alpha=annotations['Alpha'][a]))
     o2.circle(matplotlib.dates.num2date(catalog), Cfull[np.where(
         famcat==core)[0],:][0], color='red', line_alpha=0, size=4,
         fill_alpha=0.5)
@@ -2387,14 +2414,14 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     else:
         plt.title('Stored Correlation Matrix', fontweight='bold')
         if opt.anotfile!='':
-            for anot in range(len(df)):
+            for a in range(len(annotations)):
                 hloc = np.interp(matplotlib.dates.date2num(
-                    pd.to_datetime(df['Time'][anot])),
+                    pd.to_datetime(annotations['Time'][a])),
                     startTimeMPL[fam][catalogind], np.array(range(len(fam))))
                 if hloc!=0:
                     ax1.axhline(np.floor(hloc)+0.5,color='k',
-                        linewidth=df['Weight'][anot]/2.,
-                        linestyle=df['Line Type'][anot])
+                        linewidth=annotations['Weight'][a]/2.,
+                        linestyle=annotations['Line Type'][a])
     ax2 = fig.add_subplot(1,2,2)
     cax2 = ax2.imshow(Cfull, vmin=opt.cmin-0.05, cmap='Spectral_r')
     cbar2 = plt.colorbar(cax2, ticks=np.arange(opt.cmin-0.05,1.05,0.05))
@@ -2406,14 +2433,14 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     else:
         plt.title('Full Correlation Matrix', fontweight='bold')
         if opt.anotfile!='':
-            for anot in range(len(df)):
+            for a in range(len(annotations)):
                 hloc = np.interp(matplotlib.dates.date2num(
-                    pd.to_datetime(df['Time'][anot])),
+                    pd.to_datetime(annotations['Time'][a])),
                     startTimeMPL[fam][catalogind], np.array(range(len(fam))))
                 if hloc!=0:
                     ax2.axhline(np.floor(hloc)+0.5,color='k',
-                        linewidth=df['Weight'][anot]/2.,
-                        linestyle=df['Line Type'][anot])
+                        linewidth=annotations['Weight'][a]/2.,
+                        linestyle=annotations['Line Type'][a])
     plt.tight_layout()
     plt.savefig('{}{}/reports/{}-reportcmat.png'.format(opt.outputPath,
                                                 opt.groupName, fnum), dpi=100)
@@ -2436,15 +2463,15 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
                 plt.title('{0}.{1}'.format(opt.station.split(',')[sta],
                           opt.channel.split(',')[sta]), fontweight='bold')
                 if opt.anotfile!='':
-                    for anot in range(len(df)):
+                    for a in range(len(annotations)):
                         hloc = np.interp(matplotlib.dates.date2num(
-                            pd.to_datetime(df['Time'][anot])),
+                            pd.to_datetime(annotations['Time'][a])),
                             startTimeMPL[fam][catalogind],np.array(
                                 range(len(fam))))
                         if hloc!=0:
                             ax.axhline(np.floor(hloc)+0.5,color='k',
-                                linewidth=df['Weight'][anot]/2.,
-                                linestyle=df['Line Type'][anot])
+                                linewidth=annotations['Weight'][a]/2.,
+                                linestyle=annotations['Line Type'][a])
             n = n+1
             waveform = r['waveform'][sta*opt.wshape:(sta+1)*opt.wshape]
             tmp = waveform[max(0, windowStart[famcat[n]]-int(
