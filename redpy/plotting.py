@@ -1563,19 +1563,19 @@ def create_family_images(rtable, ftable, ctable, opt):
     id2 = ctable.cols.id2[:]
     ccc = ctable.cols.ccc[:]
     
-    for cnum in range(ftable.attrs.nClust):
+    for fnum in range(ftable.attrs.nClust):
         
-        if ftable.cols.printme[cnum] != 0:
+        if ftable.cols.printme[fnum] != 0:
             
             assemble_family_image(rtable, ftable, ctable, startTimeMPL,
                 windowAmp, windowStart, fi, ids, id1, id2, ccc, 'png', 100,
-                cnum, 0, 0, opt)
+                fnum, 0, 0, opt)
 
 
 def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
-    windowStart, fi, ids, id1, id2, ccc, oformat, dpi, cnum, tmin, tmax, opt):
+    windowStart, fi, ids, id1, id2, ccc, oformat, dpi, fnum, tmin, tmax, opt):
     """
-    Creates a multi-paneled family plot for the specified family 'cnum'.
+    Creates a multi-paneled family plot for the specified family 'fnum'.
     
     This function allows some flexibility in the output format
     (e.g., .png, .pdf) as well as resolution. Many inputs are columns from
@@ -1619,7 +1619,7 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
         output file format (e.g., 'png' or 'pdf')
     dpi : int
         Dots per inch resolution of raster file.
-    cnum : int
+    fnum : int
         Family number to plot.
     tmin : 
         Minimum time on timeline axes as matplotlib date (0 for default tmin).
@@ -1629,8 +1629,8 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
         Describes the run parameters.
     """
     
-    fam = np.fromstring(ftable[cnum]['members'], dtype=int, sep=' ')
-    core = ftable[cnum]['core']
+    fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
+    core = ftable[fnum]['core']
     
     # Station names
     stas = opt.station.split(',')
@@ -1666,7 +1666,7 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
                 data[n, :ewarr.shape[0]] = ewarr
             except (ValueError, Exception):
                 print('Error in printing family {}, moving on...'.format(
-                                                                        cnum))
+                                                                        fnum))
         if len(fam) > 12:
             ax1.imshow(data, aspect='auto', vmin=-1, vmax=1, cmap='RdBu',
                 interpolation='nearest', extent=[
@@ -1855,7 +1855,7 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     
     plt.tight_layout()
     plt.savefig('{}{}/clusters/fam{}.{}'.format(opt.outputPath, opt.groupName,
-        cnum, oformat), dpi=dpi)
+        fnum, oformat), dpi=dpi)
     plt.close(fig)
 
 
@@ -1887,34 +1887,34 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
     printme = ftable.cols.printme[:]
     lastprint = ftable.cols.lastprint[:]
     
-    for cnum in range(ftable.attrs.nClust):
+    for fnum in range(ftable.attrs.nClust):
         
-        fam = np.fromstring(fmembers[cnum], dtype=int, sep=' ')
-        core = fcores[cnum]
+        fam = np.fromstring(fmembers[fnum], dtype=int, sep=' ')
+        core = fcores[fnum]
         
         # Prep catalog
         catalogind = np.argsort(startTimeMPL[fam])
         catalog = startTimeMPL[fam][catalogind]
-        longevity = ftable[cnum]['longevity']
+        longevity = ftable[fnum]['longevity']
         spacing = np.diff(catalog)*24
         minind = fam[catalogind[0]]
         maxind = fam[catalogind[-1]]
         coreind = np.where(fam==core)[0][0]
         
-        if printme[cnum] != 0 or lastprint[cnum] != cnum:
-            if cnum>0:
+        if printme[fnum] != 0 or lastprint[fnum] != fnum:
+            if fnum>0:
                 prev = "<a href='{0}.html'>&lt; Cluster {0}</a>".format(
-                    cnum-1)
+                    fnum-1)
             else:
                 prev = " "
-            if cnum<len(ftable)-1:
+            if fnum<len(ftable)-1:
                 next = "<a href='{0}.html'>Cluster {0} &gt;</a>".format(
-                    cnum+1)
+                    fnum+1)
             else:
                 next = " "
             # Now write a simple HTML file to show image and catalog
             with open('{}{}/clusters/{}.html'.format(opt.outputPath,
-                    opt.groupName, cnum), 'w') as f:
+                    opt.groupName, fnum), 'w') as f:
                 f.write("""
                 <html><head><title>{1} - Cluster {0}</title>
                 </head><style>
@@ -1935,7 +1935,7 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
                     Core event: {6}</br>
                     Last event: {4}</br>
                 <img src="fam{0}.png"></br>
-                """.format(cnum, opt.title, len(fam), (UTCDateTime(
+                """.format(fnum, opt.title, len(fam), (UTCDateTime(
                     startTime[minind]) + windowStart[
                     minind]/opt.samprate).isoformat(),
                     (UTCDateTime(startTime[maxind]) + windowStart[
@@ -1946,7 +1946,7 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
                     axis=1)),prev,next))
                 
                 if opt.checkComCat:
-                    match_external(windowAmp, ftable, cnum, f, startTime,
+                    match_external(windowAmp, ftable, fnum, f, startTime,
                         windowStart, external_catalogs, opt)
                 
                 f.write("""
@@ -1954,7 +1954,7 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
                 """)
 
 
-def match_external(windowAmp, ftable, cnum, f, startTime, windowStart,
+def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
                                                       external_catalogs, opt):
     """
     Checks repeater trigger times with arrival times from external catalog.
@@ -1966,7 +1966,7 @@ def match_external(windowAmp, ftable, cnum, f, startTime, windowStart,
         'windowAmp' column from rtable for single station.
     ftable : Table object
         Handle to the Families table.
-    cnum : int
+    fnum : int
         Family number to check.
     f : file handle
         HTML file to write to.
@@ -1990,7 +1990,7 @@ def match_external(windowAmp, ftable, cnum, f, startTime, windowStart,
     latc = np.mean(stalats)
     lonc = np.mean(stalons)
     
-    members = np.fromstring(ftable[cnum]['members'], dtype=int, sep=' ')
+    members = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     if opt.matchMax == 0 or opt.matchMax > len(members):
         order = np.argsort(startTime[members])
         matchstring = ('</br><b>ComCat matches (all events):</b></br>'
@@ -2144,9 +2144,9 @@ def match_external(windowAmp, ftable, cnum, f, startTime, windowStart,
                 localfound, np.mean(ldeps)))
             plt.tight_layout()
             plt.savefig('{}{}/clusters/map{}.png'.format(opt.outputPath,
-                opt.groupName, cnum), dpi=100)
+                opt.groupName, fnum), dpi=100)
             plt.close()
-            f.write('<img src="map{}.png"></br>'.format(cnum))
+            f.write('<img src="map{}.png"></br>'.format(fnum))
             
     else:
         
