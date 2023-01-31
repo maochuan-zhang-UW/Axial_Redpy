@@ -1264,7 +1264,7 @@ def determine_lines(mintime, maxtime, barpad, famstart, longev):
 
 ### PDF OVERVIEW ###
 
-def create_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
+def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
                                     minmembers, occurheight, plotformat, opt):
     """
     Generate a static PDF version of the overview plot for publication.

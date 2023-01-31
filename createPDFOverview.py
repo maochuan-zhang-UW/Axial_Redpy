@@ -111,7 +111,7 @@ else:
     plotformat = 'eqrate,fi,occurrence,longevity'
 
 if args.verbose: print("Creating overview.pdf in main output directory...")
-redpy.plotting.create_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize, minmembers,
+redpy.plotting.assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize, minmembers,
     occurheight, plotformat, opt)
 
 if args.verbose: print("Closing table...")
