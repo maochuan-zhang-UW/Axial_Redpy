@@ -523,19 +523,8 @@ def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
         p.x_range = plots[0].x_range
     
     # Add annotations
-    if opt.anotfile != '':
-        annotations = pd.read_csv(opt.anotfile)
-        for p in plots:
-            for a in range(len(annotations)):
-                spantime = (datetime.datetime.strptime(annotations['Time'][a],
-                    '%Y-%m-%dT%H:%M:%S')-datetime.datetime(1970,1,1)
-                    ).total_seconds()
-                p.add_layout(Span(location=spantime*1000, dimension='height',
-                    line_color=annotations['Color'][a],
-                    line_width=annotations['Weight'][a],
-                    line_dash=annotations['Line Type'][a],
-                    line_alpha=annotations['Alpha'][a],
-                    level='underlay'))
+    for p in plots:
+        p = add_bokeh_annotations(p, opt)
     
     # Create output and save
     gridplot_items = [[Div(text=divtitle, width=1000, margin=(-40,5,-10,5))]]
@@ -1468,7 +1457,7 @@ def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize_occur, opt):
 
 def add_pdf_annotations(ax, mintime, maxtime, opt):
     """
-    Plots annotations on PDF figure.
+    Plots annotations on PDF overview figure.
     
     Parameters
     ----------
@@ -1487,15 +1476,95 @@ def add_pdf_annotations(ax, mintime, maxtime, opt):
     """
     
     if opt.anotfile != '':
+        
         annotations = pd.read_csv(opt.anotfile)
+        
         for a in range(len(annotations)):
+            
             plotdate = matplotlib.dates.date2num(np.datetime64(
                 annotations['Time'][a]))
+            
+            # If within bounds, add to figure
             if (plotdate >= mintime) and (plotdate <= maxtime):
                 ax.axvline(plotdate, color=annotations['Color'][a],
                     lw=annotations['Weight'][a],
-                    ls=annotations['Line Style'][a],
+                    ls=annotations['Line Type'][a],
                     alpha=annotations['Alpha'][a], zorder=-1)
+    
+    return ax
+
+
+def add_bokeh_annotations(fig, opt):
+    """
+    Plots annotations on bokeh figure.
+    
+    Parameters
+    ----------
+    fig : Figure object
+        Handle to the bokeh figure.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    fig : Figure object
+    """
+    
+    if opt.anotfile != '':
+        
+        annotations = pd.read_csv(opt.anotfile)
+        
+        for a in range(len(annotations)):
+            
+            # Deal with bokeh's unusual datetime axis
+            spantime = (datetime.datetime.strptime(annotations['Time'][a]
+                ,'%Y-%m-%dT%H:%M:%S')-datetime.datetime(
+                1970, 1, 1)).total_seconds()
+            
+            # Add to figure
+            fig.add_layout(Span(location=spantime*1000, dimension='height',
+                line_color=annotations['Color'][a],
+                line_width=annotations['Weight'][a],
+                line_dash=annotations['Line Type'][a],
+                line_alpha=annotations['Alpha'][a]))
+    
+    return fig
+
+
+def add_horizontal_annotations(ax, evtimes, opt):
+    """
+    Plots annotations horizontally across an image (e.g., waveforms, matrix).
+    
+    Parameters
+    ----------
+    ax : Axis object
+        Handle to the matplotlib axis.
+    evtimes : float ndarray
+        Sorted array of event times plotted on each row of the image.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    ax : Axis object
+    """
+    
+    if opt.anotfile!='':
+    
+        annotations = pd.read_csv(opt.anotfile)
+    
+        for a in range(len(annotations)):
+            
+            # Translate from date to vertical position in the image
+            vertical_location = np.interp(matplotlib.dates.date2num(
+                pd.to_datetime(annotations['Time'][a])),
+                evtimes, np.array(range(len(evtimes))))
+            
+            # Plot if within the time span of the image
+            if vertical_location != 0:
+                ax.axhline(np.floor(vertical_location)+0.5, color='k',
+                           linewidth=annotations['Weight'][a]/2.,
+                           linestyle=annotations['Line Type'][a])
     
     return ax
 
@@ -2321,16 +2390,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o0.grid.grid_line_alpha = 0.3
     o0.xaxis.axis_label = 'Date'
     o0.yaxis.axis_label = 'Counts'
-    if opt.anotfile != '':
-        for a in range(len(annotations)):
-            spantime = (datetime.datetime.strptime(annotations['Time'][a]
-                ,'%Y-%m-%dT%H:%M:%S')-datetime.datetime(
-                1970, 1, 1)).total_seconds()
-            o0.add_layout(Span(location=spantime*1000, dimension='height',
-                line_color=annotations['Color'][a],
-                line_width=annotations['Weight'][a],
-                line_dash=annotations['Line Style'][a],
-                line_alpha=annotations['Alpha'][a]))
+    
     if opt.nsta <= 8:
         palette = all_palettes['YlOrRd'][9]
     else:
@@ -2352,16 +2412,6 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o1.grid.grid_line_alpha = 0.3
     o1.xaxis.axis_label = 'Date'
     o1.yaxis.axis_label = 'Interval (hr)'
-    if opt.anotfile != '':
-        for a in range(len(annotations)):
-            spantime = (datetime.datetime.strptime(annotations['Time'][a]
-                ,'%Y-%m-%dT%H:%M:%S')-datetime.datetime(
-                1970, 1, 1)).total_seconds()
-            o0.add_layout(Span(location=spantime*1000, dimension='height',
-                line_color=annotations['Color'][a],
-                line_width=annotations['Weight'][a],
-                line_dash=annotations['Line Style'][a],
-                line_alpha=annotations['Alpha'][a]))
     o1.circle(matplotlib.dates.num2date(catalog[1:]), spacing, color='red',
         line_alpha=0, size=4, fill_alpha=0.5)
     
@@ -2373,19 +2423,12 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o2.grid.grid_line_alpha = 0.3
     o2.xaxis.axis_label = 'Date'
     o2.yaxis.axis_label = 'CCC'
-    if opt.anotfile != '':
-        for a in range(len(annotations)):
-            spantime = (datetime.datetime.strptime(annotations['Time'][a]
-                ,'%Y-%m-%dT%H:%M:%S')-datetime.datetime(
-                1970, 1, 1)).total_seconds()
-            o0.add_layout(Span(location=spantime*1000, dimension='height',
-                line_color=annotations['Color'][a],
-                line_width=annotations['Weight'][a],
-                line_dash=annotations['Line Style'][a],
-                line_alpha=annotations['Alpha'][a]))
     o2.circle(matplotlib.dates.num2date(catalog), Cfull[np.where(
         famcat==core)[0],:][0], color='red', line_alpha=0, size=4,
         fill_alpha=0.5)
+    
+    for p in [o0, o1, o2]:
+        p = add_bokeh_annotations(p, opt)
     
     # Combine and save
     o = gridplot([[o0],[o1],[o2]])
@@ -2435,15 +2478,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
         plt.title('Stored Correlation Matrix (Ordered)', fontweight='bold')
     else:
         plt.title('Stored Correlation Matrix', fontweight='bold')
-        if opt.anotfile!='':
-            for a in range(len(annotations)):
-                hloc = np.interp(matplotlib.dates.date2num(
-                    pd.to_datetime(annotations['Time'][a])),
-                    startTimeMPL[fam][catalogind], np.array(range(len(fam))))
-                if hloc!=0:
-                    ax1.axhline(np.floor(hloc)+0.5,color='k',
-                        linewidth=annotations['Weight'][a]/2.,
-                        linestyle=annotations['Line Type'][a])
+        ax1 = add_horizontal_annotations(ax1, startTimeMPL[fam][catalogind],
+            opt)
     ax2 = fig.add_subplot(1,2,2)
     cax2 = ax2.imshow(Cfull, vmin=opt.cmin-0.05, cmap='Spectral_r')
     cbar2 = plt.colorbar(cax2, ticks=np.arange(opt.cmin-0.05,1.05,0.05))
@@ -2454,15 +2490,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
         plt.title('Full Correlation Matrix (Ordered)', fontweight='bold')
     else:
         plt.title('Full Correlation Matrix', fontweight='bold')
-        if opt.anotfile!='':
-            for a in range(len(annotations)):
-                hloc = np.interp(matplotlib.dates.date2num(
-                    pd.to_datetime(annotations['Time'][a])),
-                    startTimeMPL[fam][catalogind], np.array(range(len(fam))))
-                if hloc!=0:
-                    ax2.axhline(np.floor(hloc)+0.5,color='k',
-                        linewidth=annotations['Weight'][a]/2.,
-                        linestyle=annotations['Line Type'][a])
+        ax2 = add_horizontal_annotations(ax2, startTimeMPL[fam][catalogind],
+            opt)
     plt.tight_layout()
     plt.savefig('{}{}/reports/{}-reportcmat.png'.format(opt.outputPath,
                                                 opt.groupName, fnum), dpi=100)
@@ -2484,16 +2513,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
             else:
                 plt.title('{0}.{1}'.format(opt.station.split(',')[sta],
                           opt.channel.split(',')[sta]), fontweight='bold')
-                if opt.anotfile!='':
-                    for a in range(len(annotations)):
-                        hloc = np.interp(matplotlib.dates.date2num(
-                            pd.to_datetime(annotations['Time'][a])),
-                            startTimeMPL[fam][catalogind],np.array(
-                                range(len(fam))))
-                        if hloc!=0:
-                            ax.axhline(np.floor(hloc)+0.5,color='k',
-                                linewidth=annotations['Weight'][a]/2.,
-                                linestyle=annotations['Line Type'][a])
+                ax = add_horizontal_annotations(ax,
+                                           startTimeMPL[fam][catalogind], opt)
             n = n+1
             waveform = r['waveform'][sta*opt.wshape:(sta+1)*opt.wshape]
             tmp = waveform[max(0, windowStart[famcat[n]]-int(
