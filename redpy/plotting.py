@@ -1162,33 +1162,6 @@ def determine_color_mapper_fi(opt):
     return color_mapper
 
 
-def family_hover_tool():
-    """
-    Generates HoverTool for family hover preview.
-    
-    Returns
-    -------
-    hover : HoverTool object
-    """
-    
-    hover = HoverTool(
-        tooltips="""
-        <div>
-        <div>
-            <img src="./clusters/@famnum.png"
-                style="height: 100px; width: 500px;
-                vertical-align: middle;"/>
-            <span style="font-size: 9px;
-                font-family: Helvetica;">Cluster ID: </span>
-            <span style="font-size: 12px;
-                font-family: Helvetica;">@famnum</span>
-        </div>
-        </div>
-        """, names=["patch"])
-    
-    return hover
-
-
 def determine_lines(mintime, maxtime, barpad, famstart, longev):
     """
     Determines arrows and line positions for occurrence/longevity timelines.
@@ -1260,6 +1233,33 @@ def determine_lines(mintime, maxtime, barpad, famstart, longev):
         x2 = maxtime+barpad
     
     return add_line, add_larrow, add_rarrow, x1, x2
+
+
+def family_hover_tool():
+    """
+    Generates HoverTool for family hover preview.
+    
+    Returns
+    -------
+    hover : HoverTool object
+    """
+    
+    hover = HoverTool(
+        tooltips="""
+        <div>
+        <div>
+            <img src="./clusters/@famnum.png"
+                style="height: 100px; width: 500px;
+                vertical-align: middle;"/>
+            <span style="font-size: 9px;
+                font-family: Helvetica;">Cluster ID: </span>
+            <span style="font-size: 12px;
+                font-family: Helvetica;">@famnum</span>
+        </div>
+        </div>
+        """, names=["patch"])
+    
+    return hover
 
 
 ### PDF OVERVIEW ###
