@@ -893,6 +893,9 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
         np.arange(colormap.N)[::-1])]
     
     n = 0
+    xs = []
+    ys = []
+    famnum = []
     for clustNum in range(ftable.attrs.nClust):
         
         members = np.fromstring(ftable[clustNum]['members'], dtype=int,
@@ -1011,29 +1014,16 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
                 if useBokeh:
                     # Build source for hover patches
                     fnum = clustNum
-                    if n == 0:
-                        xs = [[matplotlib.dates.num2date(max(min(
-                            rtimes[members]), mintime)-barpad),
-                            matplotlib.dates.num2date(max(min(
-                            rtimes[members]), mintime) - barpad),
-                            matplotlib.dates.num2date(max(
-                            rtimes[members])+barpad),
-                            matplotlib.dates.num2date(max(
-                            rtimes[members])+barpad)]]
-                        ys = [[n-0.5, n+0.5, n+0.5, n-0.5]]
-                        famnum = [[fnum]]
-                    else:
-                        xs.append([
-                            matplotlib.dates.num2date(max(min(
-                            rtimes[members]), mintime) - barpad),
-                            matplotlib.dates.num2date(max(min(
-                            rtimes[members]), mintime) - barpad),
-                            matplotlib.dates.num2date(
-                            max(rtimes[members]) + barpad),
-                            matplotlib.dates.num2date(max(
-                            rtimes[members]) + barpad)])
-                        ys.append([n-0.5, n+0.5, n+0.5, n-0.5])
-                        famnum.append([fnum])
+                    xs.append([matplotlib.dates.num2date(max(min(
+                                   rtimes[members]), mintime) - barpad),
+                               matplotlib.dates.num2date(max(min(
+                                   rtimes[members]), mintime) - barpad),
+                               matplotlib.dates.num2date(
+                                   max(rtimes[members]) + barpad),
+                               matplotlib.dates.num2date(max(
+                                   rtimes[members]) + barpad)])
+                    ys.append([n-0.5, n+0.5, n+0.5, n-0.5])
+                    famnum.append([fnum])
                 
                 n = n+1
     
@@ -1605,10 +1595,10 @@ def create_core_images(rtable, ftable, opt):
             # Prepare waveform for plotting
             waveform = r['waveform'][opt.printsta*opt.wshape:(
                                                    opt.printsta+1)*opt.wshape]
-            tmp = waveform[max(0, r['windowStart']-int(
+            data = waveform[max(0, r['windowStart']-int(
                 opt.ptrig*opt.samprate)):min(opt.wshape,
                 r['windowStart']+int(opt.atrig*opt.samprate))]
-            data = tmp[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
+            data = data[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
                 opt.ptrig*opt.samprate + opt.winlen*1.5)]/r['windowAmp'][
                                                                  opt.printsta]
             # Clip amplitudes
@@ -1784,8 +1774,7 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
                 interpolation='nearest', extent=[
                 -1*opt.winlen*0.5/opt.samprate, opt.winlen*1.5/opt.samprate,
                                                                n + 0.5, -0.5])
-            tvec = [-1*opt.winlen*0.5/opt.samprate,
-                opt.winlen*1.5/opt.samprate]
+            tvec = [-0.5*opt.winlen/opt.samprate, 1.5*opt.winlen/opt.samprate]
         else:
             tvec = np.arange(
                 -opt.winlen*0.5/opt.samprate,opt.winlen*1.5/opt.samprate,
@@ -2178,7 +2167,7 @@ def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
                             anames[bestmatch[1]],np.nanmin(found),
                             poststring[r])
                     
-                    if r == 0:
+                    if r == 0: # Local catalog
                         local_lats = np.append(local_lats,
                                                catmatch['Latitude'])
                         local_lons = np.append(local_lons,
@@ -2635,22 +2624,24 @@ def create_junk_images(jtable, opt):
     printJunk(jtable, opt)
     
     for r in jtable:
+        
+        data = np.array([])
+        
         for s in range(opt.nsta):
             
             # Prepare waveform for each channel individually
             waveform = r['waveform'][s*opt.wshape:(s+1)*opt.wshape]
-            tmp = waveform[r['windowStart']:r['windowStart']+opt.wshape]
-            datc = tmp[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
+            data_s = waveform[r['windowStart']:r['windowStart']+opt.wshape]
+            data_s = data_s[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
                 opt.ptrig*opt.samprate + opt.winlen*1.5)]
-            datc = datc/np.max(np.abs(datc)+1.0/1000)
+            data_s = data_s/np.max(np.abs(data_s)+1.0/1000)
+            
             # Clip amplitudes
-            datc[datc>1] = 1
-            datc[datc<-1] = -1
+            data_s[data_s>1] = 1
+            data_s[data_s<-1] = -1
+            
             # Concatenate all channels together
-            if s == 0:
-                data = datc
-            else:
-                data = np.append(data,datc)
+            data = np.append(data, data_s)
         
         wiggle_plot(data, (15, 0.5), '{}{}/junk/{}-{}.png'.format(
             opt.outputPath, opt.groupName, (UTCDateTime(r['startTime']) + \
