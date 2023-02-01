@@ -24,7 +24,7 @@ from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 from matplotlib.transforms import offset_copy
 from obspy import UTCDateTime
 from obspy.clients.fdsn.client import Client
-from obspy.geodetics import locations2degrees
+from obspy.geodetics import locations2degrees, kilometers2degrees
 from obspy.taup import TauPyModel
 from tables import *
 
@@ -2121,10 +2121,9 @@ def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
     prestring = ['', '<div style="color:red">', '<div style="color:red">']
     poststring = ['</br>', '</div>', '</div>']
     nfound = 0
-    localfound = 0
-    llats = np.array([])
-    llons = np.array([])
-    ldeps = np.array([])
+    local_lats = np.array([])
+    local_lons = np.array([])
+    local_deps = np.array([])
     
     for m in members[order]:
         
@@ -2180,10 +2179,12 @@ def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
                             poststring[r])
                     
                     if r == 0:
-                        localfound += 1
-                        llats = np.append(llats, catmatch['Latitude'])
-                        llons = np.append(llons, catmatch['Longitude'])
-                        ldeps = np.append(ldeps, catmatch['Depth/km'])
+                        local_lats = np.append(local_lats,
+                                               catmatch['Latitude'])
+                        local_lons = np.append(local_lons,
+                                               catmatch['Longitude'])
+                        local_deps = np.append(local_deps,
+                                               catmatch['Depth/km'])
                     
                     # Overwrite that match with NaNs so we get next best
                     found[bestmatch[0],:] = np.nan
@@ -2195,69 +2196,16 @@ def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
     
     if nfound > 0:
         
-        matchstring+='</div>'
-        matchstring+='Total potential matches: {}</br>'.format(nfound)
-        matchstring+='Potential local matches: {}</br>'.format(localfound)
+        matchstring += '</div>'
+        matchstring += 'Total potential matches: {}</br>'.format(nfound)
+        matchstring += 'Potential local matches: {}</br>'.format(
+                                                              len(local_deps))
         
-        if localfound > 0:
+        if len(local_deps) > 0:
             
-            # Make map centered on seismicity
-            stamen_terrain = cimgt.StamenTerrain()
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 1, 1, projection=stamen_terrain.crs)
-            ax.set_extent([np.median(llons) - opt.locdeg/2, np.median(
-                llons) + opt.locdeg/2, np.median(llats) - opt.locdeg/4,
-                np.median(llats)+opt.locdeg/4], crs=ccrs.PlateCarree())
-            # Shaded terrain
-            ax.add_image(stamen_terrain, 11)
-            
-            # Set up ticks
-            ax.set_xticks(np.arange(np.floor(10*(
-                np.median(llons) - opt.locdeg/2))/10, np.ceil(10*(
-                np.median(llons) + opt.locdeg/2))/10,0.1),
-                crs=ccrs.PlateCarree())
-            ax.set_yticks(np.arange(np.floor(10*(
-                np.median(llats) - opt.locdeg/4))/10, np.ceil(10*(
-                np.median(llats) + opt.locdeg/4))/10, 0.1),
-                crs=ccrs.PlateCarree())
-            ax.set_extent([np.median(llons) - opt.locdeg/2, np.median(
-                llons) + opt.locdeg/2, np.median(
-                llats)-opt.locdeg/4, np.median(
-                llats)+opt.locdeg/4],
-                crs=ccrs.PlateCarree())
-            ax.xaxis.set_major_formatter(LongitudeFormatter())
-            ax.yaxis.set_major_formatter(LatitudeFormatter())
-            plt.yticks(rotation=90, va='center')
-            
-            # Seismicity in red (halo of white), stations open black triangles
-            ax.scatter(llons, llats, s=20, marker='o', color='white',
-                transform=ccrs.PlateCarree())
-            ax.scatter(llons, llats, s=5, marker='o', color='red',
-                transform=ccrs.PlateCarree())
-            ax.scatter(stalons, stalats, marker='^', color='k',
-                facecolors='None', transform=ccrs.PlateCarree())
-            
-            # 10 km scale bar
-            sbllon = 0.05*(opt.locdeg)+np.median(llons)-opt.locdeg/2
-            sbllat = 0.05*(opt.locdeg/2)+np.median(llats)-opt.locdeg/4
-            sbelon = sbllon + np.arctan2(np.sin(np.pi/2)*np.sin(
-                10./6378.)*np.cos(sbllat*np.pi/180.), np.cos(
-                10./6378.) - np.sin(sbllat*np.pi/180.)*np.sin(
-                sbllat*np.pi/180.))*180./np.pi
-            ax.plot((sbllon, sbelon), (sbllat,sbllat), 'k-',
-                transform=ccrs.PlateCarree(), lw=2)
-            geodetic_transform = ccrs.PlateCarree()._as_mpl_transform(ax)
-            text_transform = offset_copy(geodetic_transform, units='dots',
-                y=5)
-            ax.text((sbllon+sbelon)/2., sbllat, '10 km', ha='center',
-                transform=text_transform)
-            
-            plt.title('{} potential local matches (~{:3.1f} km depth)'.format(
-                localfound, np.mean(ldeps)))
-            plt.tight_layout()
-            plt.savefig('{}{}/clusters/map{}.png'.format(opt.outputPath,
-                opt.groupName, fnum), dpi=100)
-            plt.close()
+            create_local_map(local_lats, local_lons, local_deps,
+                '{}{}/clusters/map{}.png'.format(opt.outputPath,
+                opt.groupName, fnum), opt)
             f.write('<img src="map{}.png"></br>'.format(fnum))
             
     else:
@@ -2265,6 +2213,82 @@ def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
         matchstring+='No matches found</br></div>'
         
     f.write(matchstring)
+
+
+def create_local_map(local_lats, local_lons, local_deps, outfile, opt):
+    """
+    Makes map centered on local matches from external catalog.
+    
+    Parameters
+    ----------
+    local_lats : float ndarray
+        Latitudes of local events to be plotted.
+    local_lons : float ndarray
+        Longitudes of local events to be plotted.
+    local_deps : float ndarray
+        Depths of local events to be plotted.
+    outfile : str
+        Path and filename for saving the figure.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
+    stalats = np.array(opt.stalats.split(',')).astype(float)
+    stalons = np.array(opt.stalons.split(',')).astype(float)
+    
+    # Set basemap and projection
+    stamen_terrain = cimgt.StamenTerrain()
+    
+    extent = [np.median(local_lons) - opt.locdeg/2,
+              np.median(local_lons) + opt.locdeg/2,
+              np.median(local_lats) - opt.locdeg/4,
+              np.median(local_lats) + opt.locdeg/4]
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1, projection=stamen_terrain.crs)
+    ax.set_extent(extent, crs=ccrs.PlateCarree())
+    
+    # Shaded terrain background
+    ax.add_image(stamen_terrain, 11)
+    
+    # Set up ticks
+    ax.set_xticks(np.arange(np.floor(10*(extent[0]))/10,
+                     np.ceil(10*(extent[1]))/10, 0.1), crs=ccrs.PlateCarree())
+    ax.set_yticks(np.arange(np.floor(10*(extent[2]))/10,
+                     np.ceil(10*(extent[3]))/10, 0.1), crs=ccrs.PlateCarree())
+    ax.set_extent(extent, crs=ccrs.PlateCarree()) # Reset to fill image
+    ax.xaxis.set_major_formatter(LongitudeFormatter())
+    ax.yaxis.set_major_formatter(LatitudeFormatter())
+    plt.yticks(rotation=90, va='center')
+    
+    # Seismicity in red (halo of white), stations open black triangles
+    ax.scatter(local_lons, local_lats, s=20, marker='o',
+                color='white', transform=ccrs.PlateCarree())
+    ax.scatter(local_lons, local_lats, s=5, marker='o',
+                color='red', transform=ccrs.PlateCarree())
+    ax.scatter(stalons, stalats, marker='^', color='k',
+                facecolors='None', transform=ccrs.PlateCarree())
+    
+    # 10 km scale bar
+    scalebar_lat = 0.05*(opt.locdeg/2) + extent[2]
+    scalebar_lon_left = 0.05*(opt.locdeg) + extent[0]
+    # Convert to degrees longitude at the latitude of the bar
+    scalebar_len = kilometers2degrees(10) / np.cos(scalebar_lat * np.pi/180)
+    
+    # Plot and save
+    ax.plot((scalebar_lon_left, scalebar_lon_left + scalebar_len),
+            (scalebar_lat, scalebar_lat), 'k-',
+            transform=ccrs.PlateCarree(), lw=2)
+    geodetic_transform = ccrs.PlateCarree()._as_mpl_transform(ax)
+    text_transform = offset_copy(geodetic_transform, units='dots', y=5)
+    ax.text(scalebar_lon_left + scalebar_len/2,
+            scalebar_lat, '10 km', ha='center', transform=text_transform)
+    
+    plt.title('{} potential local matches (~{:3.1f} km depth)'.format(
+                                    len(local_deps), np.mean(local_deps)))
+    plt.tight_layout()
+    plt.savefig(outfile, dpi=100)
+    plt.close()
 
 
 def remove_old_html(oldnClust, newnClust, opt):
