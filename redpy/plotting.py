@@ -1575,6 +1575,7 @@ def create_core_images(rtable, ftable, opt):
         Describes the run parameters.
     """
     
+    # Deal with renaming files to reduce plotting time overhead
     for n in range(len(ftable))[::-1]:
         if ftable.cols.lastprint[n] != n and ftable.cols.printme[n] == 0:
             os.rename('{}{}/clusters/{}.png'.format(opt.outputPath,
@@ -1586,27 +1587,67 @@ def create_core_images(rtable, ftable, opt):
                 '{}{}/clusters/fam{}.png.tmp'.format(opt.outputPath,
                 opt.groupName, n))
     
+    # Iterate and plot
     cores = rtable[ftable.cols.core[:]]
     n = -1
     for r in cores:
         n = n+1
         if ftable.cols.printme[n] == 1:
-            
-            # Prepare waveform for plotting
-            waveform = r['waveform'][opt.printsta*opt.wshape:(
-                                                   opt.printsta+1)*opt.wshape]
-            data = waveform[max(0, r['windowStart']-int(
-                opt.ptrig*opt.samprate)):min(opt.wshape,
-                r['windowStart']+int(opt.atrig*opt.samprate))]
-            data = data[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
-                opt.ptrig*opt.samprate + opt.winlen*1.5)]/r['windowAmp'][
-                                                                 opt.printsta]
-            # Clip amplitudes
-            data[data>1] = 1
-            data[data<-1] = -1
-            
+            data = prep_wiggle(r['waveform'], opt.printsta, r['windowStart'],
+                               r['windowAmp'][opt.printsta], opt)
             wiggle_plot(data, (5, 1), '{}{}/clusters/{}.png'.format(
                 opt.outputPath, opt.groupName, n), opt)
+
+
+def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
+    """
+    Cuts window around trigger time and normalizes the waveform for plotting.
+    
+    The plotting window is always 2*opt.winlen samples, with half opt.winlen
+    on either side of the correlation window. Data are clipped if they are
+    above 'windowAmp' in amplitude.
+    
+    Parameters
+    ----------
+    waveform : float ndarray
+        Waveform to be plotted, all stations/channels concatenated.
+    sta : int
+        Station index for station/channel to be used.
+    window_start : int
+        Sample corresponding to start of correlation window.
+    normalize_amplitude : float
+        Amplitude to normalize to. If passed 0, uses the maximum of the entire
+        window instead with a small epsilon to prevent division by 0 if empty.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    data : float ndarray
+        Clipped, normalized, and trimmed waveform for single station/channel.
+    """
+    
+    # Determine window
+    minsample = window_start - int(0.5*opt.winlen)
+    maxsample = window_start + int(1.5*opt.winlen)
+    
+    # Trim out data for station 's'
+    data = waveform[sta*opt.wshape:(sta+1)*opt.wshape]
+    
+    # Trim window
+    data = data[minsample:maxsample]
+    
+    # Normalize
+    if normalize_amplitude > 0:
+        data = data / normalize_amplitude
+    else:
+        data = data / np.max(np.abs(data)+1e-12)
+    
+    # Clip
+    data[data>1] = 1
+    data[data<-1] = -1
+    
+    return data
 
 
 def wiggle_plot(data, figsize, outfile, opt):
@@ -1732,7 +1773,9 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     """
     
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
-    core = ftable[fnum]['core']
+    famtable = rtable[fam]
+    corenum = ftable[fnum]['core']
+    core = rtable[corenum]
     
     # Station names
     stas = opt.station.split(',')
@@ -1742,97 +1785,69 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     catalogind = np.argsort(startTimeMPL[fam])
     catalog = startTimeMPL[fam][catalogind]
     spacing = np.diff(catalog)*24
-    coreind = np.where(fam==core)[0][0]
+    coreind = np.where(fam==corenum)[0][0]
     
     fig = plt.figure(figsize=(10, 12))
     
     # Plot waveforms
     ax1 = fig.add_subplot(9, 3, (1,8))
     
+    time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
+                      1.5*opt.winlen/opt.samprate, 1/opt.samprate)
+    
     # If only one station, plot all aligned waveforms
     if opt.nsta==1:
         
-        famtable = rtable[fam]
-        n=-1
+        # Prepare data in matrix (row for each event)
         data = np.zeros((len(fam), int(opt.winlen*2)))
-        for r in famtable:
-            n = n+1
-            waveform = r['waveform'][0:opt.wshape]
-            tmp = waveform[max(0, windowStart[fam[n]]-int(
-                opt.ptrig*opt.samprate)):min(opt.wshape,
-                windowStart[fam[n]]+int(opt.atrig*opt.samprate))]
-            try:
-                ewarr = tmp[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
-                    opt.ptrig*opt.samprate + opt.winlen*1.5)]/windowAmp[
-                                                                       fam[n]]
-                data[n, :ewarr.shape[0]] = ewarr
-            except (ValueError, Exception):
-                print('Error in printing family {}, moving on...'.format(
-                                                                        fnum))
+        for n, r in enumerate(famtable):
+            data[n, :] = prep_wiggle(r['waveform'], 0, r['windowStart'],
+                                     r['windowAmp'][0], opt)
+        
+        # Plot
         if len(fam) > 12:
             ax1.imshow(data, aspect='auto', vmin=-1, vmax=1, cmap='RdBu',
-                interpolation='nearest', extent=[
-                -1*opt.winlen*0.5/opt.samprate, opt.winlen*1.5/opt.samprate,
-                                                               n + 0.5, -0.5])
-            tvec = [-0.5*opt.winlen/opt.samprate, 1.5*opt.winlen/opt.samprate]
+                interpolation='nearest', extent=[np.min(time_vector),
+                np.max(time_vector), n + 0.5, -0.5])
         else:
-            tvec = np.arange(
-                -opt.winlen*0.5/opt.samprate,opt.winlen*1.5/opt.samprate,
-                1/opt.samprate)
-            for o in range(len(fam)):
-                dat=data[o,:]
-                dat[dat>1] = 1
-                dat[dat<-1] = -1
-                ax1.plot(tvec,dat/2-o,'k',linewidth=0.25)
+            for n in range(len(fam)):
+                dat=data[n,:]
+                ax1.plot(time_vector,dat/2-n,'k',linewidth=0.25)
     
     # Otherwise, plot cores and stacks from all stations
     else:
         
-        r = rtable[core]
-        famtable = rtable[fam]
-        tvec = np.arange(-opt.winlen*0.5/opt.samprate,
-            opt.winlen*1.5/opt.samprate, 1/opt.samprate)
+        
         for s in range(opt.nsta):
             
-            dats = np.zeros((int(opt.winlen*2),))
-            waveform = famtable['waveform'][:,s*opt.wshape:(s+1)*opt.wshape]
+            # Prepare stack
+            data_stack = np.zeros((int(opt.winlen*2),))
+            waveform = famtable['waveform']
             for n in range(len(fam)):
-                tmps = waveform[n, max(0, windowStart[fam[n]]-int(
-                    opt.ptrig*opt.samprate)):min(opt.wshape,
-                    windowStart[fam[n]]+int(
-                    opt.atrig*opt.samprate))]/(famtable['windowAmp'][
-                    n,s]+1.0/1000)
-                tmps[tmps>1] = 1
-                tmps[tmps<-1] = -1
-                try:
-                    dats = dats + tmps[int(opt.ptrig*opt.samprate -
-                        opt.winlen*0.5):int(opt.ptrig*opt.samprate +
-                        opt.winlen*1.5)]
-                except ValueError:
-                   pass
-            dats = dats/(max(dats)+1.0/1000)
-            dats[dats>1] = 1
-            dats[dats<-1] = -1
-            ax1.plot(tvec,dats-1.75*s,'r',linewidth=1)
+                data_stack += prep_wiggle(waveform[n], s, windowStart[fam[n]],
+                                              famtable['windowAmp'][n,s], opt)
             
-            waveformc = r['waveform'][s*opt.wshape:(s+1)*opt.wshape]
-            tmpc = waveformc[max(0, r['windowStart']-int(
-                opt.ptrig*opt.samprate)):min(opt.wshape,
-                r['windowStart']+int(opt.atrig*opt.samprate))]
-            datc = tmpc[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
-                opt.ptrig*opt.samprate + opt.winlen*1.5)]/(
-                r['windowAmp'][s]+1.0/1000)
-            datc[datc>1] = 1
-            datc[datc<-1] = -1
-            ax1.plot(tvec,datc-1.75*s,'k',linewidth=0.25)
-            ax1.text(np.min(tvec)-0.1,-1.75*s,'{0}\n{1}'.format(stas[s],
+            data_stack = data_stack/(np.max(np.abs(data_stack))+1e-12)
+            data_stack[data_stack>1] = 1
+            data_stack[data_stack<-1] = -1
+            
+            # Prepare core
+            data_core = prep_wiggle(core['waveform'], s, core['windowStart'],
+                                    core['windowAmp'][s], opt)
+            
+            # Plot
+            ax1.plot(time_vector,data_stack-1.75*s,'r',linewidth=1)
+            ax1.plot(time_vector, data_core - 1.75*s, 'k', linewidth=0.25)
+            
+            # Label stations/channels on left
+            ax1.text(np.min(time_vector)-0.1,-1.75*s,'{}\n{}'.format(stas[s],
                 chas[s]), horizontalalignment='right',
                 verticalalignment='center')
     
     ax1.axvline(x=-0.1*opt.winlen/opt.samprate, color='k', ls='dotted')
     ax1.axvline(x=0.9*opt.winlen/opt.samprate, color='k', ls='dotted')
     ax1.get_yaxis().set_visible(False)
-    ax1.set_xlim((np.min(tvec),np.max(tvec)))
+    ax1.set_xlim((np.min(time_vector),np.max(time_vector)))
     if opt.nsta > 1:
         ax1.set_ylim((-1.75*s-1,1))
     ax1.set_xlabel('Time Relative to Trigger (seconds)', style='italic')
@@ -1841,13 +1856,11 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     ax2 = fig.add_subplot(9, 3, (3,9))
     ax2.set_xlabel('Frequency (Hz)', style='italic')
     ax2.get_yaxis().set_visible(False)
-    r = rtable[core]
-    famtable = rtable[fam]
     freq = np.linspace(0,opt.samprate/2,int(opt.winlen/2))
     fftc = np.zeros((int(opt.winlen/2),))
     fftm = np.zeros((int(opt.winlen/2),))
     for s in range(opt.nsta):
-        fft = np.abs(np.real(r['windowFFT'][int(
+        fft = np.abs(np.real(core['windowFFT'][int(
             s*opt.winlen):int(s*opt.winlen+opt.winlen/2)]))
         fft = fft/(np.amax(fft)+1.0/1000)
         fftc = fftc+fft
@@ -1937,7 +1950,7 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     Cprint[Cprint>opt.cmin] = np.nan
     ax5.plot_date(catalog, Cprint, 'wo', alpha=0.5,
         markeredgecolor='r', markeredgewidth=0.5)
-    ax5.plot_date(catalog[np.where(fam==core)[0][0]], Cprint[coreind], 'wo',
+    ax5.plot_date(catalog[np.where(fam==corenum)[0][0]], Cprint[coreind], 'wo',
         markeredgecolor='k', markeredgewidth=0.5, markersize=3)
     if tmin and tmax:
         ax5.set_xlim(tmin, tmax)
@@ -2513,45 +2526,39 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     ### WAVEFORM IMAGES
     famtable = rtable[famcat]
     fig2 = plt.figure(figsize=(10, 12))
+    time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
+                             1.5*opt.winlen/opt.samprate, 1/opt.samprate)
     
     for sta in range(opt.nsta):
-        n = -1
-        data = np.zeros((len(fam), int(opt.winlen*2)))
+    
         ax = fig2.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
-        for r in famtable:
-            if ordered:
-                plt.title('{0}.{1} (Ordered)'.format(
-                    opt.station.split(',')[sta], opt.channel.split(',')[sta]),
-                    fontweight='bold')
-            else:
-                plt.title('{0}.{1}'.format(opt.station.split(',')[sta],
-                          opt.channel.split(',')[sta]), fontweight='bold')
-                ax = add_horizontal_annotations(ax,
-                                           startTimeMPL[fam][catalogind], opt)
-            n = n+1
-            waveform = r['waveform'][sta*opt.wshape:(sta+1)*opt.wshape]
-            tmp = waveform[max(0, windowStart[famcat[n]]-int(
-                opt.ptrig*opt.samprate)):min(opt.wshape,
-                windowStart[famcat[n]]+int(opt.atrig*opt.samprate))]
-            data[n, :] = tmp[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
-                opt.ptrig*opt.samprate + opt.winlen*1.5)]/windowAmps[
-                famcat[n]][sta]
+        
+        if ordered:
+            plt.title('{}.{} (Ordered)'.format(opt.station.split(',')[sta],
+                      opt.channel.split(',')[sta]), fontweight='bold')
+        else:
+            plt.title('{}.{}'.format(opt.station.split(',')[sta],
+                      opt.channel.split(',')[sta]), fontweight='bold')
+            ax = add_horizontal_annotations(ax, startTimeMPL[fam][catalogind],
+                                                                          opt)
+        
+        # Prepare data in matrix (row for each element)
+        data = np.zeros((len(fam), int(opt.winlen*2)))
+        for n, r in enumerate(famtable):
+            data[n, :] = prep_wiggle(r['waveform'], sta, r['windowStart'],
+                                     r['windowAmp'][sta], opt)
+        
+        # Plot
         if len(fam) > 12:
             ax.imshow(data, aspect='auto', vmin=-1, vmax=1, cmap='RdBu',
-                interpolation='nearest', extent=[
-                -1*opt.winlen*0.5/opt.samprate, opt.winlen*1.5/opt.samprate,
-                n + 0.5, -0.5])
+                interpolation='nearest', extent=[np.min(time_vector),
+                np.max(time_vector), n + 0.5, -0.5])
         else:
-            tvec = np.arange(
-                -opt.winlen*0.5/opt.samprate,opt.winlen*1.5/opt.samprate,
-                1/opt.samprate)
-            for o in range(len(fam)):
-                dat=data[o,:]
-                dat[dat>1] = 1
-                dat[dat<-1] = -1
-                ax.plot(tvec,dat/2-o*0.75,'k',linewidth=0.5)
-            plt.xlim([np.min(tvec),np.max(tvec)])
-            plt.ylim([-o*0.75-0.5,0.5])
+            for n in range(len(fam)):
+                dat=data[n,:]
+                ax.plot(time_vector,dat/2-n,'k',linewidth=0.25)
+            plt.xlim([np.min(time_vector),np.max(time_vector)])
+            plt.ylim([-n-0.5,0.5])
         ax.yaxis.set_visible(False)
         plt.xlabel('Time Relative to Trigger (seconds)', style='italic')
     plt.tight_layout()
@@ -2629,19 +2636,9 @@ def create_junk_images(jtable, opt):
         
         for s in range(opt.nsta):
             
-            # Prepare waveform for each channel individually
-            waveform = r['waveform'][s*opt.wshape:(s+1)*opt.wshape]
-            data_s = waveform[r['windowStart']:r['windowStart']+opt.wshape]
-            data_s = data_s[int(opt.ptrig*opt.samprate - opt.winlen*0.5):int(
-                opt.ptrig*opt.samprate + opt.winlen*1.5)]
-            data_s = data_s/np.max(np.abs(data_s)+1.0/1000)
-            
-            # Clip amplitudes
-            data_s[data_s>1] = 1
-            data_s[data_s<-1] = -1
-            
             # Concatenate all channels together
-            data = np.append(data, data_s)
+            data = np.append(data, prep_wiggle(r['waveform'], s,
+                      r['windowStart'] + int(opt.ptrig*opt.samprate), 0, opt))
         
         wiggle_plot(data, (15, 0.5), '{}{}/junk/{}-{}.png'.format(
             opt.outputPath, opt.groupName, (UTCDateTime(r['startTime']) + \
