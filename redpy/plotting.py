@@ -1627,15 +1627,34 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
         Clipped, normalized, and trimmed waveform for single station/channel.
     """
     
+    # Trim out data for that station/channel
+    data = waveform[sta*opt.wshape:(sta+1)*opt.wshape]
+    
     # Determine window
     minsample = window_start - int(0.5*opt.winlen)
     maxsample = window_start + int(1.5*opt.winlen)
     
-    # Trim out data for station 's'
-    data = waveform[sta*opt.wshape:(sta+1)*opt.wshape]
+    # Determine if we need to pad with 0's if the window is outside the bounds
+    # of what is saved in the table for each station
+    if minsample < 0:
+        prepad = -minsample
+        minsample = 0
+    else:
+        prepad = 0
+    if maxsample > opt.wshape:
+        postpad = maxsample - opt.wshape
+        maxsample = opt.wshape
+    else:
+        postpad = 0
     
     # Trim window
     data = data[minsample:maxsample]
+    
+    # Pad if necessary
+    if prepad:
+        data = np.append(np.zeros(prepad), data)
+    if postpad:
+        data = np.append(data, np.zeros(postpad))
     
     # Normalize
     if normalize_amplitude > 0:
