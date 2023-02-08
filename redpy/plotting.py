@@ -1730,34 +1730,44 @@ def create_family_images(rtable, ftable, ctable, opt):
     # slicing later
     ccc_sparse = coo_matrix((ccc, (id1, id2)), shape=(maxid, maxid)).tocsr()
     
-    fig, axes = initialize_family_image(opt)
+    fig, axes, bboxes = initialize_family_image(opt)
     
     for fnum in range(ftable.attrs.nClust):
         
         if ftable[fnum]['printme'] != 0:
             
-            assemble_family_image(fig, axes, rtable, ftable,
+            assemble_family_image(bboxes, rtable, ftable,
                 startTimeMPL, windowAmp, windowStart, ids, ccc_sparse,
                 'png', 100, fnum, 0, 0, opt)
 
 
-def initialize_family_image(opt):
+def initialize_family_image(opt, bboxes=[]):
     """
     Creates figure and axes with the proper layout for the family images.
     
     This function basically makes it so we only have to call tight_layout()
-    once and significantly reduce time spent formatting the plots.
+    once and significantly reduce time spent formatting the plots by using
+    the bounding box locations.
     
     Parameters
     ----------
     opt : Options object
         Describes the run parameters.
+    bboxes : list of Bbox objects, optional
+        List of bounding box positions for each axis.
     
     Returns
     -------
     fig : Figure object
-    axes : list of Axes objects
+        Handle to the matplotlib figure.
+    axes : list of Axis objects
+        List of subplot axes.
+    bboxes : list of Bbox objects
+        List of bounding box positions for each axis.
     """
+    
+    # Close any existing plots
+    plt.close()
     
     fig = plt.figure(figsize=(10, 12))
     axes = [fig.add_subplot(9, 3, (1,8)), fig.add_subplot(9, 3, (3,9)),
@@ -1765,13 +1775,18 @@ def initialize_family_image(opt):
             fig.add_subplot(9, 3, (16,21)),
             fig.add_subplot(9, 3, (22,27))]
     
-    axes = format_family_image(axes, opt)
-    axes[2].set_xlim(0,1) # Ensure that dates near the edge fit
+    if bboxes:
+        # Set positions for axes
+        for n in range(len(axes)):
+            axes[n].set_position(bboxes[n])
+    else:
+        # Set up format for axes positions
+        axes = format_family_image(axes, opt)
+        axes[2].set_xlim(0,1) # Ensure that dates near the edge fit
+        plt.tight_layout()
+        bboxes = [axes[n].get_position() for n in range(len(axes))]
     
-    # tight_layout() is slow, so we only want to call it once
-    plt.tight_layout()
-    
-    return fig, axes
+    return fig, axes, bboxes
 
 
 def format_family_image(axes, opt):
@@ -1836,7 +1851,7 @@ def format_family_image(axes, opt):
     return axes
 
 
-def assemble_family_image(fig, axes, rtable, ftable, startTimeMPL, windowAmp,
+def assemble_family_image(bboxes, rtable, ftable, startTimeMPL, windowAmp,
     windowStart, ids, ccc_sparse, oformat, dpi, fnum, tmin, tmax, opt):
     """
     Creates a multi-paneled family plot for the specified family 'fnum'.
@@ -1857,10 +1872,8 @@ def assemble_family_image(fig, axes, rtable, ftable, startTimeMPL, windowAmp,
     
     Parameters
     ----------
-    fig : Figure object
-        Handle to the figure.
-    axes : list of Axes objects
-        List of subplot axes to plot in.
+    bboxes : list of Bbox objects
+        List of bounding box positions for each axis.
     rtable : Table object
         Handle to the Repeaters table.
     ftable : Table object
@@ -1889,10 +1902,7 @@ def assemble_family_image(fig, axes, rtable, ftable, startTimeMPL, windowAmp,
         Describes the run parameters.
     """
     
-    # Empty existing axes (slow, but faster than redoing tight_layout)
-    # !!! Try ax.set_position() instead with Bbox list??
-    for ax in axes:
-        ax.cla()
+    fig, axes, bboxes = initialize_family_image(opt, bboxes=bboxes)
     
     # Extract family members
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
