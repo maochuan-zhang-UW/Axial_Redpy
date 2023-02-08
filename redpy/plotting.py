@@ -26,6 +26,7 @@ from obspy import UTCDateTime
 from obspy.clients.fdsn.client import Client
 from obspy.geodetics import locations2degrees, kilometers2degrees
 from obspy.taup import TauPyModel
+from scipy.sparse import coo_matrix
 from tables import *
 
 import redpy.cluster
@@ -1577,13 +1578,13 @@ def create_core_images(rtable, ftable, opt):
     
     # Deal with renaming files to reduce plotting time overhead
     for n in range(len(ftable))[::-1]:
-        if ftable.cols.lastprint[n] != n and ftable.cols.printme[n] == 0:
+        if ftable[n]['lastprint'] != n and ftable[n]['printme'] == 0:
             os.rename('{}{}/clusters/{}.png'.format(opt.outputPath,
-                opt.groupName, ftable.cols.lastprint[n]),
+                opt.groupName, ftable[n]['lastprint']),
                 '{}{}/clusters/{}.png.tmp'.format(opt.outputPath,
                 opt.groupName, n))
             os.rename('{}{}/clusters/fam{}.png'.format(opt.outputPath,
-                opt.groupName, ftable.cols.lastprint[n]),
+                opt.groupName, ftable[n]['lastprint']),
                 '{}{}/clusters/fam{}.png.tmp'.format(opt.outputPath,
                 opt.groupName, n))
     
@@ -1592,7 +1593,7 @@ def create_core_images(rtable, ftable, opt):
     n = -1
     for r in cores:
         n = n+1
-        if ftable.cols.printme[n] == 1:
+        if ftable[n]['printme'] == 1:
             data = prep_wiggle(r['waveform'], opt.printsta, r['windowStart'],
                                r['windowAmp'][opt.printsta], opt)
             wiggle_plot(data, (5, 1), '{}{}/clusters/{}.png'.format(
@@ -1628,7 +1629,7 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
     """
     
     # Trim out data for that station/channel
-    data = waveform[sta*opt.wshape:(sta+1)*opt.wshape]
+    window = waveform[sta*opt.wshape:(sta+1)*opt.wshape]
     
     # Determine window
     minsample = window_start - int(0.5*opt.winlen)
@@ -1648,7 +1649,7 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
         postpad = 0
     
     # Trim window
-    data = data[minsample:maxsample]
+    data = window[minsample:maxsample]
     
     # Pad if necessary
     if prepad:
@@ -1719,23 +1720,124 @@ def create_family_images(rtable, ftable, ctable, opt):
     startTimeMPL = rtable.cols.startTimeMPL[:]
     windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
     windowStart = rtable.cols.windowStart[:]
-    fi = rtable.cols.FI[:]
     ids = rtable.cols.id[:]
     id1 = ctable.cols.id1[:]
     id2 = ctable.cols.id2[:]
     ccc = ctable.cols.ccc[:]
+    maxid = np.max(id2)+1
+    
+    # Set up sparse correlation matrix in Compressed Sparse Row format for
+    # slicing later
+    ccc_sparse = coo_matrix((ccc, (id1, id2)), shape=(maxid, maxid)).tocsr()
+    
+    fig, axes = initialize_family_image(opt)
     
     for fnum in range(ftable.attrs.nClust):
         
-        if ftable.cols.printme[fnum] != 0:
+        if ftable[fnum]['printme'] != 0:
             
-            assemble_family_image(rtable, ftable, ctable, startTimeMPL,
-                windowAmp, windowStart, fi, ids, id1, id2, ccc, 'png', 100,
-                fnum, 0, 0, opt)
+            assemble_family_image(fig, axes, rtable, ftable,
+                startTimeMPL, windowAmp, windowStart, ids, ccc_sparse,
+                'png', 100, fnum, 0, 0, opt)
 
 
-def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
-    windowStart, fi, ids, id1, id2, ccc, oformat, dpi, fnum, tmin, tmax, opt):
+def initialize_family_image(opt):
+    """
+    Creates figure and axes with the proper layout for the family images.
+    
+    This function basically makes it so we only have to call tight_layout()
+    once and significantly reduce time spent formatting the plots.
+    
+    Parameters
+    ----------
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    fig : Figure object
+    axes : list of Axes objects
+    """
+    
+    fig = plt.figure(figsize=(10, 12))
+    axes = [fig.add_subplot(9, 3, (1,8)), fig.add_subplot(9, 3, (3,9)),
+            fig.add_subplot(9, 3, (10,15)),
+            fig.add_subplot(9, 3, (16,21)),
+            fig.add_subplot(9, 3, (22,27))]
+    
+    axes = format_family_image(axes, opt)
+    axes[2].set_xlim(0,1) # Ensure that dates near the edge fit
+    
+    # tight_layout() is slow, so we only want to call it once
+    plt.tight_layout()
+    
+    return fig, axes
+
+
+def format_family_image(axes, opt):
+    """
+    Handles formatting for each axis in the family image.
+    
+    Parameters
+    ----------
+    axes : list of Axis objects
+        List of subplot axes to modify.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    axes : list of Axis objects
+    """
+    
+    date_format = matplotlib.dates.DateFormatter('%Y-%m-%d\n%H:%M')
+    
+    time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
+                      1.5*opt.winlen/opt.samprate, 1/opt.samprate)
+    
+    axes[0].get_yaxis().set_visible(False)
+    axes[0].set_xlim((np.min(time_vector),np.max(time_vector)))
+    axes[0].axvline(x=-0.1*opt.winlen/opt.samprate, color='k', ls='dotted')
+    axes[0].axvline(x=0.9*opt.winlen/opt.samprate, color='k', ls='dotted')
+    if opt.nsta > 1:
+        axes[0].set_ylim((-1.75*(opt.nsta-1)-1,1))
+        # Add station labels
+        stas = opt.station.split(',')
+        chas = opt.channel.split(',')
+        for s in range(len(stas)):
+            axes[0].text(np.min(time_vector)-0.1,-1.75*s,'{}\n{}'.format(
+                stas[s], chas[s]), horizontalalignment='right',
+                verticalalignment='center')
+    axes[0].set_xlabel('Time Relative to Trigger (seconds)', style='italic')
+    
+    axes[1].get_yaxis().set_visible(False)
+    axes[1].set_xlim(0,opt.fmax*1.5)
+    axes[1].legend(['Stack','Core'], loc='upper right', frameon=False)
+    axes[1].set_xlabel('Frequency (Hz)', style='italic')
+    
+    axes[2].xaxis.set_major_formatter(date_format)
+    axes[2].margins(0.05)
+    axes[2].set_yscale('log')
+    axes[2].set_xlabel('Date', style='italic')
+    axes[2].set_ylabel('Amplitude (Counts)', style='italic')
+    
+    axes[3].xaxis.set_major_formatter(date_format)
+    axes[3].margins(0.05)
+    axes[3].set_yscale('log')
+    axes[3].set_xlabel('Date', style='italic')
+    axes[3].set_ylabel('Time since previous event (hours)', style='italic')
+    
+    axes[4].xaxis.set_major_formatter(date_format)
+    axes[4].margins(0.05)
+    axes[4].set_ylim(opt.cmin-0.02, 1.02)
+    axes[4].set_xlabel('Date', style='italic')
+    axes[4].set_ylabel('Cross-correlation coefficient', style='italic')
+    
+    return axes
+
+
+def assemble_family_image(fig, axes, rtable, ftable, startTimeMPL, windowAmp,
+    windowStart, ids, ccc_sparse, oformat, dpi, fnum, tmin, tmax, opt):
     """
     Creates a multi-paneled family plot for the specified family 'fnum'.
     
@@ -1745,7 +1847,7 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     many families.
     
     Current format for the image is the following:
-        Top row: Ordered waveforms, stacked FFT.
+        Top row: Waveforms, stacked FFT.
         Second row: Timeline of amplitude.
         Third row: Timeline of event spacing.
         Last row: Correlation with time relative to best-correlated event
@@ -1755,28 +1857,24 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     
     Parameters
     ----------
+    fig : Figure object
+        Handle to the figure.
+    axes : list of Axes objects
+        List of subplot axes to plot in.
     rtable : Table object
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
-    ctable : Table object
-        Handle to the Correlation table.
     startTimeMPL : float ndarray
         'startTimeMPL' column from rtable.
     windowAmp : float ndarray
         'windowAmp' column from rtable for single station.
     windowStart : int ndarray
         'windowStart' column from rtable.
-    fi : float ndarray
-        Frequency index values for repeaters.
     ids : int ndarray
-       'id' column from rtable
-    id1 : int ndarray
-       'id1' column from ctable
-    id2 : int ndarray
-        'id2' column from ctable
-    ccc : float ndarray
-        Cross-correlation values from ctable.
+       'id' column from rtable.
+    ccc_sparse : float csr_matrix
+        Sparse correlation matrix.
     oformat : str
         output file format (e.g., 'png' or 'pdf')
     dpi : int
@@ -1791,26 +1889,81 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
         Describes the run parameters.
     """
     
+    # Empty existing axes (slow, but faster than redoing tight_layout)
+    # !!! Try ax.set_position() instead with Bbox list??
+    for ax in axes:
+        ax.cla()
+    
+    # Extract family members
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
-    famtable = rtable[fam]
-    corenum = ftable[fnum]['core']
-    core = rtable[corenum]
     
-    # Station names
-    stas = opt.station.split(',')
-    chas = opt.channel.split(',')
+    # Order by time
+    fam = fam[np.argsort(startTimeMPL[fam])]
     
-    # Prep catalog
-    catalogind = np.argsort(startTimeMPL[fam])
-    catalog = startTimeMPL[fam][catalogind]
-    spacing = np.diff(catalog)*24
-    coreind = np.where(fam==corenum)[0][0]
+    # Get core location within fam
+    core_idx = np.where(fam==ftable[fnum]['core'])[0][0]
     
-    fig = plt.figure(figsize=(10, 12))
+    # Get timing of events
+    catalog = startTimeMPL[fam] # + windowStart/86400/opt.samprate?
+    
     
     # Plot waveforms
-    ax1 = fig.add_subplot(9, 3, (1,8))
+    subplot_waveforms(rtable[fam], core_idx, axes[0], opt)
     
+    # Plot FFTs
+    subplot_fft(rtable[fam], core_idx, axes[1], opt)
+    
+    # Plot amplitude timeline
+    subplot_amplitude(catalog, windowAmp, fam, core_idx, axes[2], opt)
+    
+    # Plot spacing timeline
+    subplot_spacing(catalog, core_idx, axes[3], opt)
+    
+    # Plot correlation timeline
+    subplot_correlation(catalog, ccc_sparse, ids[fam], core_idx, axes[4], opt)
+    
+    # General formatting
+    axes = format_family_image(axes, opt)
+    
+    # Enforce time limits for timeline plots
+    if tmin and tmax:
+        axes[2].set_xlim(tmin, tmax)
+    elif tmin:
+        axes[2].set_xlim(tmin, axes[2].get_xlim()[1])
+    elif tmax:
+        axes[2].set_xlim(axes[2].get_xlim()[0], tmax)
+    axes[3].set_xlim(axes[2].get_xlim())
+    axes[4].set_xlim(axes[2].get_xlim())
+    
+    # Save
+    plt.savefig('{}{}/clusters/fam{}.{}'.format(opt.outputPath, opt.groupName,
+        fnum, oformat), dpi=dpi)
+
+
+def subplot_waveforms(rtable_fam, core_idx, ax, opt):
+    """
+    Fills the waveform subplot.
+    
+    Has different behaviors based on whether a single station or many stations
+    are part of the run. If a single station, will show all waveforms either
+    as wiggle plots (<12 events) or an image. If multiple stations are queried
+    then the core will be plotted in black and the stack of all other events
+    in red as wiggles.
+    
+    Parameters
+    ----------
+    rtable_fam : Table object
+        Handle to a subset of the Repeaters table containing all members of
+        a family.
+    core_idx : int
+        Index corresponding to position of core event within ordered family.
+    ax : Axis object
+        Subplot axis to modify in place.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
+    # Define time vector
     time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
                       1.5*opt.winlen/opt.samprate, 1/opt.samprate)
     
@@ -1818,82 +1971,113 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
     if opt.nsta==1:
         
         # Prepare data in matrix (row for each event)
-        data = np.zeros((len(fam), int(opt.winlen*2)))
-        for n, r in enumerate(famtable):
+        data = np.zeros((len(rtable_fam), int(opt.winlen*2)))
+        for n, r in enumerate(rtable_fam):
             data[n, :] = prep_wiggle(r['waveform'], 0, r['windowStart'],
                                      r['windowAmp'][0], opt)
         
         # Plot
-        if len(fam) > 12:
-            ax1.imshow(data, aspect='auto', vmin=-1, vmax=1, cmap='RdBu',
+        if len(rtable_fam) > 12:
+            ax.imshow(data, aspect='auto', vmin=-1, vmax=1, cmap='RdBu',
                 interpolation='nearest', extent=[np.min(time_vector),
                 np.max(time_vector), n + 0.5, -0.5])
         else:
-            for n in range(len(fam)):
-                dat=data[n,:]
-                ax1.plot(time_vector,dat/2-n,'k',linewidth=0.25)
+            for n in range(len(rtable_fam)):
+                ax.plot(time_vector,data[n,:]/2-n,'k',linewidth=0.25)
     
     # Otherwise, plot cores and stacks from all stations
     else:
-        
         
         for s in range(opt.nsta):
             
             # Prepare stack
             data_stack = np.zeros((int(opt.winlen*2),))
-            waveform = famtable['waveform']
-            for n in range(len(fam)):
-                data_stack += prep_wiggle(waveform[n], s, windowStart[fam[n]],
-                                              famtable['windowAmp'][n,s], opt)
-            
+            for r in rtable_fam:
+                data_stack += prep_wiggle(r['waveform'], s, r['windowStart'],
+                                          r['windowAmp'][s], opt)
             data_stack = data_stack/(np.max(np.abs(data_stack))+1e-12)
             data_stack[data_stack>1] = 1
             data_stack[data_stack<-1] = -1
             
             # Prepare core
-            data_core = prep_wiggle(core['waveform'], s, core['windowStart'],
-                                    core['windowAmp'][s], opt)
+            data_core = prep_wiggle(rtable_fam['waveform'][core_idx], s,
+                                    rtable_fam['windowStart'][core_idx],
+                                    rtable_fam['windowAmp'][core_idx, s], opt)
             
             # Plot
-            ax1.plot(time_vector,data_stack-1.75*s,'r',linewidth=1)
-            ax1.plot(time_vector, data_core - 1.75*s, 'k', linewidth=0.25)
-            
-            # Label stations/channels on left
-            ax1.text(np.min(time_vector)-0.1,-1.75*s,'{}\n{}'.format(stas[s],
-                chas[s]), horizontalalignment='right',
-                verticalalignment='center')
+            ax.plot(time_vector, data_stack-1.75*s,'r',linewidth=1)
+            ax.plot(time_vector, data_core - 1.75*s, 'k', linewidth=0.25)
+
+
+def subplot_fft(rtable_fam, core_idx, ax, opt):
+    """
+    Fills the FFT subplot.
     
-    ax1.axvline(x=-0.1*opt.winlen/opt.samprate, color='k', ls='dotted')
-    ax1.axvline(x=0.9*opt.winlen/opt.samprate, color='k', ls='dotted')
-    ax1.get_yaxis().set_visible(False)
-    ax1.set_xlim((np.min(time_vector),np.max(time_vector)))
-    if opt.nsta > 1:
-        ax1.set_ylim((-1.75*s-1,1))
-    ax1.set_xlabel('Time Relative to Trigger (seconds)', style='italic')
+    This plot shows the amplitude spectrum from the Fourier transform summed
+    over all stations. The core is always plotted in black, and the sum over
+    all events in red.
     
-    # Plot mean FFT
-    ax2 = fig.add_subplot(9, 3, (3,9))
-    ax2.set_xlabel('Frequency (Hz)', style='italic')
-    ax2.get_yaxis().set_visible(False)
+    Parameters
+    ----------
+    rtable_fam : Table object
+        Handle to a subset of the Repeaters table containing all members of
+        a family.
+    core_idx : int
+        Index corresponding to position of core event within ordered family.
+    ax : Axis object
+        Subplot axis to modify in place.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
     freq = np.linspace(0,opt.samprate/2,int(opt.winlen/2))
     fftc = np.zeros((int(opt.winlen/2),))
     fftm = np.zeros((int(opt.winlen/2),))
+    
     for s in range(opt.nsta):
-        fft = np.abs(np.real(core['windowFFT'][int(
+        fft = np.abs(np.real(rtable_fam['windowFFT'][core_idx,int(
             s*opt.winlen):int(s*opt.winlen+opt.winlen/2)]))
         fft = fft/(np.amax(fft)+1.0/1000)
         fftc = fftc+fft
-        ffts = np.mean(np.abs(np.real(famtable['windowFFT'][:,int(
+        ffts = np.mean(np.abs(np.real(rtable_fam['windowFFT'][:,int(
             s*opt.winlen):int(s*opt.winlen+opt.winlen/2)])),axis=0)
         fftm = fftm + ffts/(np.amax(ffts)+1.0/1000)
-    ax2.plot(freq,fftm,'r', linewidth=1)
-    ax2.plot(freq,fftc,'k', linewidth=0.25)
-    ax2.set_xlim(0,opt.fmax*1.5)
-    ax2.legend(['Stack','Core'], loc='upper right', frameon=False)
     
-    # Set min/max for plotting
+    ax.plot(freq,fftm,'r', linewidth=1)
+    ax.plot(freq,fftc,'k', linewidth=0.25)
+
+
+def subplot_amplitude(catalog, windowAmp, fam, core_idx, ax, opt):
+    """
+    Fills the amplitude timeline subplot.
+    
+    Parameters
+    ----------
+    catalog : float ndarray
+        Event times of family members ordered by date as matplotlib dates.
+    windowAmp : float ndarray
+        Amplitudes of 
+    fam : int ndarray
+        Indices of family members within the Repeaters table ordered by time.
+    core_idx : int
+        Index corresponding to position of core event within ordered family.
+    ax : Axis object
+        Subplot axis to modify in place.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
+    # Plot amplitude timeline
+    ax.plot_date(catalog, windowAmp[fam],
+            'ro', alpha=0.5, markeredgecolor='r', markeredgewidth=0.5,
+            markersize=3)
+    ax.plot_date(catalog[core_idx], windowAmp[fam[core_idx]],
+            'ko', markeredgecolor='k', markeredgewidth=0.5,
+            markersize=3)
+    
+    # Determine ylims
     if opt.amplims == 'family':
-        windowAmpFam = windowAmp[fam[catalogind]]
+        windowAmpFam = windowAmp[fam]
         try:
             ymin = 0.5*np.min(windowAmpFam[np.nonzero(windowAmpFam)])
             ymax = 2*np.max(windowAmpFam)
@@ -1905,91 +2089,89 @@ def assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp,
         # Use global maximum/minimum
         ymin = 0.5*np.min(windowAmp[np.nonzero(windowAmp)])
         ymax = 2*np.max(windowAmp)
+    ax.set_ylim(ymin, ymax)
+
+
+def subplot_spacing(catalog, core_idx, ax, opt):
+    """
+    Fills the temporal spacing timeline subplot.
     
-    # Plot amplitude timeline
-    ax3 = fig.add_subplot(9, 3, (10,15))
-    ax3.plot_date(catalog, windowAmp[fam[catalogind]],
-            'ro', alpha=0.5, markeredgecolor='r', markeredgewidth=0.5,
-            markersize=3)
-    ax3.plot_date(catalog[coreind], windowAmp[fam[catalogind]][coreind],
-            'ko', markeredgecolor='k', markeredgewidth=0.5,
-            markersize=3)
-    if tmin and tmax:
-        ax3.set_xlim(tmin, tmax)
-    elif tmin:
-        ax3.set_xlim(tmin, ax3.get_xlim()[1])
-    elif tmax:
-        ax3.set_xlim(ax3.get_xlim()[0], tmax)
-    myFmt = matplotlib.dates.DateFormatter('%Y-%m-%d\n%H:%M')
-    ax3.xaxis.set_major_formatter(myFmt)
-    ax3.set_ylim(ymin, ymax)
-    ax3.margins(0.05)
-    ax3.set_ylabel('Amplitude (Counts)', style='italic')
-    ax3.set_xlabel('Date', style='italic')
-    ax3.set_yscale('log')
+    Parameters
+    ----------
+    catalog : float ndarray
+        Event times of family members ordered by date as matplotlib dates.
+    core_idx : int
+        Index corresponding to position of core event within ordered family.
+    ax : Axis object
+        Subplot axis to modify in place.
+    opt : Options object
+        Describes the run parameters.
+    """
     
-    # Plot spacing timeline
-    ax4 = fig.add_subplot(9, 3, (16,21))
-    ax4.plot_date(catalog[1:], spacing, 'ro', alpha=0.5, markeredgecolor='r',
-        markeredgewidth=0.5, markersize=3)
-    if coreind>0:
-        ax4.plot_date(catalog[coreind], spacing[coreind-1], 'ko',
-            markeredgecolor='k', markeredgewidth=0.5, markersize=3)
-    if tmin and tmax:
-        ax4.set_xlim(tmin, tmax)
-    elif tmin:
-        ax4.set_xlim(tmin, ax4.get_xlim()[1])
-    elif tmax:
-        ax4.set_xlim(ax4.get_xlim()[0], tmax)
-    myFmt = matplotlib.dates.DateFormatter('%Y-%m-%d\n%H:%M')
-    ax4.xaxis.set_major_formatter(myFmt)
-    ax4.set_xlim(ax3.get_xlim())
-    ax4.set_ylim(1e-3, max(spacing)*2)
-    ax4.margins(0.05)
-    ax4.set_ylabel('Time since previous event (hours)', style='italic')
-    ax4.set_xlabel('Date', style='italic')
-    ax4.set_yscale('log')
+    # Spacing between events in hours
+    spacing = np.diff(catalog)*24
     
-    # Plot correlation timeline
-    idf = ids[fam]
-    ix = np.where(np.in1d(id2,idf))
-    C = np.eye(len(idf))
-    r1 = [np.where(idf==xx)[0][0] for xx in id1[ix]]
-    r2 = [np.where(idf==xx)[0][0] for xx in id2[ix]]
-    C[r1,r2] = ccc[ix]
-    C[r2,r1] = ccc[ix]
-    Cprint = C[np.argmax(np.sum(C,0)),:]
-    
-    ax5 = fig.add_subplot(9, 3, (22,27))
-    ax5.plot_date(catalog, Cprint, 'ro', alpha=0.5,
+    ax.plot_date(catalog[1:], spacing, 'ro', alpha=0.5,
         markeredgecolor='r', markeredgewidth=0.5, markersize=3)
-    ax5.plot_date(catalog[coreind], Cprint[coreind], 'ko',
-        markeredgecolor='k', markeredgewidth=0.5, markersize=3)
-    Cprint[Cprint<opt.cmin] = opt.cmin
-    Cprint[Cprint>opt.cmin] = np.nan
-    ax5.plot_date(catalog, Cprint, 'wo', alpha=0.5,
-        markeredgecolor='r', markeredgewidth=0.5)
-    ax5.plot_date(catalog[np.where(fam==corenum)[0][0]], Cprint[coreind], 'wo',
-        markeredgecolor='k', markeredgewidth=0.5, markersize=3)
-    if tmin and tmax:
-        ax5.set_xlim(tmin, tmax)
-    elif tmin:
-        ax5.set_xlim(tmin, ax5.get_xlim()[1])
-    elif tmax:
-        ax5.set_xlim(ax5.get_xlim()[0], tmax)
-    myFmt = matplotlib.dates.DateFormatter('%Y-%m-%d\n%H:%M')
-    ax5.xaxis.set_major_formatter(myFmt)
-    ax5.set_xlim(ax3.get_xlim())
-    ax5.set_ylim(opt.cmin-0.02, 1.02)
-    ax5.margins(0.05)
-    ax5.set_ylabel('Cross-correlation coefficient',
-                   style='italic')
-    ax5.set_xlabel('Date', style='italic')
+    if core_idx > 0:
+        ax.plot_date(catalog[core_idx], spacing[core_idx-1], 'ko',
+            markeredgecolor='k', markeredgewidth=0.5, markersize=3)
+    ax.set_ylim(1e-3, np.max(spacing)*2)
+
+
+def subplot_correlation(catalog, ccc_sparse, ids_fam, core_idx, ax, opt):
+    """
+    Fills the cross-correlation timeline subplot.
     
-    plt.tight_layout()
-    plt.savefig('{}{}/clusters/fam{}.{}'.format(opt.outputPath, opt.groupName,
-        fnum, oformat), dpi=dpi)
-    plt.close(fig)
+    Plots a single row from the full cross-correlation matrix corresponding
+    to whichever row has the highest sum. If the value is stored in the
+    Correlation table it will be plotted as a filled red circle, otherwise it
+    will be plotted with an open red circle at the value of opt.cmin. The
+    core is denoted with a black symbol.
+    
+    Parameters
+    ----------
+    catalog : float ndarray
+        Event times of family members ordered by date as matplotlib dates.
+    ccc_sparse : sparse_csc matrix
+        Pairwise values from the full Correlation table as a sparse matrix.
+    ids_fam : int ndarray
+        ID numbers of all family members ordered by time.
+    core_idx : int
+        Index corresponding to position of core event within ordered family.
+    ax : Axis object
+        Subplot axis to modify in place.
+    opt : Options object
+        Describes the run parameters.
+    """
+    
+    # Get correlation matrix for family only
+    ccc_fam = ccc_sparse[ids_fam,:]
+    ccc_fam = ccc_fam[:,ids_fam]
+    ccc_fam += ccc_fam.transpose()
+    
+    # Get row with highest row sum
+    Cmax = np.argmax(ccc_fam.sum(axis=0))
+    Cprint = np.squeeze(np.asarray(ccc_fam[:,Cmax].todense()))
+    Cprint[Cmax] = 1 # For autocorrelation
+    
+    # Create mask to only plot each point once
+    cmask = np.zeros(len(Cprint), dtype=bool)
+    cmask[Cprint>=opt.cmin] = True
+    
+    # Plot closed circles for values that exist, open where undefined
+    ax.plot_date(catalog[cmask], Cprint[cmask], 'ro',
+            alpha=0.5, markeredgecolor='r', markeredgewidth=0.5, markersize=3)
+    ax.plot_date(catalog[~cmask], 0*Cprint[~cmask]+opt.cmin, 'wo', alpha=0.5,
+                     markeredgecolor='r', markeredgewidth=0.5)
+    
+    # Plot black dot for core event
+    if Cprint[core_idx] >= opt.cmin:
+        ax.plot_date(catalog[core_idx], Cprint[core_idx], 'ko',
+            markeredgecolor='k', markeredgewidth=0.5, markersize=3)
+    else:
+        ax.plot_date(catalog[core_idx], opt.cmin, 'wo', markeredgecolor='k',
+            markeredgewidth=0.5, markersize=3)
 
 
 def create_family_html(rtable, ftable, external_catalogs, opt):
@@ -2023,7 +2205,7 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
     for fnum in range(ftable.attrs.nClust):
         
         fam = np.fromstring(fmembers[fnum], dtype=int, sep=' ')
-        core = fcores[fnum]
+        corenum = fcores[fnum]
         
         # Prep catalog
         catalogind = np.argsort(startTimeMPL[fam])
@@ -2032,7 +2214,7 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
         spacing = np.diff(catalog)*24
         minind = fam[catalogind[0]]
         maxind = fam[catalogind[-1]]
-        coreind = np.where(fam==core)[0][0]
+        core_idx = np.where(fam==corenum)[0][0]
         
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
             if fnum>0:
@@ -2073,8 +2255,8 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
                     minind]/opt.samprate).isoformat(),
                     (UTCDateTime(startTime[maxind]) + windowStart[
                     maxind]/opt.samprate).isoformat(), longevity,
-                    (UTCDateTime(startTime[core]) + windowStart[
-                    core]/opt.samprate).isoformat(), np.mean(spacing),
+                    (UTCDateTime(startTime[corenum]) + windowStart[
+                    corenum]/opt.samprate).isoformat(), np.mean(spacing),
                     np.median(spacing), np.mean(np.nanmean(fi[fam],
                     axis=1)),prev,next))
                 
@@ -2374,7 +2556,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     id1 = ctable.cols.id1[:]
     id2 = ctable.cols.id2[:]
     ccc = ctable.cols.ccc[:]
-    core = ftable[fnum]['core']
+    corenum = ftable[fnum]['core']
     catalogind = np.argsort(startTimeMPL[fam])
     catalog = startTimeMPL[fam][catalogind]
     famcat = fam[catalogind]
@@ -2383,13 +2565,14 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     minind = fam[catalogind[0]]
     maxind = fam[catalogind[-1]]
     
+    maxid = np.max(id2)+1
+    ccc_sparse = coo_matrix((ccc, (id1, id2)), shape=(maxid, maxid)).tocsr()
+    
     idf = ids[fam]
-    ix = np.where(np.in1d(id2,idf))
-    C = np.eye(len(idf))
-    r1 = [np.where(idf==xx)[0][0] for xx in id1[ix]]
-    r2 = [np.where(idf==xx)[0][0] for xx in id2[ix]]
-    C[r1,r2] = ccc[ix]
-    C[r2,r1] = ccc[ix]
+    ccc_fam = ccc_sparse[idf,:]
+    ccc_fam = ccc_fam[:,idf]
+    ccc_fam = ccc_fam.todense()
+    ccc_fam = ccc_fam + ccc_fam.transpose() + np.eye(len(idf))
     
     # Copy static preview image in case cluster changes
     shutil.copy('{}{}/clusters/{}.png'.format(opt.outputPath,
@@ -2400,8 +2583,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     # Fill in full correlation matrix
     print('Computing full correlation matrix; this will take time' + \
           ' if the family is large')
-    famtable = rtable[famcat]
-    Cind = C[catalogind,:]
+    rtable_fam = rtable[famcat]
+    Cind = ccc_fam[catalogind,:]
     Cind = Cind[:,catalogind]
     Cfull = Cind.copy()
     for i in range(len(famcat)-1):
@@ -2409,8 +2592,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
             if Cfull[i,j]==0:
                 # Compute correlation
                 cor, lag, nthcor = redpy.correlation.xcorr_1x1(
-                    famtable['windowCoeff'][i], famtable['windowCoeff'][j],
-                    famtable['windowFFT'][i], famtable['windowFFT'][j], opt)
+                    rtable_fam['windowCoeff'][i], rtable_fam['windowCoeff'][j],
+                    rtable_fam['windowFFT'][i], rtable_fam['windowFFT'][j], opt)
                 Cfull[i,j] = cor
                 Cfull[j,i] = cor
     
@@ -2468,8 +2651,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o2.grid.grid_line_alpha = 0.3
     o2.xaxis.axis_label = 'Date'
     o2.yaxis.axis_label = 'CCC'
-    o2.circle(matplotlib.dates.num2date(catalog), Cfull[np.where(
-        famcat==core)[0],:][0], color='red', line_alpha=0, size=4,
+    o2.circle(matplotlib.dates.num2date(catalog),Cfull[np.where(
+        famcat==corenum)[0],:].tolist()[0], color='red', line_alpha=0, size=4,
         fill_alpha=0.5)
     
     for p in [o0, o1, o2]:
@@ -2543,7 +2726,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     plt.close(fig)
     
     ### WAVEFORM IMAGES
-    famtable = rtable[famcat]
+    rtable_fam = rtable[famcat]
     fig2 = plt.figure(figsize=(10, 12))
     time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
                              1.5*opt.winlen/opt.samprate, 1/opt.samprate)
@@ -2563,7 +2746,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
         
         # Prepare data in matrix (row for each element)
         data = np.zeros((len(fam), int(opt.winlen*2)))
-        for n, r in enumerate(famtable):
+        for n, r in enumerate(rtable_fam):
             data[n, :] = prep_wiggle(r['waveform'], sta, r['windowStart'],
                                      r['windowAmp'][sta], opt)
         
@@ -2622,7 +2805,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
             minind]/opt.samprate).isoformat(), (UTCDateTime(
             startTime[maxind]) + windowStart[
             maxind]/opt.samprate).isoformat(), longevity, (UTCDateTime(
-            startTime[core]) + windowStart[core]/opt.samprate).isoformat(),
+            startTime[corenum]) + \
+            windowStart[corenum]/opt.samprate).isoformat(),
             np.mean(spacing), np.median(spacing), np.mean(np.nanmean(fi[fam],
             axis=1)),tstamp,fnum))
         
