@@ -807,19 +807,6 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
             core_maxlags = np.delete(core_maxlags, bestcor)
             core_maxcors = np.delete(core_maxcors, bestcor)
     
-    # Make sure to save correlation of new events with each other
-    # !!! This section is likely unnecessary and a possible bug
-    """
-    for i in range(-written+1,0):
-        maxcor, maxlag, nthcor = xcorr_1x1(rtable[i]['windowCoeff'],
-            rtable[-written]['windowCoeff'], rtable[i]['windowFFT'],
-            rtable[-written]['windowFFT'], opt)
-        if nthcor >= opt.cmin:
-            redpy.table.populate_correlation(ctable, rtable[-written]['id'],
-                                                 rtable[i]['id'], maxcor, opt)
-    """
-    # !!! END
-    
     # If no matches found, make new family
     if found == 0:
         members = np.arange(len(rtable)-written,len(rtable)).astype(int)
