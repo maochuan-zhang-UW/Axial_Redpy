@@ -60,6 +60,7 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         Handle to the Orphans table.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Call columns that are used multiple times into memory
@@ -102,10 +103,12 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
             
             # Make images
             create_core_images(rtable, ftable, opt)
-            create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt)
+            create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse,
+                                                                          opt)
             
             # Make HTML files
-            create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt)
+            create_family_html(rtable, ftable, rtimes_mpl, fi,
+                                                       external_catalogs, opt)
             
             # Reset printing columns
             ftable.cols.printme[:] = np.zeros((len(ftable),))
@@ -141,6 +144,7 @@ def prepare_catalog(ttimes, opt):
     Returns
     -------
     external_catalogs : list of DataFrame objects
+    
     """
     
     tmin = UTCDateTime(mdates.num2date(np.min(ttimes))) - 1800
@@ -151,7 +155,7 @@ def prepare_catalog(ttimes, opt):
     for region in ['local', 'regional', 'teleseismic']:
         
         fname = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                             'external_{}.txt'.format(region))
+                                             'external_{}.txt'.format(region))
         
         if os.path.exists(fname):
             
@@ -216,6 +220,7 @@ def query_external(region, tmin, tmax, opt):
     -------
     catalog : pandas DataFrame
         Formatted event catalog.
+    
     """
     
     latitude_center = np.mean(np.array(opt.stalats.split(',')).astype(float))
@@ -320,6 +325,7 @@ def calculate_arrivals(catalog, latitude_center, longitude_center, phase_list,
     -------
     catalog : pandas DataFrame
         Event catalog, with arrival times appended.
+    
     """
     
     # Add columns for predefined phases
@@ -435,13 +441,14 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
         filepath = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
                             '{}.html'.format(file))
         
-        assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity, famstarts,
-            ttimes, barpad, plotformat, binsize_hist, binsize_occur,
-            mintime, minplot, fixedheight, filepath, htmltitle, divtitle, opt)
+        assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
+            famstarts, ttimes, barpad, plotformat, binsize_hist,
+            binsize_occur, mintime, minplot, fixedheight, filepath, htmltitle,
+            divtitle, opt)
 
 
-def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity, famstarts,
-        ttimes, barpad, plotformat, binsize_hist, binsize_occur,
+def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
+        famstarts, ttimes, barpad, plotformat, binsize_hist, binsize_occur,
         mintime, minplot, fixedheight, filepath, htmltitle, divtitle, opt):
     """
     Assembles an interactive HTML timeline with given parameters using Bokeh.
@@ -487,6 +494,7 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity, famstarts
         Title used in div container at top left of plots.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     plot_types = plotformat.replace('+',',').split(',')
@@ -499,14 +507,14 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity, famstarts
         
         if p == 'eqrate':
             # Plot EQ Rates (Repeaters and Orphans)
-            plots.append(subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime,
-                                                                maxtime, opt))
+            plots.append(subplot_rate(ttimes, rtimes_mpl, binsize_hist,
+                                                       mintime, maxtime, opt))
             tabtitles = tabtitles+['Event Rate']
         
         elif p == 'fi':
             # Plot Frequency Index
-            plots.append(subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime,
-                                                                         opt))
+            plots.append(subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime,
+                                                                maxtime, opt))
             tabtitles = tabtitles+['FI']
         
         elif p == 'longevity':
@@ -576,6 +584,7 @@ def bokeh_figure(**kwargs):
     Returns
     -------
     fig : Figure object
+    
     """
     
     # Default values for Bokeh figures
@@ -629,6 +638,7 @@ def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
         If useBokeh is True, returns a bokeh Figure.
     ax : Axis object
         If useBokeh is False, returns a matplotlib Axis handle.
+    
     """
     
     dt_offset = binsize_hist/2 # used to create the lines
@@ -670,8 +680,8 @@ def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
         return ax
 
 
-def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt, useBokeh=True,
-                                                                     ax=None):
+def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt,
+                                                      useBokeh=True, ax=None):
     """
     Creates subplot for frequency index scatterplot.
     
@@ -702,6 +712,7 @@ def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt, useBokeh=T
         If useBokeh is True, returns a bokeh Figure.
     ax : Axis object
         If useBokeh is False, returns a matplotlib Axis handle.
+    
     """
     
     if useBokeh:
@@ -760,6 +771,7 @@ def subplot_longevity(ttimes, famstarts, longevity, mintime, maxtime,
         If useBokeh is True, returns a bokeh Figure.
     ax : Axis object
         If useBokeh is False, returns a matplotlib Axis handle.
+    
     """
     
     if useBokeh:
@@ -877,6 +889,7 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
         If useBokeh is True, returns a bokeh Figure.
     ax : Axis object
         If useBokeh is False, returns a matplotlib Axis handle.
+    
     """
     
     if useBokeh:
@@ -921,9 +934,10 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
             if max(rtimes_mpl[members])>mintime:
                 
                 # Create histogram of events/hour
-                hist, h = np.histogram(rtimes_mpl[members], bins=np.arange(min(
-                    rtimes_mpl[members]), max(rtimes_mpl[members]+binsize_occur),
-                    binsize_occur))
+                hist, h = np.histogram(rtimes_mpl[members],
+                                    bins=np.arange(min(rtimes_mpl[members]),
+                                    max(rtimes_mpl[members]+binsize_occur),
+                                    binsize_occur))
                 if useBokeh:
                     d1 = mdates.num2date(h[np.where(hist>0)])
                     d2 = mdates.num2date(h[np.where(hist>0)]+binsize_occur)
@@ -943,14 +957,15 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
                     # Loop through bins to get summed fi
                     for i in range(len(hist)):
                         # Find indicies of rtimes_mpl[members] within bins
-                        idxs = np.where(np.logical_and(rtimes_mpl[members] >= h[i],
-                                      rtimes_mpl[members] < h[i] + binsize_occur))
+                        idxs = np.where(np.logical_and(
+                                  rtimes_mpl[members] >= h[i],
+                                  rtimes_mpl[members] < h[i] + binsize_occur))
                         # Sum fi for those events
                         fisum[i] = np.sum(fi[members[idxs]])
                     # Convert to mean fi
                     histfi = fisum/hist
-                    ind = [int(max(min(255,255*(i-opt.fispanlow)/(opt.fispanhigh - \
-                                         opt.fispanlow)), 0)) for i in histfi]
+                    ind = [int(max(min(255,255*(i-opt.fispanlow)/(
+                        opt.fispanhigh - opt.fispanlow)), 0)) for i in histfi]
                 
                 colors = [bokehpalette[i] for i in ind]
                 
@@ -1102,6 +1117,7 @@ def determine_legend_text(binsize_occur):
     -------
     legtext : str
         Formatted string for legend.
+    
     """
     
     if binsize_occur == 1/24:
@@ -1156,6 +1172,7 @@ def determine_color_mapper_fi(opt):
     Returns
     -------
     color_mapper : LinearColorMapper object
+    
     """
     
     # Steal YlOrRd (len=256) colormap from matplotlib
@@ -1197,6 +1214,7 @@ def determine_lines(mintime, maxtime, barpad, famstart, longev):
         Date of start of line as matplotlib date.
     x2 : float
         Date of end of line as matplotlib date.
+    
     """
     
     add_rarrow = False
@@ -1248,6 +1266,7 @@ def family_hover_tool():
     Returns
     -------
     hover : HoverTool object
+    
     """
     
     hover = HoverTool(
@@ -1270,8 +1289,8 @@ def family_hover_tool():
 
 ### PDF OVERVIEW ###
 
-def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax, binsize,
-                                    minmembers, occurheight, plotformat, opt):
+def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
+                           binsize, minmembers, occurheight, plotformat, opt):
     """
     Generate a static PDF version of the overview plot for publication.
     
@@ -1302,6 +1321,7 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax, bi
         ',' denotes a new row and '+' groups the plots in tabs.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # !!! Add functionality to separate binsizes
@@ -1357,8 +1377,8 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax, bi
             ### FI ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
-            ax = subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt,
-                useBokeh=False, ax=ax)
+            ax = subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime,
+                                                   opt, useBokeh=False, ax=ax)
             pnum = pnum + 1
         
         elif p == 'occurrence':
@@ -1422,6 +1442,7 @@ def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize_occur, opt):
         Width (in days) of time bins for occurrence plot histogram.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Inset colorbar
@@ -1472,6 +1493,7 @@ def add_pdf_annotations(ax, mintime, maxtime, opt):
     Returns
     -------
     ax : Axis object
+    
     """
     
     if opt.anotfile != '':
@@ -1507,6 +1529,7 @@ def add_bokeh_annotations(fig, opt):
     Returns
     -------
     fig : Figure object
+    
     """
     
     if opt.anotfile != '':
@@ -1546,6 +1569,7 @@ def add_horizontal_annotations(ax, evtimes, opt):
     Returns
     -------
     ax : Axis object
+    
     """
     
     if opt.anotfile!='':
@@ -1582,6 +1606,7 @@ def create_core_images(rtable, ftable, opt):
         Handle to the Families table.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Deal with renaming files to reduce plotting time overhead
@@ -1634,6 +1659,7 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
     -------
     data : float ndarray
         Clipped, normalized, and trimmed waveform for single station/channel.
+    
     """
     
     # Trim out data for that station/channel
@@ -1722,6 +1748,7 @@ def create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt):
         Handle to the Correlation table.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Load into memory
@@ -1733,8 +1760,8 @@ def create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt):
         
         if ftable[fnum]['printme'] != 0:
             
-            assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
-                ids, ccc_sparse, 'png', 100, fnum, 0, 0, opt)
+            assemble_family_image(bboxes, rtable, ftable, rtimes_mpl,
+                windowAmp, ids, ccc_sparse, 'png', 100, fnum, 0, 0, opt)
 
 
 def initialize_family_image(opt, bboxes=[]):
@@ -1760,6 +1787,7 @@ def initialize_family_image(opt, bboxes=[]):
         List of subplot axes.
     bboxes : list of Bbox objects
         List of bounding box positions for each axis.
+    
     """
     
     # Close any existing plots
@@ -1799,6 +1827,7 @@ def format_family_image(axes, opt):
     Returns
     -------
     axes : list of Axis objects
+    
     """
     
     date_format = mdates.DateFormatter('%Y-%m-%d\n%H:%M')
@@ -1894,6 +1923,7 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
         Maximum time on timeline axes as matplotlib date (0 for default tmax).
     opt : Options object
         Describes the run parameters.
+    
     """
     
     fig, axes, bboxes = initialize_family_image(opt, bboxes=bboxes)
@@ -1965,6 +1995,7 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt):
         Subplot axis to modify in place.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Define time vector
@@ -2032,6 +2063,7 @@ def subplot_fft(rtable_fam, core_idx, ax, opt):
         Subplot axis to modify in place.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     freq = np.linspace(0,opt.samprate/2,int(opt.winlen/2))
@@ -2110,6 +2142,7 @@ def subplot_spacing(catalog, core_idx, ax, opt):
         Subplot axis to modify in place.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Spacing between events in hours
@@ -2186,6 +2219,7 @@ def create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt):
         External catalogs to check against, with 'Arrivals_' columns.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Load into memory
@@ -2249,7 +2283,8 @@ def create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt):
                     startTime[minind]).isoformat(),
                     UTCDateTime(startTime[maxind]).isoformat(), longevity,
                     UTCDateTime(startTime[corenum]).isoformat(),
-                    np.mean(spacing), np.median(spacing), np.mean(fi[fam]), prev, next))
+                    np.mean(spacing), np.median(spacing), np.mean(fi[fam]),
+                    prev, next))
                 
                 if opt.checkComCat:
                     match_external(windowAmp, ftable, fnum, f, startTime,
@@ -2282,6 +2317,7 @@ def match_external(windowAmp, ftable, fnum, f, startTime,
         External catalogs to check against, with 'Arrivals_' columns.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     pc = ['Potential', 'Conflicting']
@@ -2423,6 +2459,7 @@ def create_local_map(local_lats, local_lons, local_deps, outfile, opt):
         Path and filename for saving the figure.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     stalats = np.array(opt.stalats.split(',')).astype(float)
@@ -2496,6 +2533,7 @@ def remove_old_html(oldnClust, newnClust, opt):
         New number of clusters.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     for fnum in range(newnClust, oldnClust):
@@ -2525,6 +2563,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
         1 if correlation should be written to file.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # !!! Functionalize this monstrosity!
@@ -2573,8 +2612,10 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
             if Cfull[i,j]==0:
                 # Compute correlation
                 cor, lag, nthcor = redpy.correlation.xcorr_1x1(
-                    rtable_fam['windowCoeff'][i], rtable_fam['windowCoeff'][j],
-                    rtable_fam['windowFFT'][i], rtable_fam['windowFFT'][j], opt)
+                                            rtable_fam['windowCoeff'][i],
+                                            rtable_fam['windowCoeff'][j],
+                                            rtable_fam['windowFFT'][i],
+                                            rtable_fam['windowFFT'][j], opt)
                 Cfull[i,j] = cor
                 Cfull[j,i] = cor
     
@@ -2809,6 +2850,7 @@ def create_junk_images(jtable, opt):
         Handle to the Junk table.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Write out times of junk triggers
