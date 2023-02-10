@@ -4,6 +4,7 @@
 
 import numpy as np
 from scipy.fftpack import fft, ifft
+from scipy.sparse import coo_matrix
 
 import redpy.cluster
 import redpy.table
@@ -929,3 +930,82 @@ def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
             except:
                 print('Could not properly correlate, troubleshoot with -t')
                 redpy.table.populate_orphan(otable, idnum, trig, opt)
+
+
+def get_matrix(rtable, ctable, opt):
+    """
+    Turns the contents of the Correlation table into a sparse matrix.
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    ctable : Table object
+        Handle to the Correlation table.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    ids : int ndarray
+        'id' column from Repeaters table.
+    ccc_sparse : float csr_matrix
+        Sparse correlation matrix with id as rows/columns.
+    """
+    
+    # Get correlation matrix and ids
+    ids = rtable.cols.id[:]
+    maxid = np.max(ids)+1 # !!! Edge case problem with removed families?
+    
+    # Set up sparse correlation matrix in Compressed Sparse Row
+    # format for slicing later
+    ccc_sparse = coo_matrix((ctable.cols.ccc[:],
+                            (ctable.cols.id1[:], ctable.cols.id2[:])),
+                            shape=(maxid, maxid)).tocsr()
+    
+    return ids, ccc_sparse
+
+
+def subset_matrix(ids_sub, ccc_sparse, opt, return_type='maxrow', ind=-1):
+    """
+    Transforms a subset of the sparse correlation matrix to dense row/matrix.
+    
+    Parameters
+    ----------
+    ids_sub : int ndarray
+        'id' numbers of repeaters to use (e.g., sorted family).
+    ccc_sparse : float csr_matrix
+        Sparse correlation matrix with id as rows/columns.
+    opt : Options object
+        Describes the run parameters.
+    return_type : str, optional
+        Controls behavior with three options:
+            'maxrow' : Returns row of matrix with highest sum.
+            'indrow' : Returns row corresponding to 'ind' (e.g., the core).
+            'matrix' : Returns the full dense matrix.
+    ind : int, optional
+        Index of the row to return within the subset (default last row).
+    
+    Returns
+    -------
+    ccc_array : float ndarray
+       Either the full correlation matrix or a specified row from it.
+    """
+    
+    # Get correlation matrix for family only
+    ccc_sub = ccc_sparse[ids_sub,:]
+    ccc_sub = ccc_sub[:,ids_sub]
+    ccc_sub += ccc_sub.transpose()
+    
+    if return_type == 'matrix':
+        ccc_sub = ccc_sub.todense()
+        ccc_sub = ccc_sub + np.eye(len(ids_sub))
+        ccc_array = np.squeeze(np.asarray(ccc_sub))
+    else:
+        if return_type == 'maxrow':
+            ind = np.argmax(ccc_sub.sum(axis=0))
+        
+        ccc_array = np.squeeze(np.asarray(ccc_sub[:,ind].todense()))
+        ccc_array[ind] = 1 # For autocorrelation
+    
+    return ccc_array

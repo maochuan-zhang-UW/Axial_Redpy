@@ -153,11 +153,10 @@ def printVerboseCatalog(rtable, ftable, ctable, rtimes, rtimes_mpl, fi, ids, ccc
     since last event in hours, correlation coefficient with respect to the best
     correlated event, and correlation coefficient with respect to the core event.
     """
-
+    
     with open('{}{}/catalog.txt'.format(opt.outputPath, opt.groupName), 'w') as f:
         
         windowAmps = rtable.cols.windowAmp[:]
-
         
         f.write("cnum\tevTime                    \tfi\txcormax\txcorcore\tdt(hr)\tamps\n")
         for cnum in range(ftable.attrs.nClust):
@@ -169,21 +168,12 @@ def printVerboseCatalog(rtable, ftable, ctable, rtimes, rtimes_mpl, fi, ids, ccc
             catalog = rtimes_mpl[fam]
             spacing = np.diff(catalog)*24
             
-            # Get correlation matrix for family only
-            ids_fam = ids[fam]
-            ccc_fam = ccc_sparse[ids_fam,:]
-            ccc_fam = ccc_fam[:,ids_fam]
-            ccc_fam += ccc_fam.transpose()
-            
-            # Get row with highest row sum
-            Cmax = np.argmax(ccc_fam.sum(axis=0))
-            xcorrmax = np.squeeze(np.asarray(ccc_fam[:,Cmax].todense()))
-            xcorrmax[Cmax] = 1 # For autocorrelation
-            
-            core = ftable[cnum]['core']
-            core_ind = np.where(fam==core)[0][0]
-            xcorrcore = np.squeeze(np.asarray(ccc_fam[:,core_ind].todense()))
-            xcorrcore[core_ind] = 1
+            # Get correlation values for maximum sum along row (to match
+            # family plots) and with the current core event
+            xcorrmax = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
+                opt, return_type='maxrow')
+            xcorrcore = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
+                opt, return_type='indrow', ind=np.where(fam==core)[0][0])
             
             j = -1
             for i in catalogind:

@@ -26,7 +26,6 @@ from obspy import UTCDateTime
 from obspy.clients.fdsn.client import Client
 from obspy.geodetics import locations2degrees, kilometers2degrees
 from obspy.taup import TauPyModel
-from scipy.sparse import coo_matrix
 from tables import *
 
 import redpy.cluster
@@ -89,14 +88,7 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         if np.sum(ftable.cols.printme[:]):
             
             # Get correlation matrix and ids
-            ids = rtable.cols.id[:]
-            maxid = np.max(ids)+1
-            
-            # Set up sparse correlation matrix in Compressed Sparse Row
-            # format for slicing later
-            ccc_sparse = coo_matrix((ctable.cols.ccc[:],
-                                    (ctable.cols.id1[:], ctable.cols.id2[:])),
-                                    shape=(maxid, maxid)).tocsr()
+            ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
             
             # Write repeater-related catalogs
             if opt.verbosecatalog == True:
@@ -1887,9 +1879,9 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
     windowAmp : float ndarray
         'windowAmp' column from rtable for single station.
     ids : int ndarray
-       'id' column from rtable.
+        'id' column from Repeaters table.
     ccc_sparse : float csr_matrix
-        Sparse correlation matrix.
+        Sparse correlation matrix with id as rows/columns.
     oformat : str
         output file format (e.g., 'png' or 'pdf')
     dpi : int
@@ -2157,15 +2149,8 @@ def subplot_correlation(catalog, ccc_sparse, ids_fam, core_idx, ax, opt):
         Describes the run parameters.
     """
     
-    # Get correlation matrix for family only
-    ccc_fam = ccc_sparse[ids_fam,:]
-    ccc_fam = ccc_fam[:,ids_fam]
-    ccc_fam += ccc_fam.transpose()
-    
-    # Get row with highest row sum
-    Cmax = np.argmax(ccc_fam.sum(axis=0))
-    Cprint = np.squeeze(np.asarray(ccc_fam[:,Cmax].todense()))
-    Cprint[Cmax] = 1 # For autocorrelation
+    # Get correlation values for row with highest sum
+    Cprint = redpy.correlation.subset_matrix(ids_fam, ccc_sparse, opt)
     
     # Create mask to only plot each point once
     cmask = np.zeros(len(Cprint), dtype=bool)
@@ -2556,10 +2541,6 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
     windowAmps = rtable.cols.windowAmp[:]
     fi = rtable.cols.FI[:]
-    ids = rtable.cols.id[:]
-    id1 = ctable.cols.id1[:]
-    id2 = ctable.cols.id2[:]
-    ccc = ctable.cols.ccc[:]
     corenum = ftable[fnum]['core']
     catalogind = np.argsort(startTimeMPL[fam])
     catalog = startTimeMPL[fam][catalogind]
@@ -2569,14 +2550,10 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     minind = fam[catalogind[0]]
     maxind = fam[catalogind[-1]]
     
-    maxid = np.max(id2)+1
-    ccc_sparse = coo_matrix((ccc, (id1, id2)), shape=(maxid, maxid)).tocsr()
+    ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
     
-    idf = ids[fam]
-    ccc_fam = ccc_sparse[idf,:]
-    ccc_fam = ccc_fam[:,idf]
-    ccc_fam = ccc_fam.todense()
-    ccc_fam = ccc_fam + ccc_fam.transpose() + np.eye(len(idf))
+    ccc_fam = redpy.correlation.subset_matrix(ids[fam], ccc_sparse, opt,
+                                              return_type='matrix')
     
     # Copy static preview image in case cluster changes
     shutil.copy('{}{}/clusters/{}.png'.format(opt.outputPath,
