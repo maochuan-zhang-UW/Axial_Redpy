@@ -9,6 +9,8 @@ import argparse
 import numpy as np
 import os
 
+from scipy.sparse import coo_matrix
+
 """
 Run this script to force plotting. Can be used after killing mid-run or updating settings.
 Note that the -s and -e settings follow Python convention for arrays, i.e., start at 0
@@ -94,8 +96,16 @@ if args.famplot or args.html:
     #rtimes = [mdates.num2date(rtime) for rtime in rtimes_mpl]
 
 if args.famplot:
-    redpy.plotting.create_family_images(rtable, ftable, ctable, rtimes_mpl, opt)
-
+    # Get correlation matrix and ids
+    ids = rtable.cols.id[:]
+    maxid = np.max(ids)+1
+            
+    # Set up sparse correlation matrix in Compressed Sparse Row
+    # format for slicing later
+    ccc_sparse = coo_matrix((ctable.cols.ccc[:],
+                            (ctable.cols.id1[:], ctable.cols.id2[:])),
+                            shape=(maxid, maxid)).tocsr()
+    redpy.plotting.create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt)
 if args.html:
     if opt.checkComCat==True:
         ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
