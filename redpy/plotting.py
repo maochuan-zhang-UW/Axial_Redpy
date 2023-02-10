@@ -9,7 +9,7 @@ import cartopy.crs as ccrs
 import cartopy.io.img_tiles as cimgt
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.dates
+import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 from bokeh.models import Arrow, ColorBar, ColumnDataSource, Div
@@ -63,38 +63,57 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         Describes the run parameters.
     """
     
+    # Call columns that are used multiple times into memory
+    ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
+    windowStart = rtable.cols.windowStart[:]
+    rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
+    rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
+    
     if opt.checkComCat==True:
-        external_catalogs = prepare_catalog(ttable, opt)
+        external_catalogs = prepare_catalog(ttimes, opt)
     else:
         external_catalogs = []
     
     # Write trigger and orphan catalogs
-    printTriggerCatalog(ttable, opt)
+    printTriggerCatalog(ttimes, opt)
     printOrphanCatalog(otable, opt)
     
     # If there is at least one family
     if len(rtable) > 1:
         
         # Render Bokeh timelines
-        create_timelines(rtable, ftable, ttable, opt)
+        fi = np.nanmean(rtable.cols.FI[:], axis=1)
+        create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt)
         
         # If there are changes to the catalog
         if np.sum(ftable.cols.printme[:]):
             
+            # Get correlation matrix and ids
+            ids = rtable.cols.id[:]
+            maxid = np.max(ids)+1
+            
+            # Set up sparse correlation matrix in Compressed Sparse Row
+            # format for slicing later
+            ccc_sparse = coo_matrix((ctable.cols.ccc[:],
+                                    (ctable.cols.id1[:], ctable.cols.id2[:])),
+                                    shape=(maxid, maxid)).tocsr()
+            
             # Write repeater-related catalogs
             if opt.verbosecatalog == True:
-                printVerboseCatalog(rtable, ftable, ctable, opt)
+                # !!! pass columns here
+                printVerboseCatalog(rtable, ftable, ctable, rtimes,
+                                         rtimes_mpl, fi, ids, ccc_sparse, opt)
             else:
-                printCatalog(rtable, ftable, opt)
-            printSwarmCatalog(rtable, ftable, ttable, opt)
-            printCoresCatalog(rtable, ftable, opt)
+                printCatalog(ftable, rtimes, opt)
+            printSwarmCatalog(rtable, ftable, ttimes, rtimes, opt)
+            printCoresCatalog(ftable, rtimes, opt)
             
             # Make images
             create_core_images(rtable, ftable, opt)
-            create_family_images(rtable, ftable, ctable, opt)
+            create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt)
             
             # Make HTML files
-            create_family_html(rtable, ftable, external_catalogs, opt)
+            create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt)
             
             # Reset printing columns
             ftable.cols.printme[:] = np.zeros((len(ftable),))
@@ -110,7 +129,7 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         os.rename(tmp,tmp[0:-4])
 
 
-def prepare_catalog(ttable, opt):
+def prepare_catalog(ttimes, opt):
     """
     Downloads and formats event catalog from external datacenter.
     
@@ -122,8 +141,8 @@ def prepare_catalog(ttable, opt):
     
     Parameters
     ----------
-    ttable : Table object
-        Handle to the Triggers table.
+    ttimes : float ndarray
+        Times of all triggers as matplotlib dates.
     opt : Options object
         Describes the run parameters.
     
@@ -132,9 +151,8 @@ def prepare_catalog(ttable, opt):
     external_catalogs : list of DataFrame objects
     """
     
-    ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig
-    tmin = UTCDateTime(matplotlib.dates.num2date(np.min(ttimes))) - 1800
-    tmax = UTCDateTime(matplotlib.dates.num2date(np.max(ttimes))) + 30
+    tmin = UTCDateTime(mdates.num2date(np.min(ttimes))) - 1800
+    tmax = UTCDateTime(mdates.num2date(np.max(ttimes))) + 30
     
     external_catalogs = []
     
@@ -350,7 +368,7 @@ def calculate_arrivals(catalog, latitude_center, longitude_center, phase_list,
     return catalog
 
 
-def create_timelines(rtable, ftable, ttable, opt):
+def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
     """
     Creates HTML bokeh timelines: overview, overview_recent, and meta_recent.
     
@@ -363,31 +381,32 @@ def create_timelines(rtable, ftable, ttable, opt):
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
-    ttable : Table object
-        Handle to the Triggers table.
+    ttimes : float ndarray
+        Times of all triggers as matplotlib dates.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
     opt : Options object
         Describes the run parameters.
     """
     
     # Load table columns into memory to reduce I/O overhead
     # !!! This variable technically needs the windowStart added to it
-    # !!! Same for alltrigs needing opt.ptrig...
-    rtimes = rtable.cols.startTimeMPL[:]# + rtable.cols.windowStart[:] / \
-                                        #                86400. / opt.samprate
-    fi = np.nanmean(rtable.cols.FI[:], axis=1)
+    # !!! Same for ttimes needing opt.ptrig...
+    
     longevity = ftable.cols.longevity[:]
     famstarts = ftable.cols.startTime[:]
-    alltrigs = ttable.cols.startTimeMPL[:]# + opt.ptrig
     
     for i, file in enumerate(['overview', 'overview_recent', 'meta_recent']):
         
         # Set parameters unique to each timeline type
         if i == 0: # overview.html
-            barpad = (max(alltrigs)-min(alltrigs))*0.01
+            barpad = (max(ttimes)-min(ttimes))*0.01
             plotformat = opt.plotformat
             binsize_hist = opt.dybin
             binsize_occur = opt.occurbin
-            mintime = min(alltrigs)
+            mintime = min(ttimes)
             minplot = opt.minplot
             fixedheight = opt.fixedheight
             htmltitle = '{} Overview'.format(opt.title)
@@ -397,7 +416,7 @@ def create_timelines(rtable, ftable, ttable, opt):
             plotformat = opt.plotformat
             binsize_hist = opt.hrbin/24
             binsize_occur = opt.recbin
-            mintime = max(alltrigs)-opt.recplot
+            mintime = max(ttimes)-opt.recplot
             minplot = 0
             fixedheight = opt.fixedheight
             htmltitle = '{} Overview - Last {:.1f} Days'.format(opt.title,
@@ -409,7 +428,7 @@ def create_timelines(rtable, ftable, ttable, opt):
             plotformat = opt.plotformat.replace(',','+')
             binsize_hist = opt.mhrbin/24
             binsize_occur = opt.mrecbin
-            mintime = max(alltrigs)-opt.mrecplot
+            mintime = max(ttimes)-opt.mrecplot
             minplot = opt.mminplot
             fixedheight = True
             htmltitle = '{} Overview - Last {:.1f} Days'.format(opt.title,
@@ -424,13 +443,13 @@ def create_timelines(rtable, ftable, ttable, opt):
         filepath = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
                             '{}.html'.format(file))
         
-        assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
-            alltrigs, barpad, plotformat, binsize_hist, binsize_occur,
+        assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity, famstarts,
+            ttimes, barpad, plotformat, binsize_hist, binsize_occur,
             mintime, minplot, fixedheight, filepath, htmltitle, divtitle, opt)
 
 
-def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
-        alltrigs, barpad, plotformat, binsize_hist, binsize_occur,
+def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity, famstarts,
+        ttimes, barpad, plotformat, binsize_hist, binsize_occur,
         mintime, minplot, fixedheight, filepath, htmltitle, divtitle, opt):
     """
     Assembles an interactive HTML timeline with given parameters using Bokeh.
@@ -439,7 +458,9 @@ def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
     ----------
     ftable : Table object
         Handle to the Families table.
-    rtimes : float ndarray
+    rtimes : datetime ndarray
+        Times of repeaters as datetimes.
+    rtimes_mpl : float ndarray
         Times of repeaters as matplotlib dates.
     fi : float ndarray
         Frequency index values for repeaters.
@@ -447,7 +468,7 @@ def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
         Longevity values for all families.
     famstarts : float ndarray
         Start times of all families as matplotlib dates.
-    alltrigs : float ndarray
+    ttimes : float ndarray
         Times of all triggers as matplotlib dates.
     barpad : float
         Horizontal padding for hover and arrows (usually ~1% of window range).
@@ -479,39 +500,39 @@ def assemble_bokeh_timeline(ftable, rtimes, fi, longevity, famstarts,
     plot_types = plotformat.replace('+',',').split(',')
     plots = []
     tabtitles = []
-    maxtime = np.max(alltrigs)
+    maxtime = np.max(ttimes)
     
     # Create each of the subplots specified in the configuration file
     for p in plot_types:
         
         if p == 'eqrate':
             # Plot EQ Rates (Repeaters and Orphans)
-            plots.append(subplot_rate(alltrigs, rtimes, binsize_hist, mintime,
+            plots.append(subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime,
                                                                 maxtime, opt))
             tabtitles = tabtitles+['Event Rate']
         
         elif p == 'fi':
             # Plot Frequency Index
-            plots.append(subplot_fi(alltrigs, rtimes, fi, mintime, maxtime,
+            plots.append(subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime,
                                                                          opt))
             tabtitles = tabtitles+['FI']
         
         elif p == 'longevity':
             # Plot Cluster Longevity
-            plots.append(subplot_longevity(alltrigs, famstarts, longevity,
+            plots.append(subplot_longevity(ttimes, famstarts, longevity,
                                                mintime, maxtime, barpad, opt))
             tabtitles = tabtitles+['Longevity']
         
         elif p == 'occurrence':
             # Plot family occurrence
-            plots.append(subplot_occurrence(alltrigs, rtimes, famstarts,
+            plots.append(subplot_occurrence(ttimes, rtimes_mpl, famstarts,
                              longevity, fi, ftable, mintime, maxtime, minplot,
                              binsize_occur, barpad, 'rate', fixedheight, opt))
             tabtitles = tabtitles+['Occurrence (Color by Rate)']
         
         elif p == 'occurrencefi':
             # Plot family occurrence with color by FI
-            plots.append(subplot_occurrence(alltrigs, rtimes, famstarts,
+            plots.append(subplot_occurrence(ttimes, rtimes_mpl, famstarts,
                              longevity, fi, ftable, mintime, maxtime, minplot,
                              binsize_occur, barpad, 'fi', fixedheight, opt))
             tabtitles = tabtitles+['Occurrence (Color by FI)']
@@ -586,16 +607,16 @@ def bokeh_figure(**kwargs):
     return fig
 
 
-def subplot_rate(alltrigs, rtimes, binsize_hist, mintime, maxtime, opt,
+def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
                                                       useBokeh=True, ax=None):
     """
     Creates subplot for rate of orphans and repeaters.
     
     Parameters
     ----------
-    alltrigs : float ndarray
-        Array containing times of all triggers
-    rtimes : float ndarray
+    ttimes : float ndarray
+        Times of all triggers as matplotlib dates.
+    rtimes_mpl : float ndarray
         Times of repeaters as matplotlib dates.
     binsize_hist : float
         Width (in days) of time bins for rate plot histogram.
@@ -628,26 +649,26 @@ def subplot_rate(alltrigs, rtimes, binsize_hist, mintime, maxtime, opt,
                                                               binsize_hist*24)
     
     # Create histogram of events/dybin
-    histT, hT = np.histogram(alltrigs, bins=np.arange(mintime,
+    histT, hT = np.histogram(ttimes, bins=np.arange(mintime,
         maxtime+binsize_hist, binsize_hist))
-    histR, hR = np.histogram(rtimes, bins=np.arange(mintime,
+    histR, hR = np.histogram(rtimes_mpl, bins=np.arange(mintime,
         maxtime+binsize_hist, binsize_hist))
     
     if useBokeh:
         fig = bokeh_figure(title=title)
         fig.yaxis.axis_label = 'Events'
-        fig.line(matplotlib.dates.num2date(hT[0:-1]+dt_offset), histT-histR,
+        fig.line(mdates.num2date(hT[0:-1]+dt_offset), histT-histR,
             color='black', legend_label='Orphans')
-        fig.line(matplotlib.dates.num2date(hR[0:-1]+dt_offset), histR,
+        fig.line(mdates.num2date(hR[0:-1]+dt_offset), histR,
             color='red', legend_label='Repeaters', line_width=2)
         fig.legend.location = 'top_left'
         
         return fig
     
     else:
-        ax.plot(matplotlib.dates.num2date(hT[0:-1]+dt_offset), histT-histR,
+        ax.plot(mdates.num2date(hT[0:-1]+dt_offset), histT-histR,
             color='black', label='Orphans', lw=0.5)
-        ax.plot(matplotlib.dates.num2date(hR[0:-1]+dt_offset), histR,
+        ax.plot(mdates.num2date(hR[0:-1]+dt_offset), histR,
             color='red', label='Repeaters', lw=2)
         ax.set_title(title, loc='left', fontweight='bold')
         ax.set_ylabel('Events', style='italic')
@@ -657,16 +678,18 @@ def subplot_rate(alltrigs, rtimes, binsize_hist, mintime, maxtime, opt,
         return ax
 
 
-def subplot_fi(alltrigs, rtimes, fi, mintime, maxtime, opt, useBokeh=True,
+def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt, useBokeh=True,
                                                                      ax=None):
     """
     Creates subplot for frequency index scatterplot.
     
     Parameters
     ----------
-    alltrigs : float ndarray
+    ttimes : float ndarray
         Times of all triggers as matplotlib dates.
-    rtimes : float ndarray
+    rtimes : datetime ndarray
+        Times of repeaters as datetimes.
+    rtimes_mpl : float ndarray
         Times of repeaters as matplotlib dates.
     fi : float ndarray
         Frequency index values for repeaters.
@@ -693,35 +716,34 @@ def subplot_fi(alltrigs, rtimes, fi, mintime, maxtime, opt, useBokeh=True,
         fig = bokeh_figure(title='Frequency Index')
         fig.yaxis.axis_label = 'FI'
         # Always plot at least one invisible point
-        fig.circle(matplotlib.dates.num2date(np.max(alltrigs)), 0,
+        fig.circle(mdates.num2date(np.max(ttimes)), 0,
             line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Frequency Index', loc='left', fontweight='bold')
         ax.set_ylabel('FI', style='italic')
         ax.set_xlabel('Date', style='italic')
     
-    idxs = np.where((rtimes>=mintime) & (rtimes<=maxtime))[0]
+    idxs = np.where((rtimes_mpl>=mintime) & (rtimes_mpl<=maxtime))[0]
     
     if useBokeh:
-        fig.circle(matplotlib.dates.num2date(rtimes[idxs]), fi[idxs],
-            color='red', line_alpha=0, size=3, fill_alpha=0.5)
+        fig.circle(rtimes[idxs], fi[idxs], color='red', line_alpha=0,
+            size=3, fill_alpha=0.5)
         return fig
     else:
-        ax.scatter(matplotlib.dates.num2date(rtimes[idxs]), fi[idxs], 2,
-            c='red', alpha=0.25)
+        ax.scatter(rtimes[idxs], fi[idxs], 2, c='red', alpha=0.25)
         # Need to call get_ylim() or y-limits sometimes freak out
         axlims = ax.get_ylim()
         return ax
 
 
-def subplot_longevity(alltrigs, famstarts, longevity, mintime, maxtime,
+def subplot_longevity(ttimes, famstarts, longevity, mintime, maxtime,
                                          barpad, opt, useBokeh=True, ax=None):
     """
     Creates subplot for longevity.
     
     Parameters
     ----------
-    alltrigs : float ndarray
+    ttimes : float ndarray
         Times of all triggers as matplotlib dates.
     famstarts : float ndarray
         Start times of all families as matplotlib dates.
@@ -750,11 +772,11 @@ def subplot_longevity(alltrigs, famstarts, longevity, mintime, maxtime,
     
     if useBokeh:
         fig = bokeh_figure(y_axis_type='log',
-            y_range=[0.01, np.sort(alltrigs)[-1]-np.sort(alltrigs)[0]],
+            y_range=[0.01, np.sort(ttimes)[-1]-np.sort(ttimes)[0]],
             title='Cluster Longevity')
         fig.yaxis.axis_label = 'Days'
         # Always plot at least one invisible point
-        fig.circle(matplotlib.dates.num2date(np.max(alltrigs)), 1,
+        fig.circle(mdates.num2date(np.max(ttimes)), 1,
             line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Longevity', loc='left', fontweight='bold')
@@ -775,14 +797,14 @@ def subplot_longevity(alltrigs, famstarts, longevity, mintime, maxtime,
             if useBokeh:
                 source = ColumnDataSource(dict(
                     x=np.array(
-                    (matplotlib.dates.num2date(x1),
-                    matplotlib.dates.num2date(x2))),
+                    (mdates.num2date(x1),
+                    mdates.num2date(x2))),
                     y=np.array((longevity[n], longevity[n]))))
                 fig.add_glyph(source, Line(x='x', y='y', line_color='red',
                     line_alpha=0.5))
             else:
-                ax.semilogy(np.array((matplotlib.dates.num2date(x1),
-                    matplotlib.dates.num2date(x2))),
+                ax.semilogy(np.array((mdates.num2date(x1),
+                    mdates.num2date(x2))),
                     np.array((longevity[n], longevity[n])), 'red', alpha=0.75,
                                                                        lw=0.5)
             
@@ -790,20 +812,20 @@ def subplot_longevity(alltrigs, famstarts, longevity, mintime, maxtime,
                 if useBokeh:
                     fig.add_layout(Arrow(end=VeeHead(size=5, fill_color='red',
                         line_color='red', line_alpha=0.5), line_alpha=0,
-                        x_start=matplotlib.dates.num2date(famstarts[n] + \
-                        longevity[n]), x_end=matplotlib.dates.num2date(
+                        x_start=mdates.num2date(famstarts[n] + \
+                        longevity[n]), x_end=mdates.num2date(
                         mintime - barpad), y_start=longevity[n],
                         y_end=longevity[n]))
                 else:
-                    ax.annotate('', xy=(matplotlib.dates.num2date(
+                    ax.annotate('', xy=(mdates.num2date(
                         mintime - barpad), longevity[n]), xytext=(
-                        matplotlib.dates.num2date(mintime - 2*barpad),
+                        mdates.num2date(mintime - 2*barpad),
                         longevity[n]), arrowprops=dict(arrowstyle='<-',
                         color='red', alpha=0.75))
             
             if add_rarrow:
-                ax.annotate('', xy=(matplotlib.dates.num2date(maxtime + \
-                    barpad), longevity[n]), xytext=(matplotlib.dates.num2date(
+                ax.annotate('', xy=(mdates.num2date(maxtime + \
+                    barpad), longevity[n]), xytext=(mdates.num2date(
                     maxtime + 2*barpad), longevity[n]), arrowprops=dict(
                     arrowstyle='<-', color='red', alpha=0.75))
     
@@ -813,7 +835,7 @@ def subplot_longevity(alltrigs, famstarts, longevity, mintime, maxtime,
         return ax
 
 
-def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
+def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
     mintime, maxtime, minplot, binsize_occur, barpad, colorby, fixedheight,
                                                  opt, useBokeh=True, ax=None):
     """
@@ -821,9 +843,9 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
     
     Parameters
     ----------
-    alltrigs : float ndarray
+    ttimes : float ndarray
         Times of all triggers as matplotlib dates.
-    rtimes : float ndarray
+    rtimes_mpl : float ndarray
         Times of repeaters as matplotlib dates.
     famstarts : float ndarray
         Start times of all families as matplotlib dates.
@@ -872,7 +894,7 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
         fig.yaxis.axis_label = 'Cluster by Date' + (
             ' ({}+ Members)'.format(minplot) if minplot>0 else '')
         # Always plot at least one invisible point
-        fig.circle(matplotlib.dates.num2date(np.max(alltrigs)), 0,
+        fig.circle(mdates.num2date(np.max(ttimes)), 0,
             line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Occurrence Timeline', loc='left', fontweight='bold')
@@ -902,43 +924,43 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
         members = np.fromstring(ftable[clustNum]['members'], dtype=int,
             sep=' ')
         
-        # Create histogram of events/hour
-        hist, h = np.histogram(rtimes[members], bins=np.arange(min(
-            rtimes[members]), max(rtimes[members]+binsize_occur),
-            binsize_occur))
-        if useBokeh:
-            d1 = matplotlib.dates.num2date(h[np.where(hist>0)])
-            d2 = matplotlib.dates.num2date(h[np.where(hist>0)]+binsize_occur)
-        else:
-            d1 = h[np.where(hist>0)]
-        
-        if colorby is 'rate':
-            histlog = np.log10(hist[hist>0])
-            if binsize_occur >= 1:
-                ind = [int(min(255,255*(i/3))) for i in histlog]
-            else:
-                ind = [int(min(255,255*(i/2))) for i in histlog]
-        elif colorby is 'fi':
-            h = h[np.where(hist>0)]
-            hist = hist[hist>0]
-            fisum = np.zeros(len(hist))
-            # Loop through bins to get summed fi
-            for i in range(len(hist)):
-                # Find indicies of rtimes[members] within bins
-                idxs = np.where(np.logical_and(rtimes[members] >= h[i],
-                                      rtimes[members] < h[i] + binsize_occur))
-                # Sum fi for those events
-                fisum[i] = np.sum(fi[members[idxs]])
-            # Convert to mean fi
-            histfi = fisum/hist
-            ind = [int(max(min(255,255*(i-opt.fispanlow)/(opt.fispanhigh - \
-                                         opt.fispanlow)), 0)) for i in histfi]
-        
-        colors = [bokehpalette[i] for i in ind]
-        
-        if len(rtimes[members]) >= minplot:
+        if len(rtimes_mpl[members]) >= minplot:
             
-            if max(rtimes[members])>mintime:
+            if max(rtimes_mpl[members])>mintime:
+                
+                # Create histogram of events/hour
+                hist, h = np.histogram(rtimes_mpl[members], bins=np.arange(min(
+                    rtimes_mpl[members]), max(rtimes_mpl[members]+binsize_occur),
+                    binsize_occur))
+                if useBokeh:
+                    d1 = mdates.num2date(h[np.where(hist>0)])
+                    d2 = mdates.num2date(h[np.where(hist>0)]+binsize_occur)
+                else:
+                    d1 = h[np.where(hist>0)]
+                
+                if colorby is 'rate':
+                    histlog = np.log10(hist[hist>0])
+                    if binsize_occur >= 1:
+                        ind = [int(min(255,255*(i/3))) for i in histlog]
+                    else:
+                        ind = [int(min(255,255*(i/2))) for i in histlog]
+                elif colorby is 'fi':
+                    h = h[np.where(hist>0)]
+                    hist = hist[hist>0]
+                    fisum = np.zeros(len(hist))
+                    # Loop through bins to get summed fi
+                    for i in range(len(hist)):
+                        # Find indicies of rtimes_mpl[members] within bins
+                        idxs = np.where(np.logical_and(rtimes_mpl[members] >= h[i],
+                                      rtimes_mpl[members] < h[i] + binsize_occur))
+                        # Sum fi for those events
+                        fisum[i] = np.sum(fi[members[idxs]])
+                    # Convert to mean fi
+                    histfi = fisum/hist
+                    ind = [int(max(min(255,255*(i-opt.fispanlow)/(opt.fispanhigh - \
+                                         opt.fispanlow)), 0)) for i in histfi]
+                
+                colors = [bokehpalette[i] for i in ind]
                 
                 add_line, add_larrow, add_rarrow, x1, x2 = determine_lines(
                     mintime, maxtime, barpad, famstarts[clustNum],
@@ -948,14 +970,14 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
                     if useBokeh:
                         source = ColumnDataSource(dict(
                             x=np.array(
-                            (matplotlib.dates.num2date(x1),
-                            matplotlib.dates.num2date(x2))),
+                            (mdates.num2date(x1),
+                            mdates.num2date(x2))),
                             y=np.array((n,n))))
                         fig.add_glyph(source, Line(x='x', y='y',
                             line_color='black'))
                     else:
-                        ax.plot(np.array((matplotlib.dates.num2date(x1),
-                            matplotlib.dates.num2date(x2))),
+                        ax.plot(np.array((mdates.num2date(x1),
+                            mdates.num2date(x2))),
                             np.array((n,n)), 'black', lw=0.5, zorder=0)
                     
                     if add_larrow:
@@ -963,21 +985,21 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
                             fig.add_layout(Arrow(end=VeeHead(size=5,
                                 fill_color='black', line_color='black'),
                                 line_alpha=0,
-                                x_start=matplotlib.dates.num2date(
+                                x_start=mdates.num2date(
                                 famstarts[clustNum]+longevity[clustNum]),
-                                x_end=matplotlib.dates.num2date(mintime - \
+                                x_end=mdates.num2date(mintime - \
                                 barpad), y_start=n, y_end=n))
                         else:
-                            ax.annotate('', xy=(matplotlib.dates.num2date(
+                            ax.annotate('', xy=(mdates.num2date(
                                 mintime-barpad),n),xytext=(
-                                matplotlib.dates.num2date(
+                                mdates.num2date(
                                 mintime-2*barpad),n), arrowprops=dict(
                                 arrowstyle='<-', color='black', alpha=1))
                     
                     if add_rarrow:
-                        ax.annotate('', xy=(matplotlib.dates.num2date(
+                        ax.annotate('', xy=(mdates.num2date(
                             maxtime + barpad), n), xytext=(
-                            matplotlib.dates.num2date(maxtime+2*barpad),
+                            mdates.num2date(maxtime+2*barpad),
                             n), arrowprops=dict(arrowstyle='<-',
                             color='black', alpha=1))
                 
@@ -991,38 +1013,38 @@ def subplot_occurrence(alltrigs, rtimes, famstarts, longevity, fi, ftable,
                 else:
                     # Potentially slow if many patches
                     for i in range(len(d1)):
-                        x = matplotlib.dates.num2date(np.array(d1)[i])
+                        x = mdates.num2date(np.array(d1)[i])
                         w = datetime.timedelta(binsize_occur)
-                        if (x >= matplotlib.dates.num2date(mintime)) and (
-                            x <= matplotlib.dates.num2date(maxtime)):
+                        if (x >= mdates.num2date(mintime)) and (
+                            x <= mdates.num2date(maxtime)):
                             ax.add_patch(matplotlib.patches.Rectangle((x,
                                 n - 0.3), w,0.6, facecolor=colors[i],
                                 edgecolor=None, fill=True))
-                            if x+w > matplotlib.dates.num2date(x2):
+                            if x+w > mdates.num2date(x2):
                                 x2 = np.array(d1)[i] + binsize_occur
                 
                 # Add label
                 if useBokeh:
                     label = Label(x=max(d2), y=n, text='  {}'.format(len(
-                        rtimes[members])), text_font_size='9pt',
+                        rtimes_mpl[members])), text_font_size='9pt',
                         text_baseline='middle')
                     fig.add_layout(label)
                 else:
-                    ax.annotate('  {}'.format(len(rtimes[members])), (
-                        matplotlib.dates.num2date(x2),n), va='center',
+                    ax.annotate('  {}'.format(len(rtimes_mpl[members])), (
+                        mdates.num2date(x2),n), va='center',
                         ha='left')
                 
                 if useBokeh:
                     # Build source for hover patches
                     fnum = clustNum
-                    xs.append([matplotlib.dates.num2date(max(min(
-                                   rtimes[members]), mintime) - barpad),
-                               matplotlib.dates.num2date(max(min(
-                                   rtimes[members]), mintime) - barpad),
-                               matplotlib.dates.num2date(
-                                   max(rtimes[members]) + barpad),
-                               matplotlib.dates.num2date(max(
-                                   rtimes[members]) + barpad)])
+                    xs.append([mdates.num2date(max(min(
+                                   rtimes_mpl[members]), mintime) - barpad),
+                               mdates.num2date(max(min(
+                                   rtimes_mpl[members]), mintime) - barpad),
+                               mdates.num2date(
+                                   max(rtimes_mpl[members]) + barpad),
+                               mdates.num2date(max(
+                                   rtimes_mpl[members]) + barpad)])
                     ys.append([n-0.5, n+0.5, n+0.5, n-0.5])
                     famnum.append([fnum])
                 
@@ -1256,7 +1278,7 @@ def family_hover_tool():
 
 ### PDF OVERVIEW ###
 
-def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
+def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax, binsize,
                                     minmembers, occurheight, plotformat, opt):
     """
     Generate a static PDF version of the overview plot for publication.
@@ -1269,8 +1291,8 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
-    ttable : Table object
-        Handle to the Triggers table.
+    ttimes : float ndarray
+        Times of all triggers as matplotlib dates.
     tmin : float
         Minimum time on timeline axes as matplotlib date (0 for default tmin).
     tmax : float
@@ -1294,25 +1316,19 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
     binsize_hist = binsize
     binsize_occur = binsize
     
-    # !!! This variable technically still needs the windowStart added to it
-    # !!! Same for alltrigs needing opt.ptrig...
-    rtimes = rtable.cols.startTimeMPL[:]# + rtable.cols.windowStart[:] / \
-                                        #                86400. / opt.samprate
-    fi = np.nanmean(rtable.cols.FI[:], axis=1)
     longevity = ftable.cols.longevity[:]
     famstarts = ftable.cols.startTime[:]
-    alltrigs = ttable.cols.startTimeMPL[:]# + opt.ptrig
     
     # Custom tmin/tmax functionality
     if tmin:
         mintime = tmin
     else:
-        mintime = min(alltrigs)
+        mintime = min(ttimes)
     
     if tmax:
         maxtime = tmax
     else:
-        maxtime = max(alltrigs)
+        maxtime = max(ttimes)
     barpad = 0.01*(maxtime-mintime)
     
     plot_types = plotformat.replace('+',',').split(',')
@@ -1329,7 +1345,7 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
     # Hack a reference axis
     figref = plt.figure(figsize=(9,1))
     axref = figref.add_subplot(1,1,1)
-    axref = subplot_rate(alltrigs, rtimes, binsize_hist, mintime, maxtime,
+    axref = subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime,
         opt, useBokeh=False, ax=axref)
     
     fig = plt.figure(figsize=(9, figheight))
@@ -1341,7 +1357,7 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
             ### Rate ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
-            ax = subplot_rate(alltrigs, rtimes, binsize_hist, mintime,
+            ax = subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime,
                 maxtime, opt, useBokeh=False, ax=ax)
             pnum = pnum + 1
         
@@ -1349,7 +1365,7 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
             ### FI ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
-            ax = subplot_fi(alltrigs, rtimes, fi, mintime, maxtime, opt,
+            ax = subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt,
                 useBokeh=False, ax=ax)
             pnum = pnum + 1
         
@@ -1358,7 +1374,7 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
             ax = fig.add_subplot(nsub, 1, (pnum+1, pnum+occurheight),
                 sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
-            ax = subplot_occurrence(alltrigs, rtimes, famstarts, longevity,
+            ax = subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity,
                 fi, ftable, mintime, maxtime, minmembers, binsize_occur,
                 barpad, 'rate', True, opt, useBokeh=False, ax=ax)
             add_pdf_colorbar(fig, figheight, pnum, nsub, 'rate',
@@ -1370,7 +1386,7 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
             ax = fig.add_subplot(nsub, 1, (pnum+1, pnum+occurheight),
                 sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
-            ax = subplot_occurrence(alltrigs, rtimes, famstarts, longevity,
+            ax = subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity,
                 fi, ftable, mintime, maxtime, minmembers, binsize_occur,
                 barpad, 'fi', True, opt, useBokeh=False, ax=ax)
             add_pdf_colorbar(fig, figheight, pnum, nsub, 'fi',
@@ -1381,7 +1397,7 @@ def assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize,
             ### Longevity ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
             ax = add_pdf_annotations(ax, mintime, maxtime, opt)
-            ax = subplot_longevity(alltrigs, famstarts, longevity, mintime,
+            ax = subplot_longevity(ttimes, famstarts, longevity, mintime,
                 maxtime, barpad, opt, useBokeh=False, ax=ax)
             pnum = pnum + 1
         
@@ -1472,7 +1488,7 @@ def add_pdf_annotations(ax, mintime, maxtime, opt):
         
         for a in range(len(annotations)):
             
-            plotdate = matplotlib.dates.date2num(np.datetime64(
+            plotdate = mdates.date2num(np.datetime64(
                 annotations['Time'][a]))
             
             # If within bounds, add to figure
@@ -1547,7 +1563,7 @@ def add_horizontal_annotations(ax, evtimes, opt):
         for a in range(len(annotations)):
             
             # Translate from date to vertical position in the image
-            vertical_location = np.interp(matplotlib.dates.date2num(
+            vertical_location = np.interp(mdates.date2num(
                 pd.to_datetime(annotations['Time'][a])),
                 evtimes, np.array(range(len(evtimes))))
             
@@ -1697,7 +1713,7 @@ def wiggle_plot(data, figsize, outfile, opt):
     plt.close(fig)
 
 
-def create_family_images(rtable, ftable, ctable, opt):
+def create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt):
     """
     Creates multi-paneled family plots for all families that need plotting.
     
@@ -1717,18 +1733,7 @@ def create_family_images(rtable, ftable, ctable, opt):
     """
     
     # Load into memory
-    startTimeMPL = rtable.cols.startTimeMPL[:]
     windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
-    windowStart = rtable.cols.windowStart[:]
-    ids = rtable.cols.id[:]
-    id1 = ctable.cols.id1[:]
-    id2 = ctable.cols.id2[:]
-    ccc = ctable.cols.ccc[:]
-    maxid = np.max(id2)+1
-    
-    # Set up sparse correlation matrix in Compressed Sparse Row format for
-    # slicing later
-    ccc_sparse = coo_matrix((ccc, (id1, id2)), shape=(maxid, maxid)).tocsr()
     
     fig, axes, bboxes = initialize_family_image(opt)
     
@@ -1736,9 +1741,8 @@ def create_family_images(rtable, ftable, ctable, opt):
         
         if ftable[fnum]['printme'] != 0:
             
-            assemble_family_image(bboxes, rtable, ftable,
-                startTimeMPL, windowAmp, windowStart, ids, ccc_sparse,
-                'png', 100, fnum, 0, 0, opt)
+            assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
+                ids, ccc_sparse, 'png', 100, fnum, 0, 0, opt)
 
 
 def initialize_family_image(opt, bboxes=[]):
@@ -1805,7 +1809,7 @@ def format_family_image(axes, opt):
     axes : list of Axis objects
     """
     
-    date_format = matplotlib.dates.DateFormatter('%Y-%m-%d\n%H:%M')
+    date_format = mdates.DateFormatter('%Y-%m-%d\n%H:%M')
     
     time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
                       1.5*opt.winlen/opt.samprate, 1/opt.samprate)
@@ -1851,8 +1855,8 @@ def format_family_image(axes, opt):
     return axes
 
 
-def assemble_family_image(bboxes, rtable, ftable, startTimeMPL, windowAmp,
-    windowStart, ids, ccc_sparse, oformat, dpi, fnum, tmin, tmax, opt):
+def assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
+    ids, ccc_sparse, oformat, dpi, fnum, tmin, tmax, opt):
     """
     Creates a multi-paneled family plot for the specified family 'fnum'.
     
@@ -1878,12 +1882,10 @@ def assemble_family_image(bboxes, rtable, ftable, startTimeMPL, windowAmp,
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
-    startTimeMPL : float ndarray
-        'startTimeMPL' column from rtable.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib date.
     windowAmp : float ndarray
         'windowAmp' column from rtable for single station.
-    windowStart : int ndarray
-        'windowStart' column from rtable.
     ids : int ndarray
        'id' column from rtable.
     ccc_sparse : float csr_matrix
@@ -1894,9 +1896,9 @@ def assemble_family_image(bboxes, rtable, ftable, startTimeMPL, windowAmp,
         Dots per inch resolution of raster file.
     fnum : int
         Family number to plot.
-    tmin : 
+    tmin : float
         Minimum time on timeline axes as matplotlib date (0 for default tmin).
-    tmax : 
+    tmax : float
         Maximum time on timeline axes as matplotlib date (0 for default tmax).
     opt : Options object
         Describes the run parameters.
@@ -1908,13 +1910,13 @@ def assemble_family_image(bboxes, rtable, ftable, startTimeMPL, windowAmp,
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     
     # Order by time
-    fam = fam[np.argsort(startTimeMPL[fam])]
+    fam = fam[np.argsort(rtimes_mpl[fam])]
     
     # Get core location within fam
     core_idx = np.where(fam==ftable[fnum]['core'])[0][0]
     
     # Get timing of events
-    catalog = startTimeMPL[fam] # + windowStart/86400/opt.samprate?
+    catalog = rtimes_mpl[fam]
     
     
     # Plot waveforms
@@ -2184,7 +2186,7 @@ def subplot_correlation(catalog, ccc_sparse, ids_fam, core_idx, ax, opt):
             markeredgewidth=0.5, markersize=3)
 
 
-def create_family_html(rtable, ftable, external_catalogs, opt):
+def create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt):
     """
     Creates the HTML for the individual family pages.
     
@@ -2202,11 +2204,9 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
     """
     
     # Load into memory
-    startTime = rtable.cols.startTime[:]
-    startTimeMPL = rtable.cols.startTimeMPL[:]
-    windowStart = rtable.cols.windowStart[:]
+    startTimeMPL = rtimes_mpl
+    startTime = np.array([mdates.num2date(t) for t in rtimes_mpl])
     windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
-    fi = rtable.cols.FI[:]
     fmembers = ftable.cols.members[:]
     fcores = ftable.cols.core[:]
     printme = ftable.cols.printme[:]
@@ -2260,26 +2260,22 @@ def create_family_html(rtable, ftable, external_catalogs, opt):
                     Core event: {6}</br>
                     Last event: {4}</br>
                 <img src="fam{0}.png"></br>
-                """.format(fnum, opt.title, len(fam), (UTCDateTime(
-                    startTime[minind]) + windowStart[
-                    minind]/opt.samprate).isoformat(),
-                    (UTCDateTime(startTime[maxind]) + windowStart[
-                    maxind]/opt.samprate).isoformat(), longevity,
-                    (UTCDateTime(startTime[corenum]) + windowStart[
-                    corenum]/opt.samprate).isoformat(), np.mean(spacing),
-                    np.median(spacing), np.mean(np.nanmean(fi[fam],
-                    axis=1)),prev,next))
+                """.format(fnum, opt.title, len(fam), UTCDateTime(
+                    startTime[minind]).isoformat(),
+                    UTCDateTime(startTime[maxind]).isoformat(), longevity,
+                    UTCDateTime(startTime[corenum]).isoformat(),
+                    np.mean(spacing), np.median(spacing), np.mean(fi[fam]), prev, next))
                 
                 if opt.checkComCat:
                     match_external(windowAmp, ftable, fnum, f, startTime,
-                        windowStart, external_catalogs, opt)
+                        external_catalogs, opt)
                 
                 f.write("""
                 </center></body></html>
                 """)
 
 
-def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
+def match_external(windowAmp, ftable, fnum, f, startTime,
                                                       external_catalogs, opt):
     """
     Checks repeater trigger times with arrival times from external catalog.
@@ -2297,8 +2293,6 @@ def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
         HTML file to write to.
     startTime : str ndarray
         'startTime' column from rtable
-    windowStart : int ndarray
-        'windowStart' column from rtable
     external_catalogs : list of DataFrame objects
         External catalogs to check against, with 'Arrivals_' columns.
     opt : Options object
@@ -2340,7 +2334,7 @@ def match_external(windowAmp, ftable, fnum, f, startTime, windowStart,
     
     for m in members[order]:
         
-        t = UTCDateTime(startTime[m])+windowStart[m]/opt.samprate
+        t = UTCDateTime(startTime[m])
         
         cflag = 0
         
@@ -2634,7 +2628,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     else:
         palette = inferno(opt.nsta+1)
     for sta, staname in enumerate(opt.station.split(',')):
-        o0.circle(matplotlib.dates.num2date(startTimeMPL[fam]),
+        o0.circle(mdates.num2date(startTimeMPL[fam]),
             windowAmps[fam][:,sta], color=palette[sta], line_alpha=0, size=4,
             fill_alpha=0.5, legend_label='{}.{}'.format(
             staname,opt.channel.split(',')[sta]))
@@ -2650,7 +2644,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o1.grid.grid_line_alpha = 0.3
     o1.xaxis.axis_label = 'Date'
     o1.yaxis.axis_label = 'Interval (hr)'
-    o1.circle(matplotlib.dates.num2date(catalog[1:]), spacing, color='red',
+    o1.circle(mdates.num2date(catalog[1:]), spacing, color='red',
         line_alpha=0, size=4, fill_alpha=0.5)
     
     # Cross-correlation wrt. core
@@ -2661,7 +2655,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o2.grid.grid_line_alpha = 0.3
     o2.xaxis.axis_label = 'Date'
     o2.yaxis.axis_label = 'CCC'
-    o2.circle(matplotlib.dates.num2date(catalog),Cfull[np.where(
+    o2.circle(mdates.num2date(catalog),Cfull[np.where(
         famcat==corenum)[0],:].tolist()[0], color='red', line_alpha=0, size=4,
         fill_alpha=0.5)
     

@@ -88,15 +88,23 @@ if args.startfam or args.endfam:
 
 if args.verbose: print("Creating requested plots...")
 
+if args.famplot or args.html:
+    windowStart = rtable.cols.windowStart[:]
+    rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart[:]/opt.samprate/86400
+    #rtimes = [mdates.num2date(rtime) for rtime in rtimes_mpl]
+
 if args.famplot:
-    redpy.plotting.create_family_images(rtable, ftable, ctable, opt)
+    redpy.plotting.create_family_images(rtable, ftable, ctable, rtimes_mpl, opt)
 
 if args.html:
     if opt.checkComCat==True:
-        external_catalogs = redpy.plotting.prepare_catalog(ttable, opt)
+        ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
+        external_catalogs = redpy.plotting.prepare_catalog(ttimes, opt)
     else:
         external_catalogs = []
-    redpy.plotting.create_family_html(rtable, ftable, external_catalogs, opt)
+    fi = np.nanmean(rtable.cols.FI[:], axis=1)
+    redpy.plotting.create_family_html(rtable, ftable, rtimes_mpl, fi,
+                                                       external_catalogs, opt)
 
 if args.html or args.famplot:
     ftable.cols.printme[:] = np.zeros((len(ftable),))
