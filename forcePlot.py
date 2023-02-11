@@ -4,12 +4,13 @@
 
 import redpy.config
 import redpy.table
+import redpy.correlation
 import redpy.plotting
 import argparse
 import numpy as np
 import os
+import matplotlib.dates as mdates
 
-from scipy.sparse import coo_matrix
 
 """
 Run this script to force plotting. Can be used after killing mid-run or updating settings.
@@ -93,18 +94,11 @@ if args.verbose: print("Creating requested plots...")
 if args.famplot or args.html:
     windowStart = rtable.cols.windowStart[:]
     rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart[:]/opt.samprate/86400
-    #rtimes = [mdates.num2date(rtime) for rtime in rtimes_mpl]
+    rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
 
 if args.famplot:
     # Get correlation matrix and ids
-    ids = rtable.cols.id[:]
-    maxid = np.max(ids)+1
-            
-    # Set up sparse correlation matrix in Compressed Sparse Row
-    # format for slicing later
-    ccc_sparse = coo_matrix((ctable.cols.ccc[:],
-                            (ctable.cols.id1[:], ctable.cols.id2[:])),
-                            shape=(maxid, maxid)).tocsr()
+    ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
     redpy.plotting.create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt)
 if args.html:
     if opt.checkComCat==True:
@@ -113,7 +107,7 @@ if args.html:
     else:
         external_catalogs = []
     fi = np.nanmean(rtable.cols.FI[:], axis=1)
-    redpy.plotting.create_family_html(rtable, ftable, rtimes_mpl, fi,
+    redpy.plotting.create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi,
                                                        external_catalogs, opt)
 
 if args.html or args.famplot:

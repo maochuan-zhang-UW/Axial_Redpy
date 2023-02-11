@@ -5,6 +5,7 @@
 import numpy as np
 import matplotlib.dates
 from obspy import UTCDateTime
+import redpy.correlation
 
 def printCatalog(ftable, rtimes, opt):
     """
@@ -164,6 +165,7 @@ def printVerboseCatalog(rtable, ftable, ctable, rtimes, rtimes_mpl, fi, ids, ccc
             
             catalogind = np.argsort(rtimes_mpl[fam])
             fam = fam[catalogind]
+            corenum = ftable[cnum]['core']
             
             catalog = rtimes_mpl[fam]
             spacing = np.diff(catalog)*24
@@ -173,7 +175,7 @@ def printVerboseCatalog(rtable, ftable, ctable, rtimes, rtimes_mpl, fi, ids, ccc
             xcorrmax = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
                 opt, return_type='maxrow')
             xcorrcore = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
-                opt, return_type='indrow', ind=np.where(fam==core)[0][0])
+                opt, return_type='indrow', ind=np.where(fam==corenum)[0][0])
             
             j = -1
             for i in catalogind:
