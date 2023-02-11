@@ -21,6 +21,7 @@ optional arguments:
   -v, --verbose         increase written print statements
   -o, --ordered         order plots by OPTICS
   -m, --matrixtofile    save correlation matrix to file
+  -s, --skip            skip recalculating the full correlation matrix
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
@@ -37,6 +38,8 @@ parser.add_argument("-o", "--ordered", action="count", default=0,
     help="order plots by OPTICS")
 parser.add_argument("-m", "--matrixtofile", action="count", default=0,
     help="save correlation matrix to file")
+parser.add_argument("-s", "--skip", action="count", default=0,
+    help="skip recalculating the full correlation matrix")
 parser.add_argument("-c", "--configfile",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 args = parser.parse_args()
@@ -67,7 +70,7 @@ except OSError:
 for fnum in args.famnum:
     if args.verbose: print("Creating report for family {}...".format(fnum))
     redpy.plotting.create_report(rtable, ftable, ctable, fnum, args.ordered,
-        args.matrixtofile, opt)
+        args.skip, args.matrixtofile, opt)
 
 if args.verbose: print("Closing table...")
 h5file.close()
