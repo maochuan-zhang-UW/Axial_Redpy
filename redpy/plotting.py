@@ -107,7 +107,7 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
                                                                           opt)
             
             # Make HTML files
-            create_family_html(rtable, ftable, rtimes_mpl, fi,
+            create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi,
                                                        external_catalogs, opt)
             
             # Reset printing columns
@@ -2092,7 +2092,7 @@ def subplot_amplitude(catalog, windowAmp, fam, core_idx, ax, opt):
     catalog : float ndarray
         Event times of family members ordered by date as matplotlib dates.
     windowAmp : float ndarray
-        Amplitudes of 
+        'windowAmp' column from rtable for single station.
     fam : int ndarray
         Indices of family members within the Repeaters table ordered by time.
     core_idx : int
@@ -2125,6 +2125,13 @@ def subplot_amplitude(catalog, windowAmp, fam, core_idx, ax, opt):
         # Use global maximum/minimum
         ymin = 0.5*np.min(windowAmp[np.nonzero(windowAmp)])
         ymax = 2*np.max(windowAmp)
+    
+    # Prevent ymin being "too small" to be realistic
+    if ymax > 1:
+        ymin = np.max((ymin, 1e-3))
+    elif ymax > 1e-6:
+        ymin = np.max((ymin, 1e-12))
+    
     ax.set_ylim(ymin, ymax)
 
 
@@ -2204,7 +2211,7 @@ def subplot_correlation(catalog, ccc_sparse, ids_fam, core_idx, ax, opt):
             markeredgewidth=0.5, markersize=3)
 
 
-def create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt):
+def create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi, external_catalogs, opt):
     """
     Creates the HTML for the individual family pages.
     
@@ -2223,8 +2230,6 @@ def create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt):
     """
     
     # Load into memory
-    startTimeMPL = rtimes_mpl
-    startTime = np.array([mdates.num2date(t) for t in rtimes_mpl])
     windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
     fmembers = ftable.cols.members[:]
     fcores = ftable.cols.core[:]
@@ -2237,13 +2242,10 @@ def create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt):
         corenum = fcores[fnum]
         
         # Prep catalog
-        catalogind = np.argsort(startTimeMPL[fam])
-        catalog = startTimeMPL[fam][catalogind]
-        longevity = ftable[fnum]['longevity']
+        catalogind = np.argsort(rtimes_mpl[fam])
+        fam = fam[catalogind]
+        catalog = rtimes_mpl[fam]
         spacing = np.diff(catalog)*24
-        minind = fam[catalogind[0]]
-        maxind = fam[catalogind[-1]]
-        core_idx = np.where(fam==corenum)[0][0]
         
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
             if fnum>0:
@@ -2279,15 +2281,16 @@ def create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt):
                     Core event: {6}</br>
                     Last event: {4}</br>
                 <img src="fam{0}.png"></br>
-                """.format(fnum, opt.title, len(fam), UTCDateTime(
-                    startTime[minind]).isoformat(),
-                    UTCDateTime(startTime[maxind]).isoformat(), longevity,
-                    UTCDateTime(startTime[corenum]).isoformat(),
+                """.format(fnum, opt.title, len(fam),
+                    UTCDateTime(rtimes[fam[0]]).isoformat(),
+                    UTCDateTime(rtimes[fam[1]]).isoformat(),
+                    ftable[fnum]['longevity'],
+                    UTCDateTime(rtimes[corenum]).isoformat(),
                     np.mean(spacing), np.median(spacing), np.mean(fi[fam]),
                     prev, next))
                 
                 if opt.checkComCat:
-                    match_external(windowAmp, ftable, fnum, f, startTime,
+                    match_external(windowAmp, ftable, fnum, f, rtimes,
                         external_catalogs, opt)
                 
                 f.write("""
@@ -2295,8 +2298,7 @@ def create_family_html(rtable, ftable, rtimes_mpl, fi, external_catalogs, opt):
                 """)
 
 
-def match_external(windowAmp, ftable, fnum, f, startTime,
-                                                      external_catalogs, opt):
+def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
     """
     Checks repeater trigger times with arrival times from external catalog.
     
@@ -2311,8 +2313,8 @@ def match_external(windowAmp, ftable, fnum, f, startTime,
         Family number to check.
     f : file handle
         HTML file to write to.
-    startTime : str ndarray
-        'startTime' column from rtable
+    rtimes : datetime ndarray
+        Times of repeaters as datetimes.
     external_catalogs : list of DataFrame objects
         External catalogs to check against, with 'Arrivals_' columns.
     opt : Options object
@@ -2332,13 +2334,13 @@ def match_external(windowAmp, ftable, fnum, f, startTime,
     
     members = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     if opt.matchMax == 0 or opt.matchMax > len(members):
-        order = np.argsort(startTime[members])
+        order = np.argsort(rtimes[members])
         matchstring = ('</br><b>ComCat matches (all events):</b></br>'
             '<div style="overflow-y: auto; height:100px; width:1200px;">')
     else:
         nlargest = np.argsort(windowAmp[members])[::-1][:opt.matchMax]
         members = members[nlargest]
-        order = np.argsort(startTime[members])
+        order = np.argsort(rtimes[members])
         matchstring = ("""
             </br><b>ComCat matches ({} largest events):</b></br>'
             '<div style="overflow-y: auto; height:100px; width:1200px;">
@@ -2355,7 +2357,7 @@ def match_external(windowAmp, ftable, fnum, f, startTime,
     
     for m in members[order]:
         
-        t = UTCDateTime(startTime[m])
+        t = UTCDateTime(rtimes[m])
         
         cflag = 0
         
@@ -2545,7 +2547,8 @@ def remove_old_html(oldnClust, newnClust, opt):
 
 ### USER-GENERATED ###
 
-def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
+def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
+    matrixtofile, opt):
     """
     Creates more detailed output plots for a single family in '/reports'.
     
@@ -2559,6 +2562,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
         Family to be inspected.
     ordered : int
         1 if members should be ordered by OPTICS, 0 if by time.
+    skip_recalculate_ccc : int
+        1 if user wishes to skip recalculating the full correlation matrix.
     matrixtofile : int
         1 if correlation should be written to file.
     opt : Options object
@@ -2566,33 +2571,26 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     
     """
     
-    # !!! Functionalize this monstrosity!
-    
     # Read in annotation file (if it exists)
     if opt.anotfile != '':
         annotations = pd.read_csv(opt.anotfile)
     
-    # Set up variables
-    fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
-    startTimeMPL = rtable.cols.startTimeMPL[:]
-    startTime = rtable.cols.startTime[:]
+    # Set up variables - some of these should be passed
     windowStart = rtable.cols.windowStart[:]
-    windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
+    rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
+    rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
     windowAmps = rtable.cols.windowAmp[:]
     fi = rtable.cols.FI[:]
-    corenum = ftable[fnum]['core']
-    catalogind = np.argsort(startTimeMPL[fam])
-    catalog = startTimeMPL[fam][catalogind]
-    famcat = fam[catalogind]
-    longevity = ftable[fnum]['longevity']
-    spacing = np.diff(catalog)*24
-    minind = fam[catalogind[0]]
-    maxind = fam[catalogind[-1]]
-    
     ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
     
+    # Derive family-specific variables
+    corenum = ftable[fnum]['core']
+    fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
+    fam = fam[np.argsort(rtimes_mpl[fam])]
+    catalog = rtimes_mpl[fam]
+    spacing = np.diff(catalog)*24
     ccc_fam = redpy.correlation.subset_matrix(ids[fam], ccc_sparse, opt,
-                                              return_type='matrix')
+                                                         return_type='matrix')
     
     # Copy static preview image in case cluster changes
     shutil.copy('{}{}/clusters/{}.png'.format(opt.outputPath,
@@ -2600,24 +2598,34 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
                 '{}{}/reports/{}-report.png'.format(opt.outputPath,
                                                     opt.groupName, fnum))
     
-    # Fill in full correlation matrix
-    print('Computing full correlation matrix; this will take time' + \
-          ' if the family is large')
-    rtable_fam = rtable[famcat]
-    Cind = ccc_fam[catalogind,:]
-    Cind = Cind[:,catalogind]
-    Cfull = Cind.copy()
-    for i in range(len(famcat)-1):
-        for j in range(i+1,len(famcat)):
-            if Cfull[i,j]==0:
-                # Compute correlation
-                cor, lag, nthcor = redpy.correlation.xcorr_1x1(
+    if not skip_recalculate_ccc:
+        
+        # Warn the user about the very large matrix
+        if len(fam) > 1000:
+            print('There are a lot of members in this family!' + \
+                  ' Consider using the -s option to skip recalculating' + \
+                  ' the cross-correlation matrix...' )
+        
+        # Fill in full correlation matrix
+        print('Computing full correlation matrix; this will take time' + \
+              ' if the family is large')
+        
+        # ccc_full = redpy.correlation.make_full(rtable_sub, ccc_sub, opt)
+        rtable_fam = rtable[fam]
+        ccc_full = ccc_fam.copy()
+        for i in range(len(fam)-1):
+            for j in range(i+1,len(fam)):
+                if ccc_full[i,j]==0:
+                    # Compute correlation
+                    cor, lag, nthcor = redpy.correlation.xcorr_1x1(
                                             rtable_fam['windowCoeff'][i],
                                             rtable_fam['windowCoeff'][j],
                                             rtable_fam['windowFFT'][i],
                                             rtable_fam['windowFFT'][j], opt)
-                Cfull[i,j] = cor
-                Cfull[j,i] = cor
+                    ccc_full[i,j] = cor
+                    ccc_full[j,i] = cor
+    else:
+        ccc_full = ccc_fam.copy()
     
     ### BOKEH PLOTS
     oTOOLS = ['pan,box_zoom,reset,save,tap']
@@ -2625,13 +2633,18 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     # Amplitude vs. time on all stations with interactive show/hide
     # Set min/max for plotting
     if opt.amplims == 'family':
-        windowAmpFam = windowAmps[fam[catalogind]][:]
+        windowAmpFam = windowAmps[fam][:]
         ymin = 0.25*np.amin(windowAmpFam[np.nonzero(windowAmpFam)])
         ymax = 4*np.amax(windowAmpFam)
     else:
         # Use global maximum
         ymin = 0.25*np.amin(windowAmps[np.nonzero(windowAmps)])
         ymax = 4*np.amax(windowAmps)
+    # Prevent ymin being "too small" to be realistic
+    if ymax > 1:
+        ymin = np.max((ymin, 1e-3))
+    elif ymax > 1e-6:
+        ymin = np.max((ymin, 1e-12))
     
     o0 = figure(tools=oTOOLS, plot_width=1250, plot_height=250,
         x_axis_type='datetime',
@@ -2646,9 +2659,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     else:
         palette = inferno(opt.nsta+1)
     for sta, staname in enumerate(opt.station.split(',')):
-        o0.circle(mdates.num2date(startTimeMPL[fam]),
-            windowAmps[fam][:,sta], color=palette[sta], line_alpha=0, size=4,
-            fill_alpha=0.5, legend_label='{}.{}'.format(
+        o0.circle(rtimes[fam], windowAmps[fam][:,sta], color=palette[sta],
+            line_alpha=0, size=4, fill_alpha=0.5, legend_label='{}.{}'.format(
             staname,opt.channel.split(',')[sta]))
     o0.legend.location='bottom_left'
     o0.legend.orientation='horizontal'
@@ -2673,8 +2685,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     o2.grid.grid_line_alpha = 0.3
     o2.xaxis.axis_label = 'Date'
     o2.yaxis.axis_label = 'CCC'
-    o2.circle(mdates.num2date(catalog),Cfull[np.where(
-        famcat==corenum)[0],:].tolist()[0], color='red', line_alpha=0, size=4,
+    o2.circle(mdates.num2date(catalog),ccc_full[np.where(
+        fam==corenum)[0],:].tolist()[0], color='red', line_alpha=0, size=4,
         fill_alpha=0.5)
     
     for p in [o0, o1, o2]:
@@ -2690,65 +2702,61 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
     ### OPTICS ORDERING (OPTIONAL)
     if ordered:
         # Order by OPTICS rather than by time
-        D = 1-Cfull
+        D = 1-ccc_full
         s = np.argsort(sum(D))[::-1]
         D = D[s,:]
         D = D[:,s]
-        famcat = famcat[s]
-        Cind = Cind[s,:]
-        Cind = Cind[:,s]
-        Cfull = Cfull[s,:]
-        Cfull = Cfull[:,s]
+        fam = fam[s]
+        ccc_fam = ccc_fam[s,:]
+        ccc_fam = ccc_fam[:,s]
+        ccc_full = ccc_full[s,:]
+        ccc_full = ccc_full[:,s]
         ttree = setOfObjects(D)
         prep_optics(ttree,1)
         build_optics(ttree,1)
         order = np.array(ttree._ordered_list)
-        famcat = famcat[order]
-        Cind = Cind[order,:]
-        Cind = Cind[:,order]
-        Cfull = Cfull[order,:]
-        Cfull = Cfull[:,order]
+        ccc_fam = ccc_fam[order,:]
+        ccc_fam = ccc_fam[:,order]
+        ccc_full = ccc_full[order,:]
+        ccc_full = ccc_full[:,order]
     
     ### SAVE FULL CORRELATION MATRIX TO FILE
     if matrixtofile:
-        np.save('{}{}/reports/0-Cfull.npy'.format(opt.outputPath,
-            opt.groupName, fnum), Cfull)
+        np.save('{}{}/reports/0-ccc_full.npy'.format(opt.outputPath,
+            opt.groupName, fnum), ccc_full)
         np.save('{}{}/reports/0-evTimes.npy'.format(opt.outputPath,
-            opt.groupName, fnum), startTime[famcat])
+            opt.groupName, fnum), rtimes[fam])
     
     ### CORRELATION MATRIX
+    cmap = plt.get_cmap('inferno_r').copy()
+    cmap.set_extremes(under='w')
+    
     fig = plt.figure(figsize=(14,5.4))
     ax1 = fig.add_subplot(1,2,1)
-    cax = ax1.imshow(Cind, vmin=opt.cmin-0.05, cmap='Spectral_r')
-    cbar = plt.colorbar(cax, ticks=np.arange(opt.cmin-0.05,1.05,0.05))
-    tix = cbar.ax.get_yticklabels()
-    tix[0] = 'Undefined'
-    cbar.ax.set_yticklabels(tix)
+    cax = ax1.imshow(ccc_fam, vmin=opt.cmin, vmax=1, cmap=cmap)
+    cbar = plt.colorbar(cax, extend='min')
     if ordered:
         plt.title('Stored Correlation Matrix (Ordered)', fontweight='bold')
     else:
         plt.title('Stored Correlation Matrix', fontweight='bold')
-        ax1 = add_horizontal_annotations(ax1, startTimeMPL[fam][catalogind],
+        ax1 = add_horizontal_annotations(ax1, rtimes_mpl[fam],
             opt)
-    ax2 = fig.add_subplot(1,2,2)
-    cax2 = ax2.imshow(Cfull, vmin=opt.cmin-0.05, cmap='Spectral_r')
-    cbar2 = plt.colorbar(cax2, ticks=np.arange(opt.cmin-0.05,1.05,0.05))
-    tix = cbar2.ax.get_yticklabels()
-    tix[0] = '< {:1.2f}'.format(opt.cmin-0.05)
-    cbar2.ax.set_yticklabels(tix)
-    if ordered:
-        plt.title('Full Correlation Matrix (Ordered)', fontweight='bold')
-    else:
-        plt.title('Full Correlation Matrix', fontweight='bold')
-        ax2 = add_horizontal_annotations(ax2, startTimeMPL[fam][catalogind],
-            opt)
+    if not skip_recalculate_ccc:
+        ax2 = fig.add_subplot(1,2,2)
+        cax2 = ax2.imshow(ccc_full, vmin=opt.cmin, vmax=1, cmap=cmap)
+        cbar = plt.colorbar(cax, extend='min')
+        if ordered:
+            plt.title('Full Correlation Matrix (Ordered)', fontweight='bold')
+        else:
+            plt.title('Full Correlation Matrix', fontweight='bold')
+            ax2 = add_horizontal_annotations(ax2, rtimes_mpl[fam], opt)
     plt.tight_layout()
     plt.savefig('{}{}/reports/{}-reportcmat.png'.format(opt.outputPath,
                                                 opt.groupName, fnum), dpi=100)
     plt.close(fig)
     
     ### WAVEFORM IMAGES
-    rtable_fam = rtable[famcat]
+    rtable_fam = rtable[fam]
     fig2 = plt.figure(figsize=(10, 12))
     time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
                              1.5*opt.winlen/opt.samprate, 1/opt.samprate)
@@ -2763,8 +2771,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
         else:
             plt.title('{}.{}'.format(opt.station.split(',')[sta],
                       opt.channel.split(',')[sta]), fontweight='bold')
-            ax = add_horizontal_annotations(ax, startTimeMPL[fam][catalogind],
-                                                                          opt)
+            ax = add_horizontal_annotations(ax, rtimes_mpl[fam], opt)
         
         # Prepare data in matrix (row for each element)
         data = np.zeros((len(fam), int(opt.winlen*2)))
@@ -2822,15 +2829,13 @@ def create_report(rtable, ftable, ctable, fnum, ordered, matrixtofile, opt):
             </br>
             <img src='{11}-reportcmat.png'></br></br></br>
         
-        """.format(fnum, opt.title, len(fam), (UTCDateTime(
-            startTime[minind]) + windowStart[
-            minind]/opt.samprate).isoformat(), (UTCDateTime(
-            startTime[maxind]) + windowStart[
-            maxind]/opt.samprate).isoformat(), longevity, (UTCDateTime(
-            startTime[corenum]) + \
-            windowStart[corenum]/opt.samprate).isoformat(),
-            np.mean(spacing), np.median(spacing), np.mean(np.nanmean(fi[fam],
-            axis=1)),tstamp,fnum))
+        """.format(fnum, opt.title, len(fam),
+            UTCDateTime(rtimes[fam[0]]).isoformat(),
+            UTCDateTime(rtimes[fam[-1]]).isoformat(),
+            ftable[fnum]['longevity'],
+            UTCDateTime(rtimes[corenum]).isoformat(),
+            np.mean(spacing), np.median(spacing),
+            np.mean(np.nanmean(fi[fam], axis=1)),tstamp,fnum))
         
         f.write("""
         </center></body></html>
