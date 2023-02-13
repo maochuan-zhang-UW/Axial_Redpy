@@ -1009,3 +1009,50 @@ def subset_matrix(ids_sub, ccc_sparse, opt, return_type='maxrow', ind=-1):
         ccc_array[ind] = 1 # For autocorrelation
     
     return ccc_array
+
+
+def make_full(rtable_sub, ccc_sub, opt):
+    """
+    Fills an incomplete correlation matrix.
+    
+    In theory, this could probably be done in parallel for very large subsets.
+    However, I've run into problems with large datasets (where the parallel
+    version would be most useful!) where the array for windowFFT exceeds the
+    data size limit imposed by pickling.
+    
+    Parameters
+    ----------
+    rtable_sub : Table object
+        Handle to a subset of the Repeaters table.
+    ccc_sub : float ndarray
+        Existing correlation matrix corresponding to that subset.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    ccc_full : float ndarray
+        Filled correlation matrix.
+    
+    """
+    
+    k = 1
+    ccc_full = ccc_sub.copy()
+    total_missing = len(np.where(ccc_sub==0)[0])/2
+    
+    for i in range(len(rtable_sub)-1):
+        for j in range(i+1,len(rtable_sub)):
+            if ccc_full[i,j]==0:
+                if k%100000 is 0:
+                    print('{:3.2f}% done...'.format(k*100/total_missing))
+                # Compute correlation
+                cor, lag, nthcor = xcorr_1x1(rtable_sub['windowCoeff'][i],
+                                             rtable_sub['windowCoeff'][j],
+                                             rtable_sub['windowFFT'][i],
+                                             rtable_sub['windowFFT'][j], opt)
+                ccc_full[i,j] = cor
+                ccc_full[j,i] = cor
+                k += 1
+    
+    return ccc_full
+
