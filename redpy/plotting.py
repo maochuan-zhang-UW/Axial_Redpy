@@ -2547,8 +2547,8 @@ def remove_old_html(oldnClust, newnClust, opt):
 
 ### USER-GENERATED ###
 
-def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
-    matrixtofile, opt):
+def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
+    ccc_sparse, fnum, ordered, skip_recalculate_ccc, matrixtofile, opt):
     """
     Creates more detailed output plots for a single family in '/reports'.
     
@@ -2556,8 +2556,18 @@ def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
-    ctable : Table object
-        Handle to the Correlation table.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    windowAmps : float ndarray
+        'windowAmp' column from rtable for all stations.
+    fi : float ndarray
+        Frequency index values for repeaters.
+    ids : int ndarray
+        'id' column from Repeaters table.
+    ccc_sparse : float csr_matrix
+        Sparse correlation matrix with id as rows/columns.
     fnum : int
         Family to be inspected.
     ordered : int
@@ -2574,14 +2584,6 @@ def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
     # Read in annotation file (if it exists)
     if opt.anotfile != '':
         annotations = pd.read_csv(opt.anotfile)
-    
-    # Set up variables - some of these should be passed
-    windowStart = rtable.cols.windowStart[:]
-    rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
-    rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
-    windowAmps = rtable.cols.windowAmp[:]
-    fi = rtable.cols.FI[:]
-    ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
     
     # Derive family-specific variables
     corenum = ftable[fnum]['core']
@@ -2610,20 +2612,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
         print('Computing full correlation matrix; this will take time' + \
               ' if the family is large')
         
-        # ccc_full = redpy.correlation.make_full(rtable_sub, ccc_sub, opt)
-        rtable_fam = rtable[fam]
-        ccc_full = ccc_fam.copy()
-        for i in range(len(fam)-1):
-            for j in range(i+1,len(fam)):
-                if ccc_full[i,j]==0:
-                    # Compute correlation
-                    cor, lag, nthcor = redpy.correlation.xcorr_1x1(
-                                            rtable_fam['windowCoeff'][i],
-                                            rtable_fam['windowCoeff'][j],
-                                            rtable_fam['windowFFT'][i],
-                                            rtable_fam['windowFFT'][j], opt)
-                    ccc_full[i,j] = cor
-                    ccc_full[j,i] = cor
+        ccc_full = redpy.correlation.make_full(rtable[fam], ccc_fam, opt)
     else:
         ccc_full = ccc_fam.copy()
     
@@ -2674,8 +2663,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
     o1.grid.grid_line_alpha = 0.3
     o1.xaxis.axis_label = 'Date'
     o1.yaxis.axis_label = 'Interval (hr)'
-    o1.circle(mdates.num2date(catalog[1:]), spacing, color='red',
-        line_alpha=0, size=4, fill_alpha=0.5)
+    o1.circle(rtimes[fam[1:]], spacing, color='red', line_alpha=0, size=4,
+        fill_alpha=0.5)
     
     # Cross-correlation wrt. core
     o2 = figure(tools=oTOOLS, plot_width=1250, plot_height=250,
@@ -2685,9 +2674,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
     o2.grid.grid_line_alpha = 0.3
     o2.xaxis.axis_label = 'Date'
     o2.yaxis.axis_label = 'CCC'
-    o2.circle(mdates.num2date(catalog),ccc_full[np.where(
-        fam==corenum)[0],:].tolist()[0], color='red', line_alpha=0, size=4,
-        fill_alpha=0.5)
+    o2.circle(rtimes[fam],ccc_full[np.where(fam==corenum)[0],:].tolist()[0],
+        color='red', line_alpha=0, size=4, fill_alpha=0.5)
     
     for p in [o0, o1, o2]:
         p = add_bokeh_annotations(p, opt)
@@ -2698,6 +2686,7 @@ def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
         opt.groupName, fnum), title='{} - Cluster {} Detailed Report'.format(
         opt.title, fnum))
     save(o)
+    
     
     ### OPTICS ORDERING (OPTIONAL)
     if ordered:
@@ -2715,10 +2704,12 @@ def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
         prep_optics(ttree,1)
         build_optics(ttree,1)
         order = np.array(ttree._ordered_list)
+        fam = fam[order]
         ccc_fam = ccc_fam[order,:]
         ccc_fam = ccc_fam[:,order]
         ccc_full = ccc_full[order,:]
         ccc_full = ccc_full[:,order]
+    
     
     ### SAVE FULL CORRELATION MATRIX TO FILE
     if matrixtofile:
@@ -2727,7 +2718,8 @@ def create_report(rtable, ftable, ctable, fnum, ordered, skip_recalculate_ccc,
         np.save('{}{}/reports/0-evTimes.npy'.format(opt.outputPath,
             opt.groupName, fnum), rtimes[fam])
     
-    ### CORRELATION MATRIX
+    
+    ### CORRELATION MATRIX IMAGE
     cmap = plt.get_cmap('inferno_r').copy()
     cmap.set_extremes(under='w')
     

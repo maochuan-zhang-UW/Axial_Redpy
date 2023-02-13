@@ -4,8 +4,12 @@
 
 import redpy.config
 import redpy.table
+import redpy.plotting
 import argparse
 import os
+import numpy as np
+import redpy.correlation
+import matplotlib.dates as mdates
 
 """
 Run this script to manually produce a more detailed 'report' page for a given family
@@ -67,10 +71,19 @@ try:
 except OSError:
     print("Folder exists.")
 
+# Load from table to pass in case multiple families are to be plotted
+windowStart = rtable.cols.windowStart[:]
+rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
+rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
+windowAmps = rtable.cols.windowAmp[:]
+fi = rtable.cols.FI[:]
+ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
+
 for fnum in args.famnum:
     if args.verbose: print("Creating report for family {}...".format(fnum))
-    redpy.plotting.create_report(rtable, ftable, ctable, fnum, args.ordered,
-        args.skip, args.matrixtofile, opt)
+    redpy.plotting.create_report(rtable, ftable, rtimes, rtimes_mpl,
+        windowAmps, fi, ids, ccc_sparse, fnum, args.ordered, args.skip,
+        args.matrixtofile, opt)
 
 if args.verbose: print("Closing table...")
 h5file.close()
