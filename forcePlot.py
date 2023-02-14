@@ -72,7 +72,8 @@ redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
 if args.all:
     if args.verbose: print("Resetting plotting column...")
-    ftable.cols.printme[0:ftable.attrs.nClust] = np.ones((ftable.attrs.nClust,))
+    ftable.cols.printme[0:ftable.attrs.nClust] = np.ones(
+                                                        (ftable.attrs.nClust,))
 
 if args.resetlp:
     if args.verbose: print("Resetting last print column...")
@@ -82,17 +83,18 @@ if args.startfam or args.endfam:
     ftable.cols.printme[:] = np.zeros((len(ftable),))
     if args.startfam and not args.endfam:
         ftable.cols.printme[args.startfam:ftable.attrs.nClust] = np.ones(
-                                                     (ftable.attrs.nClust-args.startfam,))
+                                          (ftable.attrs.nClust-args.startfam,))
     elif args.endfam and not args.startfam:
         ftable.cols.printme[0:args.endfam] = np.ones((args.endfam,))
     else:
         ftable.cols.printme[args.startfam:args.endfam] = np.ones(
-                                                             (args.endfam-args.startfam,))
+                                                  (args.endfam-args.startfam,))
 
 if args.verbose: print("Creating requested plots...")
 
 if args.famplot or args.html:
     windowStart = rtable.cols.windowStart[:]
+    windowAmps = rtable.cols.windowAmp[:]
     rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart[:]/opt.samprate/86400
     rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
 
@@ -100,7 +102,7 @@ if args.famplot:
     # Get correlation matrix and ids
     ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
     redpy.plotting.create_family_images(rtable, ftable, rtimes, rtimes_mpl,
-                                                         ids, ccc_sparse, opt)
+                              windowAmps[:,opt.printsta], ids, ccc_sparse, opt)
 if args.html:
     if opt.checkComCat==True:
         ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
@@ -108,14 +110,15 @@ if args.html:
     else:
         external_catalogs = []
     fi = np.nanmean(rtable.cols.FI[:], axis=1)
-    redpy.plotting.create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi,
-                                                       external_catalogs, opt)
+    redpy.plotting.create_family_html(rtable, ftable, rtimes, rtimes_mpl,
+                                      windowAmps, fi, external_catalogs, opt)
 
 if args.html or args.famplot:
     ftable.cols.printme[:] = np.zeros((len(ftable),))
     ftable.cols.lastprint[:] = np.arange(len(ftable))
 else:
-    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
+    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
+                                                                   otable, opt)
 
 
 if args.verbose: print("Closing table...")

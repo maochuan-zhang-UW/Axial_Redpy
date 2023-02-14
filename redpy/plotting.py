@@ -66,6 +66,7 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
     # Call columns that are used multiple times into memory
     ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
     windowStart = rtable.cols.windowStart[:]
+    windowAmps = rtable.cols.windowAmp[:]
     rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
     rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
     
@@ -103,12 +104,12 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
             
             # Make images
             create_core_images(rtable, ftable, opt)
-            create_family_images(rtable, ftable, rtimes, rtimes_mpl, ids,
-                                                              ccc_sparse, opt)
+            create_family_images(rtable, ftable, rtimes, rtimes_mpl,
+                                              windowAmps, ids, ccc_sparse, opt)
             
             # Make HTML files
-            create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi,
-                                                       external_catalogs, opt)
+            create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps,
+                                                    fi, external_catalogs, opt)
             
             # Reset printing columns
             ftable.cols.printme[:] = np.zeros((len(ftable),))
@@ -278,8 +279,8 @@ def create_junk_images(jtable, opt):
             opt.ptrig).strftime('%Y%m%d%H%M%S'), r['isjunk']), opt)
 
 
-def create_family_images(rtable, ftable, rtimes, rtimes_mpl, ids, ccc_sparse,
-                                                                         opt):
+def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
+                                                              ccc_sparse, opt):
     """
     Creates multi-paneled family plots for all families that need plotting.
     
@@ -296,6 +297,8 @@ def create_family_images(rtable, ftable, rtimes, rtimes_mpl, ids, ccc_sparse,
         Times of all repeaters as datetimes.
     rtimes_mpl : float ndarray
         Times of all repeaters as matplotlib dates.
+    windowAmps : float ndarray
+        'windowAmp' column from rtable for all stations.
     ids : int ndarray
         'id' column from Repeaters table.
     ccc_sparse : float csr_matrix
@@ -305,9 +308,6 @@ def create_family_images(rtable, ftable, rtimes, rtimes_mpl, ids, ccc_sparse,
     
     """
     
-    # Load into memory
-    windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
-    
     fig, axes, bboxes = initialize_family_image(opt)
     
     for fnum in range(ftable.attrs.nClust):
@@ -315,10 +315,12 @@ def create_family_images(rtable, ftable, rtimes, rtimes_mpl, ids, ccc_sparse,
         if ftable[fnum]['printme'] != 0:
             
             assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
-                windowAmp, ids, ccc_sparse, 'png', 100, fnum, 0, 0, opt)
+                windowAmps[:,opt.printsta], ids, ccc_sparse, 'png', 100, fnum,
+                0, 0, opt)
 
 
-def create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi, external_catalogs, opt):
+def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
+                                                       external_catalogs, opt):
     """
     Creates the HTML for the individual family pages.
     
@@ -329,6 +331,14 @@ def create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi, external_catalogs
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    windowAmps : float ndarray
+        'windowAmp' column from rtable for all stations.
+    fi : float ndarray
+        Frequency index values for repeaters.
     external_catalogs : list of DataFrame objects
         External catalogs to check against, with 'Arrivals_' columns.
     opt : Options object
@@ -337,72 +347,26 @@ def create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi, external_catalogs
     """
     
     # Load into memory
-    windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
-    fmembers = ftable.cols.members[:]
-    fcores = ftable.cols.core[:]
+    if opt.checkComCat:
+        windowAmp = windowAmps[:,opt.printsta]
+    
     printme = ftable.cols.printme[:]
     lastprint = ftable.cols.lastprint[:]
     
     for fnum in range(ftable.attrs.nClust):
         
-        fam = np.fromstring(fmembers[fnum], dtype=int, sep=' ')
-        corenum = fcores[fnum]
-        
-        # Prep catalog
-        catalogind = np.argsort(rtimes_mpl[fam])
-        fam = fam[catalogind]
-        catalog = rtimes_mpl[fam]
-        spacing = np.diff(catalog)*24
-        
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
-            if fnum>0:
-                prev = "<a href='{0}.html'>&lt; Cluster {0}</a>".format(
-                    fnum-1)
-            else:
-                prev = " "
-            if fnum<len(ftable)-1:
-                next = "<a href='{0}.html'>Cluster {0} &gt;</a>".format(
-                    fnum+1)
-            else:
-                next = " "
-            # Now write a simple HTML file to show image and catalog
+            
             with open('{}{}/clusters/{}.html'.format(opt.outputPath,
                     opt.groupName, fnum), 'w') as f:
-                f.write("""
-                <html><head><title>{1} - Cluster {0}</title>
-                </head><style>
-                a {{color:red;}}
-                body {{font-family:Helvetica; font-size:12px}}
-                h1 {{font-size: 20px;}}
-                </style>
-                <body><center>
-                {10} &nbsp; | &nbsp; {11}</br>
-                <h1>Cluster {0}</h1>
-                <img src="{0}.png" width=500 height=100></br></br>
-                    Number of events: {2}</br>
-                    Longevity: {5:.2f} days</br>
-                    Mean event spacing: {7:.2f} hours</br>
-                    Median event spacing: {8:.2f} hours</br>
-                    Mean Frequency Index: {9:.2f}<br></br>
-                    First event: {3}</br>
-                    Core event: {6}</br>
-                    Last event: {4}</br>
-                <img src="fam{0}.png"></br>
-                """.format(fnum, opt.title, len(fam),
-                    UTCDateTime(rtimes[fam[0]]).isoformat(),
-                    UTCDateTime(rtimes[fam[1]]).isoformat(),
-                    ftable[fnum]['longevity'],
-                    UTCDateTime(rtimes[corenum]).isoformat(),
-                    np.mean(spacing), np.median(spacing), np.mean(fi[fam]),
-                    prev, next))
+                
+                write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt)
                 
                 if opt.checkComCat:
                     match_external(windowAmp, ftable, fnum, f, rtimes,
                         external_catalogs, opt)
                 
-                f.write("""
-                </center></body></html>
-                """)
+                f.write('</center></body></html>')
 
 
 def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
@@ -573,48 +537,12 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     plt.close(fig2)
     
     # HTML page
-    tstamp = UTCDateTime.now()
     with open('{}{}/reports/{}-report.html'.format(opt.outputPath,
                                               opt.groupName, fnum), 'w') as f:
-        f.write("""
-        <html><head><title>{1} - Cluster {0} Detailed Report</title>
-        </head><style>
-        a {{color:red;}}
-        body {{font-family:Helvetica; font-size:12px}}
-        h1 {{font-size: 20px;}}
-        </style>
-        <body><center>
-        <em>Last updated: {10}</em></br>
-        <h1>Cluster {0} - Detailed Report</h1>
-        <img src="{0}-report.png" width=500 height=100></br></br>
-            Number of events: {2}</br>
-            Longevity: {5:.2f} days</br>
-            Mean event spacing: {7:.2f} hours</br>
-            Median event spacing: {8:.2f} hours</br>
-            Mean Frequency Index: {9:.2f}<br></br>
-            First event: {3}</br>
-            Core event: {6}</br>
-            Last event: {4}</br>
-            
-            <img src='{11}-reportwaves.png'></br></br>
-            
-            <iframe src="{11}-report-bokeh.html" width=1350 height=800
-            style="border:none"></iframe>
-            
-            </br>
-            <img src='{11}-reportcmat.png'></br></br></br>
         
-        """.format(fnum, opt.title, len(fam),
-            UTCDateTime(rtimes[fam[0]]).isoformat(),
-            UTCDateTime(rtimes[fam[-1]]).isoformat(),
-            ftable[fnum]['longevity'],
-            UTCDateTime(rtimes[corenum]).isoformat(),
-            np.mean(spacing), np.median(spacing),
-            np.mean(np.nanmean(fi[fam], axis=1)),tstamp,fnum))
-        
-        f.write("""
-        </center></body></html>
-        """)
+        write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
+                                                                   report=True)
+        f.write('</center></body></html>')
 
 
 def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
@@ -2493,6 +2421,92 @@ def format_family_image(axes, opt):
     axes[4].set_ylabel('Cross-correlation coefficient', style='italic')
     
     return axes
+
+
+def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
+                                                                 report=False):
+    """
+    f : file handle
+        Handle to output file to write in.
+    ftable : Table object
+        Handle to the Families table.
+    fnum : int
+        Family to be written.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    fi : float ndarray
+        Frequency index values for repeaters.
+    opt : Options object
+        Describes the run parameters.
+    report : bool, optional
+        If true, use report-specific formatting.
+    """
+    
+    fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
+    corenum = ftable[fnum]['core']
+    
+    # Prep catalog
+    catalogind = np.argsort(rtimes_mpl[fam])
+    fam = fam[catalogind]
+    catalog = rtimes_mpl[fam]
+    spacing = np.diff(catalog)*24
+    
+    if report:
+        
+        htmltitle = '{} - Cluster {} Detailed Report'.format(opt.title, fnum)
+        topline = '<em>Last updated: {}</em>'.format(UTCDateTime.now())
+        header = 'Cluster {} - Detailed Report'.format(fnum)
+        coreimg = '{}-report'.format(fnum)
+        body = """
+            <img src='{0}-reportwaves.png'></br></br>
+            <iframe src="{0}-report-bokeh.html" width=1350 height=800
+            style="border:none"></iframe></br>
+            <img src='{0}-reportcmat.png'></br></br></br>""".format(fnum)
+        
+    else:
+        
+        htmltitle = '{} - Cluster {}'.format(opt.title, fnum)
+        if fnum>0:
+            prevlink = "<a href='{0}.html'>&lt; Cluster {0}</a>".format(fnum-1)
+        else:
+            prevlink = " "
+        if fnum < len(ftable)-1:
+            nextlink = "<a href='{0}.html'>Cluster {0} &gt;</a>".format(fnum+1)
+        else:
+            nextlink = " "
+        topline = '{} &nbsp; | &nbsp; {}'.format(prevlink, nextlink)
+        header = 'Family {}'.format(fnum)
+        coreimg = fnum
+        body = '<img src="fam{}.png"></br>'.format(fnum)
+    
+    f.write("""
+            <html><head><title>{}</title>
+            </head><style>
+            a {{color:red;}}
+            body {{font-family:Helvetica; font-size:12px}}
+            h1 {{font-size: 20px;}}
+            </style>
+            <body><center>
+            {}</br>
+            <h1>{}</h1>
+            <img src="{}.png" width=500 height=100></br></br>
+                
+                Number of events: {}</br>
+                Longevity: {:.2f} days</br>
+                Mean event spacing: {:.2f} hours</br>
+                Median event spacing: {:.2f} hours</br>
+                Mean Frequency Index: {:.2f}<br></br>
+                First event: {}</br>
+                Core event: {}</br>
+                Last event: {}</br>
+                
+            {}
+            """.format(htmltitle, topline, header, coreimg, len(fam),
+                       ftable[fnum]['longevity'], np.mean(spacing),
+                       np.median(spacing), np.nanmean(fi[fam]),
+                       UTCDateTime(rtimes[fam[0]]).isoformat(),
+                       UTCDateTime(rtimes[fam[1]]).isoformat(),
+                       UTCDateTime(rtimes[corenum]).isoformat(), body))
 
 
 def prepare_catalog(ttimes, opt):
