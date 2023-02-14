@@ -495,46 +495,29 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     plt.close(fig)
     
     # Waveform images
-    rtable_fam = rtable[fam]
-    fig2 = plt.figure(figsize=(10, 12))
-    time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
-                             1.5*opt.winlen/opt.samprate, 1/opt.samprate)
-    
+    fig = plt.figure(figsize=(10, 4*(np.ceil(opt.nsta/2))))
     for sta in range(opt.nsta):
         
-        ax = fig2.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
+        ax = fig.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
         
         if ordered:
-            plt.title('{}.{} (Ordered)'.format(opt.station.split(',')[sta],
-                      opt.channel.split(',')[sta]), fontweight='bold')
+            title_text = '{}.{} (Ordered)'.format(opt.station.split(',')[sta],
+                                                  opt.channel.split(',')[sta])
         else:
-            plt.title('{}.{}'.format(opt.station.split(',')[sta],
-                      opt.channel.split(',')[sta]), fontweight='bold')
+            title_text = '{}.{}'.format(opt.station.split(',')[sta],
+                                        opt.channel.split(',')[sta])
             ax = add_horizontal_annotations(ax, rtimes_mpl[fam], opt)
+        plt.title(title_text, fontweight='bold')
         
-        # Prepare data in matrix (row for each element)
-        data = np.zeros((len(fam), int(opt.winlen*2)))
-        for n, r in enumerate(rtable_fam):
-            data[n, :] = prep_wiggle(r['waveform'], sta, r['windowStart'],
-                                     r['windowAmp'][sta], opt)
+        subplot_waveforms(rtable[fam], 0, ax, opt, plot_single=True, sta=sta)
         
-        # Plot
-        if len(fam) > 12:
-            ax.imshow(data, aspect='auto', vmin=-1, vmax=1, cmap='RdBu',
-                interpolation='nearest', extent=[np.min(time_vector),
-                np.max(time_vector), n + 0.5, -0.5])
-        else:
-            for n in range(len(fam)):
-                dat=data[n,:]
-                ax.plot(time_vector,dat/2-n,'k',linewidth=0.25)
-            plt.xlim([np.min(time_vector),np.max(time_vector)])
-            plt.ylim([-n-0.5,0.5])
         ax.yaxis.set_visible(False)
         plt.xlabel('Time Relative to Trigger (seconds)', style='italic')
+    
     plt.tight_layout()
     plt.savefig('{}{}/reports/{}-reportwaves.png'.format(opt.outputPath,
                                                 opt.groupName, fnum), dpi=100)
-    plt.close(fig2)
+    plt.close(fig)
     
     # HTML page
     with open('{}{}/reports/{}-report.html'.format(opt.outputPath,
@@ -1712,7 +1695,7 @@ def subplot_correlation(rtimes, rtimes_mpl, fam, ids, ccc_sparse, core_idx,
         return ax
 
 
-def subplot_waveforms(rtable_fam, core_idx, ax, opt):
+def subplot_waveforms(rtable_fam, core_idx, ax, opt, plot_single=False, sta=0):
     """
     Fills the waveform subplot.
     
@@ -1733,6 +1716,14 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt):
         Subplot axis to modify in place.
     opt : Options object
         Describes the run parameters.
+    plot_single : bool, optional
+        Plots all events from a single station, False by default.
+    sta : int, optional
+        Station index to plot when using plot_single option, 0 by default.
+    
+    Returns
+    -------
+    ax : Axis object
     
     """
     
@@ -1741,22 +1732,23 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt):
                       1.5*opt.winlen/opt.samprate, 1/opt.samprate)
     
     # If only one station, plot all aligned waveforms
-    if opt.nsta==1:
+    if opt.nsta==1 or plot_single:
         
         # Prepare data in matrix (row for each event)
         data = np.zeros((len(rtable_fam), int(opt.winlen*2)))
         for n, r in enumerate(rtable_fam):
-            data[n, :] = prep_wiggle(r['waveform'], 0, r['windowStart'],
-                                     r['windowAmp'][0], opt)
+            data[n, :] = prep_wiggle(r['waveform'], sta, r['windowStart'],
+                                     r['windowAmp'][sta], opt)
         
         # Plot
         if len(rtable_fam) > 12:
             ax.imshow(data, aspect='auto', vmin=-1, vmax=1, cmap='RdBu',
                 interpolation='nearest', extent=[np.min(time_vector),
-                np.max(time_vector), n + 0.5, -0.5])
+                np.max(time_vector), n+0.5, -0.5])
         else:
             for n in range(len(rtable_fam)):
                 ax.plot(time_vector,data[n,:]/2-n,'k',linewidth=0.25)
+            ax.set_xlim([np.min(time_vector),np.max(time_vector)])
     
     # Otherwise, plot cores and stacks from all stations
     else:
@@ -1778,8 +1770,10 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt):
                                     rtable_fam['windowAmp'][core_idx, s], opt)
             
             # Plot
-            ax.plot(time_vector, data_stack-1.75*s,'r',linewidth=1)
+            ax.plot(time_vector, data_stack - 1.75*s, 'r', linewidth=1)
             ax.plot(time_vector, data_core - 1.75*s, 'k', linewidth=0.25)
+    
+    return ax
 
 
 def subplot_fft(rtable_fam, core_idx, ax, opt):
