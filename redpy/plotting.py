@@ -404,6 +404,9 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     """
     
+    basepath = '{}{}'.format(opt.outputPath, opt.groupName)
+    rpath = os.path.join(basepath, 'reports') 
+    
     # Derive family-specific variables
     corenum = ftable[fnum]['core']
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
@@ -414,10 +417,8 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                                                          return_type='matrix')
     
     # Copy static preview image in case cluster changes
-    shutil.copy('{}{}/clusters/{}.png'.format(opt.outputPath,
-                                              opt.groupName, fnum),
-                '{}{}/reports/{}-report.png'.format(opt.outputPath,
-                                                    opt.groupName, fnum))
+    shutil.copy(os.path.join(basepath,'clusters','{}.png'.format(fnum)),
+                os.path.join(rpath, '{}-report.png'.format(fnum)))
     
     if not skip_recalculate_ccc:
         # Warn the user about the very large matrix
@@ -462,67 +463,20 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     # Optional save to file
     if matrixtofile:
-        np.save('{}{}/reports/0-ccc_full.npy'.format(opt.outputPath,
-            opt.groupName, fnum), ccc_full)
-        np.save('{}{}/reports/0-evTimes.npy'.format(opt.outputPath,
-            opt.groupName, fnum), rtimes[fam])
+        np.save(os.path.join(rpath,'{}-ccc_full.npy'.format(fnum)), ccc_full)
+        np.save(os.path.join(rpath,'{}-evTimes.npy'.format(fnum)), rtimes[fam])
     
-    # Correlation matrix image(s)
-    cmap = plt.get_cmap('inferno_r').copy()
-    cmap.set_extremes(under='w')
-    
-    fig = plt.figure(figsize=(14,5.4))
-    ax1 = fig.add_subplot(1,2,1)
-    cax = ax1.imshow(ccc_fam, vmin=opt.cmin, vmax=1, cmap=cmap)
-    cbar = plt.colorbar(cax, extend='min')
-    if ordered:
-        plt.title('Stored Correlation Matrix (Ordered)', fontweight='bold')
-    else:
-        plt.title('Stored Correlation Matrix', fontweight='bold')
-        ax1 = add_horizontal_annotations(ax1, rtimes_mpl[fam],
-            opt)
-    if not skip_recalculate_ccc:
-        ax2 = fig.add_subplot(1,2,2)
-        cax2 = ax2.imshow(ccc_full, vmin=opt.cmin, vmax=1, cmap=cmap)
-        cbar = plt.colorbar(cax, extend='min')
-        if ordered:
-            plt.title('Full Correlation Matrix (Ordered)', fontweight='bold')
-        else:
-            plt.title('Full Correlation Matrix', fontweight='bold')
-            ax2 = add_horizontal_annotations(ax2, rtimes_mpl[fam], opt)
-    plt.tight_layout()
-    plt.savefig('{}{}/reports/{}-reportcmat.png'.format(opt.outputPath,
-                                                opt.groupName, fnum), dpi=100)
-    plt.close(fig)
+    # Plot correlation matrix
+    correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
+                                     skip_recalculate_ccc, os.path.join(rpath,
+                                       '{}-reportcmat.png'.format(fnum)), opt)
     
     # Waveform images
-    fig = plt.figure(figsize=(10, 4*(np.ceil(opt.nsta/2))))
-    for sta in range(opt.nsta):
-        
-        ax = fig.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
-        
-        if ordered:
-            title_text = '{}.{} (Ordered)'.format(opt.station.split(',')[sta],
-                                                  opt.channel.split(',')[sta])
-        else:
-            title_text = '{}.{}'.format(opt.station.split(',')[sta],
-                                        opt.channel.split(',')[sta])
-            ax = add_horizontal_annotations(ax, rtimes_mpl[fam], opt)
-        plt.title(title_text, fontweight='bold')
-        
-        subplot_waveforms(rtable[fam], 0, ax, opt, plot_single=True, sta=sta)
-        
-        ax.yaxis.set_visible(False)
-        plt.xlabel('Time Relative to Trigger (seconds)', style='italic')
-    
-    plt.tight_layout()
-    plt.savefig('{}{}/reports/{}-reportwaves.png'.format(opt.outputPath,
-                                                opt.groupName, fnum), dpi=100)
-    plt.close(fig)
+    wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, os.path.join(rpath,
+                                      '{}-reportwaves.png'.format(fnum)), opt)
     
     # HTML page
-    with open('{}{}/reports/{}-report.html'.format(opt.outputPath,
-                                              opt.groupName, fnum), 'w') as f:
+    with open(os.path.join(rpath, '{}-report.html'.format(fnum)), 'w') as f:
         
         write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
                                                                    report=True)
@@ -735,8 +689,8 @@ def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
     
     o = gridplot(gridplot_items)
     
-    filepath = '{}{}/reports/{}-report-bokeh.html'.format(opt.outputPath,
-        opt.groupName, fnum)
+    filepath = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                            'reports','{}-report-bokeh.html'.format(fnum))
     output_file(filepath,title='{} - Cluster {} Detailed Report'.format(
         opt.title, fnum))
     save(o)
@@ -837,8 +791,8 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
     axes[4].set_xlim(axes[2].get_xlim())
     
     # Save
-    plt.savefig('{}{}/clusters/fam{}.{}'.format(opt.outputPath, opt.groupName,
-        fnum, oformat), dpi=dpi)
+    plt.savefig(os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                'clusters', 'fam{}.{}'.format(fnum, oformat)), dpi=dpi)
 
 
 def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
@@ -970,7 +924,8 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
     
     # Clean up and save
     plt.tight_layout()
-    plt.savefig('{}{}/overview.pdf'.format(opt.outputPath, opt.groupName))
+    plt.savefig(os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                'overview.pdf'))
     plt.close(fig)
 
 
@@ -2307,6 +2262,71 @@ def wiggle_plot(data, figsize, outfile, opt):
     plt.close(fig)
 
 
+def wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, outfile, opt):
+    """
+    
+    
+    """
+    
+    fig = plt.figure(figsize=(10, 4*(np.ceil(opt.nsta/2))))
+    for sta in range(opt.nsta):
+        
+        ax = fig.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
+        
+        if ordered:
+            title_text = '{}.{} (Ordered)'.format(opt.station.split(',')[sta],
+                                                  opt.channel.split(',')[sta])
+        else:
+            title_text = '{}.{}'.format(opt.station.split(',')[sta],
+                                        opt.channel.split(',')[sta])
+            ax = add_horizontal_annotations(ax, rtimes_mpl[fam], opt)
+        plt.title(title_text, fontweight='bold')
+        
+        subplot_waveforms(rtable[fam], 0, ax, opt, plot_single=True, sta=sta)
+        
+        ax.yaxis.set_visible(False)
+        plt.xlabel('Time Relative to Trigger (seconds)', style='italic')
+    
+    plt.tight_layout()
+    plt.savefig(outfile, dpi=100)
+    plt.close(fig)
+
+
+def correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
+                                          skip_recalculate_ccc, outfile, opt):
+    """
+    
+    
+    """
+    
+    # Correlation matrix image(s)
+    cmap = plt.get_cmap('inferno_r').copy()
+    cmap.set_extremes(under='w')
+    
+    fig = plt.figure(figsize=(14,5.4))
+    ax1 = fig.add_subplot(1,2,1)
+    cax = ax1.imshow(ccc_fam, vmin=opt.cmin, vmax=1, cmap=cmap)
+    cbar = plt.colorbar(cax, extend='min')
+    if ordered:
+        plt.title('Stored Correlation Matrix (Ordered)', fontweight='bold')
+    else:
+        plt.title('Stored Correlation Matrix', fontweight='bold')
+        ax1 = add_horizontal_annotations(ax1, rtimes_mpl[fam],
+            opt)
+    if not skip_recalculate_ccc:
+        ax2 = fig.add_subplot(1,2,2)
+        cax2 = ax2.imshow(ccc_full, vmin=opt.cmin, vmax=1, cmap=cmap)
+        cbar = plt.colorbar(cax, extend='min')
+        if ordered:
+            plt.title('Full Correlation Matrix (Ordered)', fontweight='bold')
+        else:
+            plt.title('Full Correlation Matrix', fontweight='bold')
+            ax2 = add_horizontal_annotations(ax2, rtimes_mpl[fam], opt)
+    plt.tight_layout()
+    plt.savefig(outfile, dpi=100)
+    plt.close(fig)
+
+
 def initialize_family_image(opt, bboxes=[]):
     """
     Creates figure and axes with the proper layout for the family images.
@@ -2884,8 +2904,8 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
         if len(local_deps) > 0:
             
             create_local_map(local_lats, local_lons, local_deps,
-                '{}{}/clusters/map{}.png'.format(opt.outputPath,
-                opt.groupName, fnum), opt)
+                os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                'clusters','map{}.png'.format(fnum)), opt)
             f.write('<img src="map{}.png"></br>'.format(fnum))
             
     else:
@@ -2989,7 +3009,7 @@ def remove_old_html(oldnClust, newnClust, opt):
     """
     
     for fnum in range(newnClust, oldnClust):
-        if os.path.exists('{}{}/clusters/{}.html'.format(opt.outputPath,
-            opt.groupName, fnum)):
-            os.remove('{}{}/clusters/{}.html'.format(opt.outputPath,
-                opt.groupName, fnum))
+        file = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                            'clusters','{}.html'.format(fnum))
+        if os.path.exists(file):
+            os.remove(file)
