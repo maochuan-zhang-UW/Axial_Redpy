@@ -1749,6 +1749,7 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt, plot_single=False, sta=0):
             for n in range(len(rtable_fam)):
                 ax.plot(time_vector,data[n,:]/2-n,'k',linewidth=0.25)
             ax.set_xlim([np.min(time_vector),np.max(time_vector)])
+            ax.set_ylim([0.5, -0.5-n])
     
     # Otherwise, plot cores and stacks from all stations
     else:
@@ -2469,7 +2470,7 @@ def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
         else:
             nextlink = " "
         topline = '{} &nbsp; | &nbsp; {}'.format(prevlink, nextlink)
-        header = 'Family {}'.format(fnum)
+        header = 'Cluster {}'.format(fnum)
         coreimg = fnum
         body = '<img src="fam{}.png"></br>'.format(fnum)
     
