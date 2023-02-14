@@ -2264,7 +2264,22 @@ def wiggle_plot(data, figsize, outfile, opt):
 
 def wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, outfile, opt):
     """
+    Creates a plot with all waveforms on all stations in separate subplots.
     
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    fam : int ndarray
+        Indices of family members within the Repeaters table.
+    ordered : int
+        1 if members should be ordered by OPTICS, 0 if by time.
+    outfile : str
+        Path and filename for saving the figure.
+    opt : Options object
+        Describes the run parameters.
     
     """
     
@@ -2295,7 +2310,26 @@ def wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, outfile, opt):
 def correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
                                           skip_recalculate_ccc, outfile, opt):
     """
+    Creates a plot of the stored (and optionally the full) correlation matrix.
     
+    Parameters
+    ----------
+    ccc_fam : float ndarray
+        Dense stored correlation matrix.
+    ccc_full : float ndarray, optional
+        Filled correlation matrix.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    fam : int ndarray
+        Indices of family members within the Repeaters table.
+    ordered : int
+        1 if members should be ordered by OPTICS, 0 if by time.
+    skip_recalculate_ccc : int
+        1 if user wishes to skip recalculating the full correlation matrix.
+    outfile : str
+        Path and filename for saving the figure.
+    opt : Options object
+        Describes the run parameters.
     
     """
     
