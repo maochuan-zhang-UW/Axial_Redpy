@@ -103,8 +103,8 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
             
             # Make images
             create_core_images(rtable, ftable, opt)
-            create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse,
-                                                                          opt)
+            create_family_images(rtable, ftable, rtimes, rtimes_mpl, ids,
+                                                              ccc_sparse, opt)
             
             # Make HTML files
             create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi,
@@ -1731,7 +1731,8 @@ def wiggle_plot(data, figsize, outfile, opt):
     plt.close(fig)
 
 
-def create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt):
+def create_family_images(rtable, ftable, rtimes, rtimes_mpl, ids, ccc_sparse,
+                                                                         opt):
     """
     Creates multi-paneled family plots for all families that need plotting.
     
@@ -1744,8 +1745,14 @@ def create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt):
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
-    ctable : Table object
-        Handle to the Correlation table.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    ids : int ndarray
+        'id' column from Repeaters table.
+    ccc_sparse : float csr_matrix
+        Sparse correlation matrix with id as rows/columns.
     opt : Options object
         Describes the run parameters.
     
@@ -1760,7 +1767,7 @@ def create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt):
         
         if ftable[fnum]['printme'] != 0:
             
-            assemble_family_image(bboxes, rtable, ftable, rtimes_mpl,
+            assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
                 windowAmp, ids, ccc_sparse, 'png', 100, fnum, 0, 0, opt)
 
 
@@ -1876,8 +1883,8 @@ def format_family_image(axes, opt):
     return axes
 
 
-def assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
-    ids, ccc_sparse, oformat, dpi, fnum, tmin, tmax, opt):
+def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
+    windowAmp, ids, ccc_sparse, oformat, dpi, fnum, tmin, tmax, opt):
     """
     Creates a multi-paneled family plot for the specified family 'fnum'.
     
@@ -1903,8 +1910,10 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
     rtimes_mpl : float ndarray
-        Times of all repeaters as matplotlib date.
+        Times of all repeaters as matplotlib dates.
     windowAmp : float ndarray
         'windowAmp' column from rtable for single station.
     ids : int ndarray
@@ -1937,9 +1946,6 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
     # Get core location within fam
     core_idx = np.where(fam==ftable[fnum]['core'])[0][0]
     
-    # Get timing of events
-    catalog = rtimes_mpl[fam]
-    
     
     # Plot waveforms
     subplot_waveforms(rtable[fam], core_idx, axes[0], opt)
@@ -1948,13 +1954,15 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes_mpl, windowAmp,
     subplot_fft(rtable[fam], core_idx, axes[1], opt)
     
     # Plot amplitude timeline
-    subplot_amplitude(catalog, windowAmp, fam, core_idx, axes[2], opt)
+    subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, opt,
+                                                                   ax=axes[2])
     
     # Plot spacing timeline
-    subplot_spacing(catalog, core_idx, axes[3], opt)
+    subplot_spacing(rtimes, rtimes_mpl, fam, core_idx, opt, ax=axes[3])
     
     # Plot correlation timeline
-    subplot_correlation(catalog, ccc_sparse, ids[fam], core_idx, axes[4], opt)
+    subplot_correlation(rtimes, rtimes_mpl, fam, ids, ccc_sparse, core_idx,
+                                                              opt, ax=axes[4])
     
     # General formatting
     axes = format_family_image(axes, opt)
@@ -2083,132 +2091,230 @@ def subplot_fft(rtable_fam, core_idx, ax, opt):
     ax.plot(freq,fftc,'k', linewidth=0.25)
 
 
-def subplot_amplitude(catalog, windowAmp, fam, core_idx, ax, opt):
+def subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, opt,
+                                                     useBokeh=False, ax=None):
     """
     Fills the amplitude timeline subplot.
     
     Parameters
     ----------
-    catalog : float ndarray
-        Event times of family members ordered by date as matplotlib dates.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
     windowAmp : float ndarray
-        'windowAmp' column from rtable for single station.
+        'windowAmp' column from rtable for all stations or a single station.
     fam : int ndarray
         Indices of family members within the Repeaters table ordered by time.
     core_idx : int
         Index corresponding to position of core event within ordered family.
-    ax : Axis object
-        Subplot axis to modify in place.
     opt : Options object
         Describes the run parameters.
-    """
+    useBokeh : bool, optional
+        True if to render Bokeh figure, or False for matplotlib figure.
+    ax : Axis object, optional
+        If using matplotlib, the Axis handle in which to plot.
     
-    # Plot amplitude timeline
-    ax.plot_date(catalog, windowAmp[fam],
-            'ro', alpha=0.5, markeredgecolor='r', markeredgewidth=0.5,
-            markersize=3)
-    ax.plot_date(catalog[core_idx], windowAmp[fam[core_idx]],
-            'ko', markeredgecolor='k', markeredgewidth=0.5,
-            markersize=3)
+    Returns
+    -------
+    fig : Figure object
+        If useBokeh is True, returns a bokeh Figure.
+    ax : Axis object
+        If useBokeh is False, returns a matplotlib Axis handle.
+    
+    """
     
     # Determine ylims
     if opt.amplims == 'family':
-        windowAmpFam = windowAmp[fam]
-        try:
-            ymin = 0.5*np.min(windowAmpFam[np.nonzero(windowAmpFam)])
-            ymax = 2*np.max(windowAmpFam)
-        except ValueError:
-            # Use global if all zeros
-            ymin = 0.5*np.min(windowAmp[np.nonzero(windowAmp)])
-            ymax = 2*np.max(windowAmp)
+        windowAmpFam = windowAmp[fam][:]
+        ymin = 0.25*np.amin(windowAmpFam[np.nonzero(windowAmpFam)])
+        ymax = 4*np.amax(windowAmpFam)
     else:
-        # Use global maximum/minimum
-        ymin = 0.5*np.min(windowAmp[np.nonzero(windowAmp)])
-        ymax = 2*np.max(windowAmp)
+        # Use global maximum
+        ymin = 0.25*np.amin(windowAmp[np.nonzero(windowAmp)])
+        ymax = 4*np.amax(windowAmp)
     
     # Prevent ymin being "too small" to be realistic
-    if ymax > 1:
+    if ymax > 1000:
+        ymin = np.max((ymin, 1))
+    elif ymax > 1:
         ymin = np.max((ymin, 1e-3))
     elif ymax > 1e-6:
         ymin = np.max((ymin, 1e-12))
     
-    ax.set_ylim(ymin, ymax)
+    # Plot amplitude timeline
+    if useBokeh:
+        
+        fig = bokeh_figure(title='Amplitude with Time (Click name to hide)',
+            y_axis_type='log', y_range=[ymin,ymax])
+        fig.yaxis.axis_label = 'Counts'
+        
+        if opt.nsta <= 8:
+            palette = all_palettes['YlOrRd'][9]
+        else:
+            palette = inferno(opt.nsta+1)
+        for sta, staname in enumerate(opt.station.split(',')):
+            fig.circle(rtimes[fam], windowAmp[fam][:,sta],
+                color=palette[sta], line_alpha=0, size=4, fill_alpha=0.5,
+                legend_label='{}.{}'.format(
+                    staname,opt.channel.split(',')[sta]))
+        fig.legend.location='bottom_left'
+        fig.legend.orientation='horizontal'
+        fig.legend.click_policy='hide'
+        
+        return fig
+        
+    else:
+        
+        ax.plot_date(rtimes_mpl[fam], windowAmp[fam],
+                'ro', alpha=0.5, markeredgecolor='r', markeredgewidth=0.5,
+                markersize=3)
+        ax.plot_date(rtimes_mpl[fam[core_idx]], windowAmp[fam[core_idx]],
+                'ko', markeredgecolor='k', markeredgewidth=0.5,
+                markersize=3)
+        ax.set_ylim(ymin, ymax)
+        
+        return ax
 
 
-def subplot_spacing(catalog, core_idx, ax, opt):
+def subplot_spacing(rtimes, rtimes_mpl, fam, core_idx, opt, useBokeh=False,
+                                                                     ax=None):
     """
     Fills the temporal spacing timeline subplot.
     
     Parameters
     ----------
-    catalog : float ndarray
-        Event times of family members ordered by date as matplotlib dates.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    fam : int ndarray
+        Indices of family members within the Repeaters table ordered by time.
     core_idx : int
         Index corresponding to position of core event within ordered family.
-    ax : Axis object
-        Subplot axis to modify in place.
     opt : Options object
         Describes the run parameters.
+    useBokeh : bool, optional
+        True if to render Bokeh figure, or False for matplotlib figure.
+    ax : Axis object, optional
+        If using matplotlib, the Axis handle in which to plot.
+    
+    Returns
+    -------
+    fig : Figure object
+        If useBokeh is True, returns a bokeh Figure.
+    ax : Axis object
+        If useBokeh is False, returns a matplotlib Axis handle.
     
     """
     
     # Spacing between events in hours
+    catalog = rtimes_mpl[fam]
     spacing = np.diff(catalog)*24
     
-    ax.plot_date(catalog[1:], spacing, 'ro', alpha=0.5,
-        markeredgecolor='r', markeredgewidth=0.5, markersize=3)
-    if core_idx > 0:
-        ax.plot_date(catalog[core_idx], spacing[core_idx-1], 'ko',
-            markeredgecolor='k', markeredgewidth=0.5, markersize=3)
-    ax.set_ylim(1e-3, np.max(spacing)*2)
+    if useBokeh:
+        
+        fig = bokeh_figure(title='Time since Previous Event',
+            y_axis_type='log', y_range=[1e-3, 2*np.max(spacing)])
+        fig.yaxis.axis_label = 'Interval (hr)'
+        fig.circle(rtimes[fam[1:]], spacing, color='red', line_alpha=0,
+            size=4, fill_alpha=0.5)
+        
+        return fig
+        
+    else:
+        ax.plot_date(catalog[1:], spacing, 'ro', alpha=0.5,
+            markeredgecolor='r', markeredgewidth=0.5, markersize=3)
+        if core_idx > 0:
+            ax.plot_date(catalog[core_idx], spacing[core_idx-1], 'ko',
+                markeredgecolor='k', markeredgewidth=0.5, markersize=3)
+        ax.set_ylim(1e-3, np.max(spacing)*2)
+        
+        return ax
 
 
-def subplot_correlation(catalog, ccc_sparse, ids_fam, core_idx, ax, opt):
+def subplot_correlation(rtimes, rtimes_mpl, fam, ids, ccc_sparse, core_idx,
+                                 opt, useBokeh=False, ax=None, ccc_full=None):
     """
     Fills the cross-correlation timeline subplot.
     
-    Plots a single row from the full cross-correlation matrix corresponding
-    to whichever row has the highest sum. If the value is stored in the
-    Correlation table it will be plotted as a filled red circle, otherwise it
-    will be plotted with an open red circle at the value of opt.cmin. The
-    core is denoted with a black symbol.
+    If using matplotlib: Plots a single row from the full cross-correlation
+    matrix corresponding to whichever row has the highest sum. If the value
+    is stored in the Correlation table it will be plotted as a filled red
+    circle, otherwise it will be plotted with an open red circle at the value
+    of opt.cmin. The core is denoted with a black symbol.
+    
+    If using Bokeh: Plots the row from the full cross-correlation matrix that
+    corresponds to the current core. All are plotted as filled red circles.
     
     Parameters
     ----------
-    catalog : float ndarray
-        Event times of family members ordered by date as matplotlib dates.
-    ccc_sparse : sparse_csc matrix
-        Pairwise values from the full Correlation table as a sparse matrix.
-    ids_fam : int ndarray
-        ID numbers of all family members ordered by time.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    fam : int ndarray
+        Indices of family members within the Repeaters table ordered by time.
+    ids : int ndarray
+        'id' column from Repeaters table.
+    ccc_sparse : float csr_matrix
+        Sparse correlation matrix with id as rows/columns.
     core_idx : int
         Index corresponding to position of core event within ordered family.
-    ax : Axis object
-        Subplot axis to modify in place.
     opt : Options object
         Describes the run parameters.
+    useBokeh : bool, optional
+        True if to render Bokeh figure, or False for matplotlib figure.
+    ax : Axis object, optional
+        If using matplotlib, the Axis handle in which to plot.
+    ccc_full : float ndarray, optional
+        Filled correlation matrix.
+    
+    Returns
+    -------
+    fig : Figure object
+        If useBokeh is True, returns a bokeh Figure.
+    ax : Axis object
+        If useBokeh is False, returns a matplotlib Axis handle.
+    
     """
     
-    # Get correlation values for row with highest sum
-    Cprint = redpy.correlation.subset_matrix(ids_fam, ccc_sparse, opt)
-    
-    # Create mask to only plot each point once
-    cmask = np.zeros(len(Cprint), dtype=bool)
-    cmask[Cprint>=opt.cmin] = True
-    
-    # Plot closed circles for values that exist, open where undefined
-    ax.plot_date(catalog[cmask], Cprint[cmask], 'ro',
-            alpha=0.5, markeredgecolor='r', markeredgewidth=0.5, markersize=3)
-    ax.plot_date(catalog[~cmask], 0*Cprint[~cmask]+opt.cmin, 'wo', alpha=0.5,
-                     markeredgecolor='r', markeredgewidth=0.5)
-    
-    # Plot black dot for core event
-    if Cprint[core_idx] >= opt.cmin:
-        ax.plot_date(catalog[core_idx], Cprint[core_idx], 'ko',
-            markeredgecolor='k', markeredgewidth=0.5, markersize=3)
+    if useBokeh:
+        
+        fig = bokeh_figure(y_range=[-0.02, 1.02],
+            title='Cross-Correlation Coefficient with Core Event')
+        fig.yaxis.axis_label = 'CCC'
+        fig.circle(rtimes[fam], ccc_full[core_idx,:].tolist()[0], color='red',
+            line_alpha=0, size=4, fill_alpha=0.5)
+        
+        return fig
+        
     else:
-        ax.plot_date(catalog[core_idx], opt.cmin, 'wo', markeredgecolor='k',
-            markeredgewidth=0.5, markersize=3)
+        
+        # Get correlation values for row with highest sum
+        Cprint = redpy.correlation.subset_matrix(ids[fam], ccc_sparse, opt)
+        
+        # Create mask to only plot each point once
+        cmask = np.zeros(len(Cprint), dtype=bool)
+        cmask[Cprint>=opt.cmin] = True
+        
+        catalog = rtimes_mpl[fam]
+        
+        # Plot closed circles for values that exist, open where undefined
+        ax.plot_date(catalog[cmask], Cprint[cmask], 'ro',
+            alpha=0.5, markeredgecolor='r', markeredgewidth=0.5, markersize=3)
+        ax.plot_date(catalog[~cmask], 0*Cprint[~cmask]+opt.cmin, 'wo',
+            alpha=0.5, markeredgecolor='r', markeredgewidth=0.5)
+        
+        # Plot black dot for core event
+        if Cprint[core_idx] >= opt.cmin:
+            ax.plot_date(catalog[core_idx], Cprint[core_idx], 'ko',
+                markeredgecolor='k', markeredgewidth=0.5, markersize=3)
+        else:
+            ax.plot_date(catalog[core_idx], opt.cmin, 'wo',
+                markeredgecolor='k', markeredgewidth=0.5, markersize=3)
+        
+        return ax
 
 
 def create_family_html(rtable, ftable, rtimes, rtimes_mpl, fi, external_catalogs, opt):
@@ -2547,6 +2653,97 @@ def remove_old_html(oldnClust, newnClust, opt):
 
 ### USER-GENERATED ###
 
+def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
+    plotformat, fnum, opt, windowAmps=None, ccc_full=None):
+    """
+    Assembles an interactive HTML timeline with Bokeh for a family report.
+    
+    Parameters
+    ----------
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    fam : int ndarray
+        Indices of family members within the Repeaters table ordered by time.
+    core_idx : int
+        Index corresponding to position of core event within ordered family.
+    plotformat : str
+        Formatted list of plots to be rendered, separated by ',' or '+' where
+        ',' denotes a new row and '+' groups the plots in tabs.
+    fnum : int
+        Family to be inspected.
+    opt : Options object
+        Describes the run parameters.
+    windowAmps : float ndarray, optional
+        'windowAmp' column from rtable for all stations.
+    ccc_full : float ndarray, optional
+        Filled correlation matrix.
+    
+    """
+    
+    plots = []
+    tabtitles = []
+    
+    plot_types = plotformat.split(',')
+    
+    # Create each of the subplots specified in the configuration file
+    for p in plot_types:
+        
+        if p == 'amplitude':
+            # Plot EQ Rates (Repeaters and Orphans)
+            plots.append(subplot_amplitude(rtimes, rtimes_mpl, windowAmps,
+                                           fam, core_idx, opt, useBokeh=True))
+            tabtitles = tabtitles+['Amplitude']
+        
+        elif p == 'spacing':
+            # Plot Frequency Index
+            plots.append(subplot_spacing(rtimes, rtimes_mpl, fam, core_idx,
+                                                          opt, useBokeh=True))
+            tabtitles = tabtitles+['Spacing']
+        
+        elif p == 'correlation':
+            # Plot Cluster Longevity
+            plots.append(subplot_correlation(rtimes, rtimes_mpl, fam, [], [],
+                             core_idx, opt, ccc_full=ccc_full, useBokeh=True))
+            tabtitles = tabtitles+['Correlation']
+        
+        else:
+            print('{} is not a valid plot type. Moving on.'.format(p))
+    
+    # Set ranges
+    for p in plots:
+        p.x_range = plots[0].x_range
+    
+    # Add annotations
+    for p in plots:
+        p = add_bokeh_annotations(p, opt)
+    
+    # Create output and save
+    gridplot_items = []
+    pnum = 0
+    for pf in plotformat.split(','):
+        # '+' groups plots into tabs
+        if '+' in pf:
+            tabs = []
+            for pft in range(len(pf.split('+'))):
+                tabs = tabs + [Panel(child=plots[pnum+pft],
+                                     title=tabtitles[pnum+pft])]
+            gridplot_items = gridplot_items + [[Tabs(tabs=tabs)]]
+            pnum = pnum+pft+1
+        else:
+            gridplot_items = gridplot_items + [[plots[pnum]]]
+            pnum = pnum+1
+    
+    o = gridplot(gridplot_items)
+    
+    filepath = '{}{}/reports/{}-report-bokeh.html'.format(opt.outputPath,
+        opt.groupName, fnum)
+    output_file(filepath,title='{} - Cluster {} Detailed Report'.format(
+        opt.title, fnum))
+    save(o)
+
+
 def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     ccc_sparse, fnum, ordered, skip_recalculate_ccc, matrixtofile, opt):
     """
@@ -2581,10 +2778,6 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     """
     
-    # Read in annotation file (if it exists)
-    if opt.anotfile != '':
-        annotations = pd.read_csv(opt.anotfile)
-    
     # Derive family-specific variables
     corenum = ftable[fnum]['core']
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
@@ -2601,94 +2794,25 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                                                     opt.groupName, fnum))
     
     if not skip_recalculate_ccc:
-        
         # Warn the user about the very large matrix
         if len(fam) > 1000:
             print('There are a lot of members in this family!' + \
                   ' Consider using the -s option to skip recalculating' + \
                   ' the cross-correlation matrix...' )
-        
         # Fill in full correlation matrix
         print('Computing full correlation matrix; this will take time' + \
               ' if the family is large')
-        
         ccc_full = redpy.correlation.make_full(rtable[fam], ccc_fam, opt)
     else:
         ccc_full = ccc_fam.copy()
     
-    ### BOKEH PLOTS
-    oTOOLS = ['pan,box_zoom,reset,save,tap']
+    # Make Bokeh plots
+    plotformat = 'amplitude,spacing,correlation' # Pass this as an option?
+    core_idx = np.where(fam==corenum)[0]
+    assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
+        plotformat, fnum, opt, windowAmps=windowAmps, ccc_full=ccc_full)
     
-    # Amplitude vs. time on all stations with interactive show/hide
-    # Set min/max for plotting
-    if opt.amplims == 'family':
-        windowAmpFam = windowAmps[fam][:]
-        ymin = 0.25*np.amin(windowAmpFam[np.nonzero(windowAmpFam)])
-        ymax = 4*np.amax(windowAmpFam)
-    else:
-        # Use global maximum
-        ymin = 0.25*np.amin(windowAmps[np.nonzero(windowAmps)])
-        ymax = 4*np.amax(windowAmps)
-    # Prevent ymin being "too small" to be realistic
-    if ymax > 1:
-        ymin = np.max((ymin, 1e-3))
-    elif ymax > 1e-6:
-        ymin = np.max((ymin, 1e-12))
-    
-    o0 = figure(tools=oTOOLS, plot_width=1250, plot_height=250,
-        x_axis_type='datetime',
-        title='Amplitude with Time (Click name to hide)', y_axis_type='log',
-        y_range=[ymin,ymax])
-    o0.grid.grid_line_alpha = 0.3
-    o0.xaxis.axis_label = 'Date'
-    o0.yaxis.axis_label = 'Counts'
-    
-    if opt.nsta <= 8:
-        palette = all_palettes['YlOrRd'][9]
-    else:
-        palette = inferno(opt.nsta+1)
-    for sta, staname in enumerate(opt.station.split(',')):
-        o0.circle(rtimes[fam], windowAmps[fam][:,sta], color=palette[sta],
-            line_alpha=0, size=4, fill_alpha=0.5, legend_label='{}.{}'.format(
-            staname,opt.channel.split(',')[sta]))
-    o0.legend.location='bottom_left'
-    o0.legend.orientation='horizontal'
-    o0.legend.click_policy='hide'
-    
-    # Time since last event
-    o1 = figure(tools=oTOOLS, plot_width=1250, plot_height=250,
-        x_axis_type='datetime', title='Time since Previous Event',
-        x_range=o0.x_range, y_axis_type='log', y_range=[1e-3,
-        2*np.max(spacing)])
-    o1.grid.grid_line_alpha = 0.3
-    o1.xaxis.axis_label = 'Date'
-    o1.yaxis.axis_label = 'Interval (hr)'
-    o1.circle(rtimes[fam[1:]], spacing, color='red', line_alpha=0, size=4,
-        fill_alpha=0.5)
-    
-    # Cross-correlation wrt. core
-    o2 = figure(tools=oTOOLS, plot_width=1250, plot_height=250,
-        x_axis_type='datetime',
-        title='Cross-correlation Coefficient with Core Event',
-        x_range=o0.x_range, y_range=[0, 1.02])
-    o2.grid.grid_line_alpha = 0.3
-    o2.xaxis.axis_label = 'Date'
-    o2.yaxis.axis_label = 'CCC'
-    o2.circle(rtimes[fam],ccc_full[np.where(fam==corenum)[0],:].tolist()[0],
-        color='red', line_alpha=0, size=4, fill_alpha=0.5)
-    
-    for p in [o0, o1, o2]:
-        p = add_bokeh_annotations(p, opt)
-    
-    # Combine and save
-    o = gridplot([[o0],[o1],[o2]])
-    output_file('{}{}/reports/{}-report-bokeh.html'.format(opt.outputPath,
-        opt.groupName, fnum), title='{} - Cluster {} Detailed Report'.format(
-        opt.title, fnum))
-    save(o)
-    
-    
-    ### OPTICS ORDERING (OPTIONAL)
+    # Optional OPTICS ordering
     if ordered:
         # Order by OPTICS rather than by time
         D = 1-ccc_full
@@ -2710,16 +2834,14 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
         ccc_full = ccc_full[order,:]
         ccc_full = ccc_full[:,order]
     
-    
-    ### SAVE FULL CORRELATION MATRIX TO FILE
+    # Optional save to file
     if matrixtofile:
         np.save('{}{}/reports/0-ccc_full.npy'.format(opt.outputPath,
             opt.groupName, fnum), ccc_full)
         np.save('{}{}/reports/0-evTimes.npy'.format(opt.outputPath,
             opt.groupName, fnum), rtimes[fam])
     
-    
-    ### CORRELATION MATRIX IMAGE
+    # Correlation matrix image(s)
     cmap = plt.get_cmap('inferno_r').copy()
     cmap.set_extremes(under='w')
     
@@ -2747,14 +2869,14 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                                                 opt.groupName, fnum), dpi=100)
     plt.close(fig)
     
-    ### WAVEFORM IMAGES
+    # Waveform images
     rtable_fam = rtable[fam]
     fig2 = plt.figure(figsize=(10, 12))
     time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
                              1.5*opt.winlen/opt.samprate, 1/opt.samprate)
     
     for sta in range(opt.nsta):
-    
+        
         ax = fig2.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
         
         if ordered:
@@ -2789,7 +2911,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                                                 opt.groupName, fnum), dpi=100)
     plt.close(fig2)
     
-    ### HTML OUTPUT PAGE
+    # HTML page
     tstamp = UTCDateTime.now()
     with open('{}{}/reports/{}-report.html'.format(opt.outputPath,
                                               opt.groupName, fnum), 'w') as f:
