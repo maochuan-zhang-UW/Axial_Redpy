@@ -955,12 +955,22 @@ def get_matrix(rtable, ctable, opt):
     
     # Get correlation matrix and ids
     ids = rtable.cols.id[:]
-    maxid = np.max(ids)+1 # !!! Edge case problem with removed families?
+    id1 = ctable.cols.id1[:]
+    id2 = ctable.cols.id2[:]
+    ccc = ctable.cols.ccc[:]
+    
+    maxid = np.max((np.max(ids),np.max(id2)))+1
+    
+    # !!! This is slow-ish, but I haven't figured out how to prevent duplicate
+    # !!! entries to the ctable, and when we use a sparse matrix duplicates
+    # !!! get summed, resulting in values far above 1
+    rc = np.vstack([id1, id2]).T.copy()
+    dt = rc.dtype.descr * 2
+    i = np.unique(rc.view(dt), return_index=True)[1]
     
     # Set up sparse correlation matrix in Compressed Sparse Row
     # format for slicing later
-    ccc_sparse = coo_matrix((ctable.cols.ccc[:],
-                            (ctable.cols.id1[:], ctable.cols.id2[:])),
+    ccc_sparse = coo_matrix((ccc[i], (id1[i], id2[i])),
                             shape=(maxid, maxid)).tocsr()
     
     return ids, ccc_sparse
