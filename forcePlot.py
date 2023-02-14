@@ -99,7 +99,8 @@ if args.famplot or args.html:
 if args.famplot:
     # Get correlation matrix and ids
     ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
-    redpy.plotting.create_family_images(rtable, ftable, rtimes_mpl, ids, ccc_sparse, opt)
+    redpy.plotting.create_family_images(rtable, ftable, rtimes, rtimes_mpl,
+                                                         ids, ccc_sparse, opt)
 if args.html:
     if opt.checkComCat==True:
         ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
