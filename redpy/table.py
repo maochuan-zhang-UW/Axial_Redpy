@@ -42,6 +42,7 @@ def Repeaters(opt):
     -------
     dict
         Dictionary of column definitions.
+    
     """
     
     repeaters_dictionary = {
@@ -90,6 +91,7 @@ def Orphans(opt):
     -------
     dict
         Dictionary of column definitions.
+    
     """
     
     orphans_dictionary = {
@@ -125,6 +127,7 @@ def Triggers(opt):
     -------
     dict
         Dictionary of column definitions.
+    
     """
     
     triggers_dictionary = {
@@ -163,6 +166,7 @@ def Deleted(opt):
     -------
     dict
         Dictionary of column definitions.
+    
     """
     
     deleted_dictionary = {
@@ -204,6 +208,7 @@ def Junk(opt):
     -------
     dict
         Dictionary of column definitions.
+    
     """
     
     junk_dictionary = {
@@ -235,6 +240,7 @@ def Correlation(opt):
     -------
     dict
         Dictionary of column definitions.
+    
     """
     
     correlation_dictionary = {
@@ -274,6 +280,7 @@ def Families(opt):
     -------
     dict
         Dictionary of column definitions.
+    
     """
     
     # !!! members itemsize should be defined in opt !!!
@@ -299,6 +306,7 @@ def initialize_table(opt):
     ----------
     opt : Options object
         Describes the run parameters.
+    
     """
 
     # Open file
@@ -377,6 +385,7 @@ def open_table(opt):
         Handle to the Deleted table.
     ftable : Table object
         Handle to the Families table.
+    
     """
 
     h5file = open_file(opt.filename, "a")
@@ -411,6 +420,7 @@ def calculate_window_amplitude(data, trigger_sample, opt):
     -------
     amps : float list
         Array of maximum amplitudes.
+    
     """
     
     # !!! Enable shift by 10% later
@@ -444,6 +454,7 @@ def populate_triggers(ttable, trigs, ttimes, opt):
         Array of times of existing triggers to prevent duplication.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     for t in trigs:
@@ -474,6 +485,7 @@ def populate_junk(jtable, trig, isjunk, opt):
         Flag corresponding to the type of junk.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     jrow = jtable.row
@@ -503,6 +515,7 @@ def populate_orphan(otable, idnum, trig, opt):
         Output from triggering function, with data from all stations appended.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     orow = otable.row
@@ -540,6 +553,7 @@ def clear_expired_orphans(otable, tend, opt):
         Time to remove orphans older than.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     expired = np.empty(0).astype(int)
@@ -578,6 +592,7 @@ def move_orphan(rtable, otable, oindex, opt):
         Row in otable to move
     opt :
         Describes the run parameters.
+    
     """
     
     rrow = rtable.row
@@ -633,6 +648,7 @@ def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
     windowStart : integer, optional
         Trigger time in samples from start of waveform, defaults to
         opt.ptrig seconds.
+    
     """
     
     # Create an empty row
@@ -674,6 +690,7 @@ def populate_correlation(ctable, id1, id2, ccc, opt):
         Cross-correlation coefficients between the two triggers.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     if (ccc >= opt.cmin) and (id1!=id2):
@@ -701,6 +718,7 @@ def populate_new_family(rtable, ftable, members, core, opt):
         Row index of core event in rtable.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     frow = ftable.row
@@ -729,6 +747,7 @@ def reorder_families(ftable, opt):
         Handle to the Families table.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     startTimes = ftable.cols.startTime[:]
@@ -772,6 +791,7 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
         List of lags between families and new event.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Determine which family is largest, use that as base family
@@ -831,6 +851,7 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
         Describes the run parameters.
     verbose : bool, optional
         Enable additional print statements.
+    
     """
     
     if verbose: print('Getting family members to remove...')
@@ -934,6 +955,7 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
     -------
     removed_families : 
         List of family numbers that were (or were slated to be) removed.
+    
     """
     
     # !!! Need to consider further how to better incorporate the verbosity
@@ -1021,6 +1043,7 @@ def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
         Handle to the Deleted table.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     if len(ttable) > 0:

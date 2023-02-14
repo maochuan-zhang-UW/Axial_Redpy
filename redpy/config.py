@@ -19,6 +19,7 @@ class Options(object):
         ----------
         configfile : str
             Name of configuration file to read.
+        
         """
         
         self.configfile = configfile

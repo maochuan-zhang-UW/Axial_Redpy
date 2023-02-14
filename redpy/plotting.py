@@ -146,6 +146,7 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
         Times of all repeaters as matplotlib dates.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Load table columns into memory to reduce I/O overhead
@@ -2435,6 +2436,7 @@ def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
         Describes the run parameters.
     report : bool, optional
         If true, use report-specific formatting.
+    
     """
     
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')

@@ -40,6 +40,7 @@ def calculate_window(waveform, windowStart, opt):
         Fourier transforms for each station.
     windowFI : float ndarray
         Frequency index for each station, NaNs where missing data.
+    
     """
     
     # Shift window left of the trigger time by 10% of total window length
@@ -101,6 +102,7 @@ def get_window(row, opt):
         Fourier transforms for each station.
     windowFI : float ndarray
         Frequency index for each station, NaNs where missing data.
+    
     """
     
     windowCoeff = row['windowCoeff']
@@ -134,6 +136,7 @@ def update_window(xtable, rownum, lag, opt, coeff=[], fft=[], fi=[]):
         Fourier transforms for each station.
     fi : float ndarray, optional
         Frequency index for each station, NaNs where missing data.
+    
     """
     
     trigger = int(xtable.cols.windowStart[rownum] + lag)
@@ -182,6 +185,7 @@ def xcorr_1x1(windowCoeff1, windowCoeff2, windowFFT1, windowFFT2, opt):
         Lag corresponding to maximum cross-correlation.
     nthcor : float
         Cross-correlation coefficient on the opt.ncor-th station.
+    
     """
     
     station_cors = np.zeros(opt.nsta)
@@ -251,6 +255,7 @@ def xcorr_1xtable(windowCoeff, windowFFT, xtable, opt):
     nthcors : float ndarray
         Cross-correlation coefficient on the opt.ncor-th station for each row
         in table.
+    
     """
     
     maxcors = np.zeros(len(xtable))
@@ -282,6 +287,7 @@ def compare_deleted(trigs, dtable, opt):
     -------
     trigs : Trace list
        Triggers that do not match deleted events.
+    
     """
     
     for trig in trigs:
@@ -326,6 +332,7 @@ def correlate_remaining_family(rtable, ctable, ftable, rnum, fnum, opt):
         Family number to compare to.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Get corresponding rnums for members and cores
@@ -365,6 +372,7 @@ def append_family_member(ftable, fnum, rnum, opt):
         Member (row) from Repeaters table to append.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Decode string then append a space and rnum
@@ -410,6 +418,7 @@ def compare_trigger_to_orphans(rtable, otable, ctable, ftable, trig, idnum,
         station.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Loop through potential matches, adjusting windows as necessary
@@ -520,6 +529,7 @@ def update_with_trigger(rtable, ftable, trig, idnum, windowStart, lag, fnum,
         Lag between trigger and matched families so far.
     famlist : integer ndarray
         Family numbers matched so far.
+    
     """
     
     if written == 0:
@@ -565,6 +575,7 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
         Fourier transform of trigger on all stations, concatenated.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # Get cores
@@ -683,6 +694,7 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
         Number of new repeaters written to Repeaters table. 
     opt : Options object
         Describes the run parameters.
+    
     """
     
     famlist = []
@@ -854,6 +866,7 @@ def do_comparison(rtable, otable, ctable, ftable, trig, idnum, windowCoeff,
         station.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # If there's a possible match with orphan(s), run most complex function
@@ -901,6 +914,7 @@ def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
         Flag to bypass try/catch and allow code to fail.
     opt : Options object
         Describes the run parameters.
+    
     """
     
     # !!! Need to check if this step can be skipped
@@ -951,6 +965,7 @@ def get_matrix(rtable, ctable, opt):
         'id' column from Repeaters table.
     ccc_sparse : float csr_matrix
         Sparse correlation matrix with id as rows/columns.
+    
     """
     
     # Get correlation matrix and ids
@@ -1000,6 +1015,7 @@ def subset_matrix(ids_sub, ccc_sparse, opt, return_type='maxrow', ind=-1):
     -------
     ccc_array : float ndarray
        Either the full correlation matrix or a specified row from it.
+    
     """
     
     # Get correlation matrix for family only

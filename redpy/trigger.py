@@ -38,6 +38,7 @@ def get_client(opt):
     -------
     client : Client object
         Handle to the appropriate Client.
+    
     """
     
     if '://' not in opt.server:
@@ -94,6 +95,7 @@ def filter_merge(stmp, opt):
     -------
     stmp : Stream object
         Processed Stream, with each Trace corresponding to a unique channel.
+    
     """
     
     # Replace -2**31 (Winston NaN token)
@@ -137,6 +139,7 @@ def append_empty(st, n, opt):
     -------
     st : Stream object
         Input Stream with empty Trace appended.
+    
     """
     
     nets = opt.network.split(',')
@@ -181,6 +184,7 @@ def get_filekey(opt, args):
     -------
     filekey : DataFrame object
         Table containing filenames matching search parameters with metadata.
+    
     """
     
     flname = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
@@ -246,6 +250,7 @@ def preload_data(tstart, tend, filekey, opt):
     -------
     st_preload : Stream object
         Preloaded waveform data from files on disk.
+    
     """
         
     st_preload = Stream()
@@ -303,6 +308,7 @@ def get_data(tstart, tend, filekey, st_preload, opt):
     -------
     st : Stream object
         Stream containing continuous, filtered Traces for each channel.
+    
     """
     
     nets = opt.network.split(',')
@@ -423,6 +429,7 @@ def trigger(st, rtable, opt):
     -------
     trigs : Stream object
         Triggered events with data from each channel concatenated.
+    
     """
     
     t = st[0].stats.starttime
@@ -526,6 +533,7 @@ def clean_triggers(alltrigs, opt):
             2: Both tests failed
     
     # !!! Future: Pass more information with jtype, store more in jtable
+    
     """
     
     trigs = Stream()
