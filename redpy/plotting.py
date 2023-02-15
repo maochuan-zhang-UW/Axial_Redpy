@@ -222,17 +222,17 @@ def create_core_images(rtable, ftable, opt):
     
     """
     
+    opath = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                         'clusters')
+    
     # Deal with renaming files to reduce plotting time overhead
     for n in range(len(ftable))[::-1]:
         if ftable[n]['lastprint'] != n and ftable[n]['printme'] == 0:
-            os.rename('{}{}/clusters/{}.png'.format(opt.outputPath,
-                opt.groupName, ftable[n]['lastprint']),
-                '{}{}/clusters/{}.png.tmp'.format(opt.outputPath,
-                opt.groupName, n))
-            os.rename('{}{}/clusters/fam{}.png'.format(opt.outputPath,
-                opt.groupName, ftable[n]['lastprint']),
-                '{}{}/clusters/fam{}.png.tmp'.format(opt.outputPath,
-                opt.groupName, n))
+            lastprint = ftable[n]['lastprint']
+            os.rename(os.path.join(opath,'{}.png'.format(lastprint)),
+                      os.path.join(opath,'{}.png.tmp'.format(n)))
+            os.rename(os.path.join(opath,'fam{}.png'.format(lastprint)),
+                      os.path.join(opath,'fam{}.png.tmp'.format(n)))
     
     # Iterate and plot
     cores = rtable[ftable.cols.core[:]]
@@ -242,8 +242,8 @@ def create_core_images(rtable, ftable, opt):
         if ftable[n]['printme'] == 1:
             data = prep_wiggle(r['waveform'], opt.printsta, r['windowStart'],
                                r['windowAmp'][opt.printsta], opt)
-            wiggle_plot(data, (5, 1), '{}{}/clusters/{}.png'.format(
-                opt.outputPath, opt.groupName, n), opt)
+            wiggle_plot(data, (5, 1), os.path.join(opath, '{}.png'.format(n)),
+                                                                           opt)
 
 
 def create_junk_images(jtable, opt):
@@ -275,9 +275,10 @@ def create_junk_images(jtable, opt):
             data = np.append(data, prep_wiggle(r['waveform'], s,
                       r['windowStart'] + int(opt.ptrig*opt.samprate), 0, opt))
         
-        wiggle_plot(data, (15, 0.5), '{}{}/junk/{}-{}.png'.format(
-            opt.outputPath, opt.groupName, (UTCDateTime(r['startTime']) + \
-            opt.ptrig).strftime('%Y%m%d%H%M%S'), r['isjunk']), opt)
+        wiggle_plot(data, (15, 0.5), os.path.join('{}{}'.format(opt.outputPath,
+                opt.groupName),'junk','{}-{}.png'.format(
+                (UTCDateTime(r['startTime']) + opt.ptrig).strftime(
+                '%Y%m%d%H%M%S'), r['isjunk']), opt)
 
 
 def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
@@ -358,8 +359,8 @@ def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
         
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
             
-            with open('{}{}/clusters/{}.html'.format(opt.outputPath,
-                    opt.groupName, fnum), 'w') as f:
+            with open(os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                                 'clusters','{}.html'.format(fnum)), 'w') as f:
                 
                 write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt)
                 
