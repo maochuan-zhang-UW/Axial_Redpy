@@ -76,8 +76,8 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         external_catalogs = []
     
     # Write trigger and orphan catalogs
-    printTriggerCatalog(ttimes, opt)
-    printOrphanCatalog(otable, opt)
+    catalog_triggers(ttimes, opt)
+    catalog_orphans(otable, opt)
     
     # If there is at least one family
     if len(rtable) > 1:
@@ -95,21 +95,21 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
             # Write repeater-related catalogs
             if opt.verbosecatalog == True:
                 # !!! pass columns here
-                printVerboseCatalog(rtable, ftable, ctable, rtimes,
+                catalog_verbose(rtable, ftable, ctable, rtimes,
                                          rtimes_mpl, fi, ids, ccc_sparse, opt)
             else:
-                printCatalog(ftable, rtimes, opt)
-            printSwarmCatalog(rtable, ftable, ttimes, rtimes, opt)
-            printCoresCatalog(ftable, rtimes, opt)
+                catalog_family(ftable, rtimes, opt)
+            catalog_swarm(rtable, ftable, ttimes, rtimes, opt)
+            catalog_cores(ftable, rtimes, opt)
             
             # Make images
             create_core_images(rtable, ftable, opt)
             create_family_images(rtable, ftable, rtimes, rtimes_mpl,
-                                              windowAmps, ids, ccc_sparse, opt)
+                                             windowAmps, ids, ccc_sparse, opt)
             
             # Make HTML files
             create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps,
-                                                    fi, external_catalogs, opt)
+                                                   fi, external_catalogs, opt)
             
             # Reset printing columns
             ftable.cols.printme[:] = np.zeros((len(ftable),))
@@ -263,7 +263,7 @@ def create_junk_images(jtable, opt):
     """
     
     # Write out times of junk triggers
-    printJunk(jtable, opt)
+    catalog_junk(jtable, opt)
     
     for r in jtable:
         

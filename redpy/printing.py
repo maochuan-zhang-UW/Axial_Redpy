@@ -7,7 +7,7 @@ import matplotlib.dates
 from obspy import UTCDateTime
 import redpy.correlation
 
-def printCatalog(ftable, rtimes, opt):
+def catalog_family(ftable, rtimes, opt):
     """
     Prints flat catalog to text file
     
@@ -26,7 +26,7 @@ def printCatalog(ftable, rtimes, opt):
                 f.write("{0} {1}\n".format(cnum, UTCDateTime(rtimes_mpl[fam[i]]).isoformat()))
 
 
-def printTriggerCatalog(ttimes, opt):
+def catalog_triggers(ttimes, opt):
     """
     Prints flat catalog of all triggers to text file
     
@@ -43,7 +43,7 @@ def printTriggerCatalog(ttimes, opt):
                                                         ttime)).isoformat())))
 
 
-def printOrphanCatalog(otable, opt):
+def catalog_orphans(otable, opt):
     """
     Prints flat catalog of current orphans to text file
     
@@ -61,7 +61,7 @@ def printOrphanCatalog(otable, opt):
             f.write("{0}\n".format((UTCDateTime(startTimes[i])+opt.ptrig/opt.samprate).isoformat()))
 
 
-def printJunk(jtable, opt):
+def catalog_junk(jtable, opt):
     """
     Prints flat catalog of contents of junk table to text file for debugging
     
@@ -81,7 +81,7 @@ def printJunk(jtable, opt):
                 UTCDateTime(startTimes[i])+opt.ptrig/opt.samprate).isoformat(),jtype[i]))
 
 
-def printCoresCatalog(ftable, rtimes, opt):
+def catalog_cores(ftable, rtimes, opt):
     """
     Prints flat catalog of only core events to text file.
     
@@ -102,46 +102,7 @@ def printCoresCatalog(ftable, rtimes, opt):
                                                    rtimes[core]).isoformat()))
 
 
-def printEventsperDay(rtable, ftable, opt):
-    """
-    Prints daily counts of each family in a tablulated text file
-    
-    rtable: Repeater table
-    ftable: Families table
-    opt: Options object describing station/run parameters
-    
-    Each column (with the exception of first and last) correspond to individual families;
-    first column is date and last column is total across all families.
-    """
-
-    with open('{}{}/dailycounts.txt'.format(opt.outputPath, opt.groupName), 'w') as f:
-    
-        startTimes = rtable.cols.startTimeMPL[:]
-        firstDay = np.floor(np.min(startTimes)).astype(int)
-        lastDay = np.ceil(np.max(startTimes)).astype(int)
-        hists = np.zeros((ftable.attrs.nClust,lastDay-firstDay))
-    
-        # Calculate histograms
-        for cnum in range(ftable.attrs.nClust):
-            fam = np.fromstring(ftable[cnum]['members'], dtype=int, sep=' ')
-            hists[cnum,:], edges = np.histogram(startTimes[fam], bins=np.arange(
-                firstDay,lastDay+1,1))
-    
-        # Header
-        f.write("      Date\t")
-        for cnum in range(ftable.attrs.nClust):
-            f.write("{}\t".format(cnum))
-        f.write("Total\n")
-    
-        # Write daily counts
-        for day in range(firstDay,lastDay):
-            f.write("{}\t".format(matplotlib.dates.num2date(day).strftime('%Y/%m/%d')))
-            for cnum in range(ftable.attrs.nClust):
-                f.write("{}\t".format(hists[cnum,day-firstDay].astype(int)))
-            f.write("{}\n".format(np.sum(hists[:,day-firstDay].astype(int))))
-
-
-def printVerboseCatalog(rtable, ftable, ctable, rtimes, rtimes_mpl, fi, ids, ccc_sparse, opt):
+def catalog_verbose(rtable, ftable, ctable, rtimes, rtimes_mpl, fi, ids, ccc_sparse, opt):
     """
     Prints flat catalog to text file with additional columns
     
@@ -194,7 +155,7 @@ def printVerboseCatalog(rtable, ftable, ctable, rtimes, rtimes_mpl, fi, ids, ccc
                 f.write("]\n")
 
 
-def printSwarmCatalog(rtable, ftable, ttimes, rtimes, opt):
+def catalog_swarm(rtable, ftable, ttimes, rtimes, opt):
     
     """
     Writes a .csv file for use in annotating repeating events in Swarm v2.8.5+
