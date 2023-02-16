@@ -243,7 +243,7 @@ def create_core_images(rtable, ftable, opt):
             data = prep_wiggle(r['waveform'], opt.printsta, r['windowStart'],
                                r['windowAmp'][opt.printsta], opt)
             wiggle_plot(data, (5, 1), os.path.join(opath, '{}.png'.format(n)),
-                                                                           opt)
+                                                                          opt)
 
 
 def create_junk_images(jtable, opt):
@@ -275,14 +275,14 @@ def create_junk_images(jtable, opt):
             data = np.append(data, prep_wiggle(r['waveform'], s,
                       r['windowStart'] + int(opt.ptrig*opt.samprate), 0, opt))
         
-        wiggle_plot(data, (15, 0.5), os.path.join('{}{}'.format(opt.outputPath,
-                opt.groupName),'junk','{}-{}.png'.format(
+        wiggle_plot(data, (15, 0.5), os.path.join('{}{}'.format(
+                opt.outputPath, opt.groupName),'junk','{}-{}.png'.format(
                 (UTCDateTime(r['startTime']) + opt.ptrig).strftime(
-                '%Y%m%d%H%M%S'), r['isjunk']), opt)
+                '%Y%m%d%H%M%S'), r['isjunk']), opt))
 
 
 def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
-                                                              ccc_sparse, opt):
+                                                            ccc_sparse, opt):
     """
     Creates multi-paneled family plots for all families that need plotting.
     
@@ -322,7 +322,7 @@ def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
 
 
 def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
-                                                       external_catalogs, opt):
+                                                      external_catalogs, opt):
     """
     Creates the HTML for the individual family pages.
     
@@ -480,7 +480,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     with open(os.path.join(rpath, '{}-report.html'.format(fnum)), 'w') as f:
         
         write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
-                                                                   report=True)
+                                                                  report=True)
         f.write('</center></body></html>')
 
 
