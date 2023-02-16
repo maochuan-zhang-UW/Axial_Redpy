@@ -30,8 +30,8 @@ from tables import *
 
 import redpy.cluster
 import redpy.correlation
+import redpy.printing
 from redpy.optics import *
-from redpy.printing import *
 
 matplotlib.use('Agg')
 
@@ -76,8 +76,8 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         external_catalogs = []
     
     # Write trigger and orphan catalogs
-    catalog_triggers(ttimes, opt)
-    catalog_orphans(otable, opt)
+    redpy.printing.catalog_triggers(ttimes, opt)
+    redpy.printing.catalog_orphans(otable, opt)
     
     # If there is at least one family
     if len(rtable) > 1:
@@ -95,12 +95,12 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
             # Write repeater-related catalogs
             if opt.verbosecatalog == True:
                 # !!! pass columns here
-                catalog_verbose(rtable, ftable, ctable, rtimes,
+                redpy.printing.catalog_verbose(rtable, ftable, ctable, rtimes,
                                          rtimes_mpl, fi, ids, ccc_sparse, opt)
             else:
-                catalog_family(ftable, rtimes, opt)
-            catalog_swarm(rtable, ftable, ttimes, rtimes, opt)
-            catalog_cores(ftable, rtimes, opt)
+                redpy.printing.catalog_family(ftable, rtimes, opt)
+            redpy.printing.catalog_swarm(rtable, ftable, ttimes, rtimes, opt)
+            redpy.printing.catalog_cores(ftable, rtimes, opt)
             
             # Make images
             create_core_images(rtable, ftable, opt)
@@ -263,7 +263,7 @@ def create_junk_images(jtable, opt):
     """
     
     # Write out times of junk triggers
-    catalog_junk(jtable, opt)
+    redpy.printing.catalog_junk(jtable, opt)
     
     for r in jtable:
         
