@@ -95,11 +95,11 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
             # Write repeater-related catalogs
             if opt.verbosecatalog == True:
                 # !!! pass columns here
-                redpy.printing.catalog_verbose(rtable, ftable, ctable, rtimes,
-                                         rtimes_mpl, fi, ids, ccc_sparse, opt)
+                redpy.printing.catalog_verbose(ftable, rtimes, rtimes_mpl,
+                                         windowAmps, fi, ids, ccc_sparse, opt)
             else:
                 redpy.printing.catalog_family(ftable, rtimes, opt)
-            redpy.printing.catalog_swarm(rtable, ftable, ttimes, rtimes, opt)
+            redpy.printing.catalog_swarm(ftable, ttimes, rtimes, opt)
             redpy.printing.catalog_cores(ftable, rtimes, opt)
             
             # Make images
