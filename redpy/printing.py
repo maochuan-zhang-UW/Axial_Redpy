@@ -2,88 +2,23 @@
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 
+import os
+
+import matplotlib.dates as mdates
 import numpy as np
-import matplotlib.dates
+
 from obspy import UTCDateTime
+
 import redpy.correlation
+
 
 def catalog_family(ftable, rtimes, opt):
     """
-    Prints flat catalog to text file
+    Prints simple catalog of family members to text file.
     
-    rtable: Repeater table
-    ftable: Families table
-    opt: Options object describing station/run parameters
-    
-    Note: Time in text file corresponds to current trigger time by alignment
-    """
-
-    with open('{}{}/catalog.txt'.format(opt.outputPath, opt.groupName), 'w') as f:
-        
-        for cnum in range(ftable.attrs.nClust):
-            fam = np.fromstring(ftable[cnum]['members'], dtype=int, sep=' ')
-            for i in np.argsort(rtimes_mpl[fam]):
-                f.write("{0} {1}\n".format(cnum, UTCDateTime(rtimes_mpl[fam[i]]).isoformat()))
-
-
-def catalog_triggers(ttimes, opt):
-    """
-    Prints flat catalog of all triggers to text file
-    
-    ttimes: Trigger times as matplotlib date
-    opt: Options object describing station/run parameters
-    
-    Note: Time in text file corresponds to original STA/LTA trigger time
-    """
-    
-    with open('{}{}/triggers.txt'.format(opt.outputPath, opt.groupName), 'w') as f:
-        
-        for ttime in np.sort(ttimes):
-            f.write("{0}\n".format((UTCDateTime(matplotlib.dates.num2date(
-                                                        ttime)).isoformat())))
-
-
-def catalog_orphans(otable, opt):
-    """
-    Prints flat catalog of current orphans to text file
-    
-    otable: Orphans table
-    opt: Options object describing station/run parameters
-    
-    Note: Time in text file corresponds to original STA/LTA trigger time
-    """
-    
-    with open('{}{}/orphancatalog.txt'.format(opt.outputPath, opt.groupName), 'w') as f:
-        
-        startTimes = otable.cols.startTime[:]
-        
-        for i in np.argsort(startTimes):
-            f.write("{0}\n".format((UTCDateTime(startTimes[i])+opt.ptrig/opt.samprate).isoformat()))
-
-
-def catalog_junk(jtable, opt):
-    """
-    Prints flat catalog of contents of junk table to text file for debugging
-    
-    jtable: Junk table
-    opt: Options object describing station/run parameters
-    
-    Note: Time in text file corresponds to original STA/LTA trigger time
-    """
-    
-    with open('{}{}/junk.txt'.format(opt.outputPath, opt.groupName), 'w') as f:
-        
-        startTimes = jtable.cols.startTime[:]
-        jtype = jtable.cols.isjunk[:]
-        
-        for i in np.argsort(startTimes):
-            f.write("{0} - {1}\n".format((
-                UTCDateTime(startTimes[i])+opt.ptrig/opt.samprate).isoformat(),jtype[i]))
-
-
-def catalog_cores(ftable, rtimes, opt):
-    """
-    Prints flat catalog of only core events to text file.
+    Columns of this catalog correspond to family number and event time, sorted
+    chronologically within each family. Event time corresponds to the current
+    best alignment, rather than when the event originally triggered.
     
     ftable : Table object
         Handle to the Families table.
@@ -91,80 +26,241 @@ def catalog_cores(ftable, rtimes, opt):
         Times of all repeaters as datetimes.
     opt : Options object
         Describes the run parameters.
+    
     """
     
-    with open('{}{}/cores.txt'.format(opt.outputPath, opt.groupName), 'w') as f:
+    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                           'catalog.txt')
+    
+    with open(outfile, 'w') as f:
         
-        for cnum in range(ftable.attrs.nClust):
+        f.write('Family\tEvent Time (UTC)\n')
+        for fnum in range(ftable.attrs.nClust):
             
-            core = ftable[cnum]['core']
-            f.write("{0} {1}\n".format(cnum, UTCDateTime(
+            fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
+            
+            for i in np.argsort(rtimes[fam]):
+                f.write('{}\t{}\n'.format(fnum,
+                                     UTCDateTime(rtimes[fam[i]]).isoformat()))
+
+
+def catalog_triggers(ttimes, opt):
+    """
+    Prints simple catalog of all triggers to text file.
+    
+    Event times in this file correspond to the original trigger times.
+    
+    Parameters
+    ----------
+    ttimes : float ndarray
+        Times of all triggers as matplotlib dates.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    
+    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                           'triggers.txt')
+    
+    with open(outfile, 'w') as f:
+        
+        f.write('Trigger Time (UTC)\n')
+        for ttime in np.sort(ttimes):
+            f.write('{}\n'.format((UTCDateTime(mdates.num2date(ttime)
+                                                              ).isoformat())))
+
+
+def catalog_orphans(otable, opt):
+    """
+    Prints simple catalog of current orphans to text file.
+    
+    Event times in this file correspond to the original trigger times.
+    
+    Parameters
+    ----------
+    otable : Table object
+        Handle to the Orphans table.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    
+    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                           'orphancatalog.txt')
+    
+    startTimes = otable.cols.startTime[:]
+    
+    with open(outfile, 'w') as f:
+        
+        f.write('Trigger Time (UTC)\n')
+        for i in np.argsort(startTimes):
+            f.write('{}\n'.format((UTCDateTime(startTimes[i]) + \
+                                         opt.ptrig/opt.samprate).isoformat()))
+
+
+def catalog_junk(jtable, opt):
+    """
+    Prints simple catalog of junk table to text file (for debugging).
+    
+    Columns of this catalog correspond to the original trigger time and a
+    code corresponding to which 'type' of junk that clean_triggers() thought
+    it was.
+    
+    Parameters
+    ----------
+    jtable : Table object
+        Handle to the Junk table.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    
+    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                           'junk.txt')
+    
+    startTimes = jtable.cols.startTime[:]
+    jtype = jtable.cols.isjunk[:]
+    
+    with open(outfile, 'w') as f:
+        
+        f.write('Trigger Time (UTC)\tJunk Code\n')
+        for i in np.argsort(startTimes):
+            f.write('{}\t{}\n'.format((UTCDateTime(startTimes[i]) + \
+                               opt.ptrig/opt.samprate).isoformat(), jtype[i]))
+
+
+def catalog_cores(ftable, rtimes, opt):
+    """
+    Prints simple catalog of current core events to text file.
+    
+    Columns of this catalog correspond to family number and event time. Event
+    time corresponds to the current best alignment, rather than when the
+    event originally triggered.
+    
+    Parameters
+    ----------
+    ftable : Table object
+        Handle to the Families table.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    
+    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                           'cores.txt')
+    
+    with open(outfile, 'w') as f:
+        
+        f.write('Family\tEvent Time (UTC)\n')
+        for fnum in range(ftable.attrs.nClust):
+            
+            core = ftable[fnum]['core']
+            f.write('{}\t{}\n'.format(fnum, UTCDateTime(
                                                    rtimes[core]).isoformat()))
 
 
-def catalog_verbose(rtable, ftable, ctable, rtimes, rtimes_mpl, fi, ids, ccc_sparse, opt):
+def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
+                                                             ccc_sparse, opt):
     """
-    Prints flat catalog to text file with additional columns
+    Prints detailed catalog of family members to text file.
     
-    rtable: Repeater table
-    ftable: Families table
-    ctable: Correlation table
+    Like the simple catalog, events are sorted by event time within each
+    family. Additional columns correspond to frequency index,
+    cross-correlation coefficient with respect to the event with the highest
+    sum (matching the family plots) and with the current core event, time
+    since previous event (dt), and the amplitudes on all channels (grouped
+    with [ square brackets ]).
+    
+    Parameters
+    ----------
+    ftable : Table object
+        Handle to the Families table.
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    windowAmps : float ndarray
+        'windowAmp' column from rtable for all stations.
+    fi : float ndarray
+        Frequency index values for repeaters.
+    ids : int ndarray
+        'id' column from Repeaters table.
+    ccc_sparse : float csr_matrix
+        Sparse correlation matrix with id as rows/columns.
     opt: Options object describing station/run parameters
     
-    Columns correspond to cluster number, event time, frequency index, amplitude, time
-    since last event in hours, correlation coefficient with respect to the best
-    correlated event, and correlation coefficient with respect to the core event.
     """
     
-    with open('{}{}/catalog.txt'.format(opt.outputPath, opt.groupName), 'w') as f:
+    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                           'catalog.txt')
+    
+    with open(outfile, 'w') as f:
         
-        windowAmps = rtable.cols.windowAmp[:]
-        
-        f.write("cnum\tevTime                    \tfi\txcormax\txcorcore\tdt(hr)\tamps\n")
-        for cnum in range(ftable.attrs.nClust):
-            fam = np.fromstring(ftable[cnum]['members'], dtype=int, sep=' ')
+        f.write('Family\tEvent Time (UTC)\tFI\t')
+        f.write('ccc_max\tccc_core\tdt (hr)\t[ Amplitudes ]\n')
+        for fnum in range(ftable.attrs.nClust):
             
+            fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
             catalogind = np.argsort(rtimes_mpl[fam])
             fam = fam[catalogind]
-            corenum = ftable[cnum]['core']
-            
+            corenum = ftable[fnum]['core']
             catalog = rtimes_mpl[fam]
+            
+            # Get dt
             spacing = np.diff(catalog)*24
             
             # Get correlation values for maximum sum along row (to match
             # family plots) and with the current core event
-            xcorrmax = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
+            ccc_max = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
                 opt, return_type='maxrow')
-            xcorrcore = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
+            ccc_core = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
                 opt, return_type='indrow', ind=np.where(fam==corenum)[0][0])
             
-            j = -1
-            for i in catalogind:
-                evTime = UTCDateTime(rtimes[fam[i]])
-                amp = windowAmps[fam[i],:]
-                if j == -1:
+            for i, member in enumerate(fam):
+                evTime = UTCDateTime(rtimes[member])
+                amp = windowAmps[member,:]
+                if i == 0:
                     dt = np.nan
                 else:
-                    dt = spacing[j]
-                j += 1
-            
-                f.write("{0}\t{1}\t{2: 4.3f}\t{4:3.2f}\t{5:3.2f}\t{3:12.6f}\t[".format(
-                    cnum,evTime.isoformat(),fi[fam[i]],dt,xcorrmax[i],xcorrcore[i]))
+                    dt = spacing[i-1]
+                f.write('{}\t{}\t'.format(fnum, evTime.isoformat()))
+                f.write('{:4.3f}\t'.format(fi[member]))
+                f.write('{:3.2f}\t{:3.2f}\t'.format(ccc_max[i], ccc_core[i]))
+                f.write('{:12.6f}\t['.format(dt))
                 for a in amp:
-                    f.write(" {:10.2f} ".format(a))
-                f.write("]\n")
+                    f.write(' {:10.2f}'.format(a))
+                f.write(' ]\n')
 
 
-def catalog_swarm(rtable, ftable, ttimes, rtimes, opt):
+def catalog_swarm(ftable, ttimes, rtimes, opt):
     
     """
-    Writes a .csv file for use in annotating repeating events in Swarm v2.8.5+
+    Writes a .csv file for use in annotating events in Swarm v2.8.5+.
     
-    rtable: Repeater table
-    ftable: Families table
+    Format for Swarm is 'Date Time, STA CHA NET LOC, label'
+    The SCNL defaults to whichever station was chosen for the preview,
+    which can be changed by a global search/replace in a text editor.
+    The label name is the same as the folder name (groupName) followed by
+    the family number. Highlighting families of interest in a different
+    color can be done by editing the EventClassifications.config file in
+    the Swarm folder, and adding a line for each cluster of interest
+    followed by a hex code for color, such as:
+        default1, #ffff00
+    to highlight family 1 from the 'default' run in yellow compared to other
+    repeaters in red/orange.
+    
+    Parameters
+    ----------
+    ftable : Table object
+        Handle to the Families table.
     ttimes : float ndarray
         Times of all triggers as matplotlib dates.
-    opt: Options object describing station/run parameters
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    opt : Options object
+        Describes the run parameters.
     
     """
     
@@ -173,31 +269,26 @@ def catalog_swarm(rtable, ftable, ttimes, rtimes, opt):
     locs = opt.location.split(',')
     chas = opt.channel.split(',')
     
-    with open('{}{}/swarm.csv'.format(opt.outputPath, opt.groupName), 'w') as f:
+    catalogfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                               'swarm.csv')
+    triggerfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
+                               'triggerswarm.csv')
+    
+    with open(catalogfile, 'w') as f:
         
-        for cnum in range(ftable.attrs.nClust):
-            fam = np.fromstring(ftable[cnum]['members'], dtype=int, sep=' ')
+        for fnum in range(ftable.attrs.nClust):
+            fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
             for i in np.argsort(rtimes[fam]):
-                # Format for Swarm is 'Date Time, STA CHA NET LOC, label'
-                # The SCNL defaults to whichever station was chosen for the preview,
-                # which can be changed by a global search/replace in a text editor.
-                # The label name is the same as the folder name (groupName) followed by
-                # the family number. Highlighting families of interest in a different
-                # color can be done by editing the EventClassifications.config file in
-                # the Swarm folder, and adding a line for each cluster of interest
-                # followed by a hex code for color, such as:
-                # default1, #ffff00
-                # to highlight family 1 from the default run in yellow compared to other
-                # repeaters in red/orange.
+                
                 f.write("{}, {} {} {} {}, {}{}\n".format(UTCDateTime(
                     rtimes[fam][i]).isoformat(sep=' '), stas[opt.printsta],
                     chas[opt.printsta], nets[opt.printsta],
-                    locs[opt.printsta], opt.groupName,cnum))
+                    locs[opt.printsta], opt.groupName,fnum))
                 
-    with open('{}{}/triggerswarm.csv'.format(opt.outputPath, opt.groupName), 'w') as f:
+    with open(triggerfile, 'w') as f:
     
         for ttime in np.sort(ttimes):
             f.write("{}, {} {} {} {}, trigger\n".format((UTCDateTime(
-                matplotlib.dates.num2date(ttime))).isoformat(sep=' '),
+                mdates.num2date(ttime))).isoformat(sep=' '),
                 stas[opt.printsta],chas[opt.printsta],nets[opt.printsta],
                     locs[opt.printsta]))
