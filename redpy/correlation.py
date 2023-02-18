@@ -740,6 +740,17 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
             # If correlates above threshold with core, it's definitely a match
             if nthcor_new >= opt.cmin:
                 
+                # Compare to full family, write to correlation table
+                for i in range(-written,0):
+                    maxcor, maxlag, nthcor = xcorr_1x1(
+                        rtable[i]['windowCoeff'], core_windowCoeffs[bestcor],
+                        rtable[i]['windowFFT'], core_windowFFTs[bestcor], opt)
+                    if nthcor >= opt.cmin:
+                        redpy.table.populate_correlation(ctable,
+                            rtable[i]['id'], core_ids[bestcor], maxcor, opt)
+                    correlate_remaining_family(rtable, ctable, ftable, i,
+                        fnums[bestcor], opt)
+                
                 if found == 0:
                     
                     # Update found, lag is 0 relative to this family
@@ -758,17 +769,6 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
                 
                 # Update the family list to be merged
                 famlist.append(fnums[bestcor])
-                
-                # Compare to full family, write to correlation table
-                for i in range(-written,0):
-                    maxcor, maxlag, nthcor = xcorr_1x1(
-                        rtable[i]['windowCoeff'], core_windowCoeffs[bestcor],
-                        rtable[i]['windowFFT'], core_windowFFTs[bestcor], opt)
-                    if nthcor >= opt.cmin:
-                        redpy.table.populate_correlation(ctable,
-                            rtable[i]['id'], core_ids[bestcor], maxcor, opt)
-                    correlate_remaining_family(rtable, ctable, ftable, i,
-                        fnums[bestcor], opt)
             
             # Since it's close to the core, check the rest of the family
             else:
