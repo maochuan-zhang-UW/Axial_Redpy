@@ -6,6 +6,7 @@ import configparser
 
 import numpy as np
 
+
 class Options(object):
     
     def __init__(self, configfile='settings.cfg'):

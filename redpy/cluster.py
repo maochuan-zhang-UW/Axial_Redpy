@@ -9,7 +9,7 @@ from tables import *
 
 from redpy.optics import *
 
-    
+
 def run_optics(rtable, ctable, ftable, fnum, opt):
     """
     Runs OPTICS ordering within a single family.
