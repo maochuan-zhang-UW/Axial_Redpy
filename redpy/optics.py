@@ -2,23 +2,25 @@
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 
-import scipy
 import numpy as np
+import scipy
+
 
 # Based on https://github.com/espg/OPTICS
 
 class setOfObjects(object):
-
     """
-    Build data structure with processing index from given data
-    in preparation for OPTICS Algorithm
+    Build data structure for OPTICS.
     
-    distance_pairs: Distance matrix (array [n_samples, n_samples])
+    Parameters
+    ----------
+    distance_pairs : float ndarray
+        NxN distance matrix.
     
     """
-
+    
     def __init__(self, distance_pairs):
-
+        
         self.data = distance_pairs
         self._n = len(self.data)
         self._processed = scipy.zeros((self._n, 1), dtype=bool)
@@ -29,51 +31,60 @@ class setOfObjects(object):
         self._cluster_id = -scipy.ones(self._n, dtype=int)
         self._is_core = scipy.ones(self._n, dtype=bool)
         self._ordered_list = []
-        
+
 
 def prep_optics(SetofObjects, epsilon):
-
     """
-    Prep data set for main OPTICS loop
+    Prep data set for main OPTICS loop.
     
-    SetofObjects: Instantiated instance of 'setOfObjects' class
-    epsilon: Determines maximum object size that can be extracted. Smaller epsilons
+    Parameters
+    ----------
+    SetofObjects : setOfObjects object
+        Instantiated and prepped instance.
+    epsilon : float
+        Determines maximum object size that can be extracted. Smaller epsilons
         reduce run time.
     
-    Returns modified setOfObjects tree structure
-    
     """
-
+    
     for j in SetofObjects._index:
         # Find smallest nonzero distance
         SetofObjects._core_dist[j] = np.sort(SetofObjects.data[j,:])[1]
 
 
 def build_optics(SetOfObjects, epsilon):
-
     """
-    Builds OPTICS ordered list of clustering structure
+    Builds OPTICS ordered list of clustering structure.
     
-    SetofObjects: Instantiated and prepped instance of 'setOfObjects' class
-    epsilon: Determines maximum object size that can be extracted. Smaller epsilons
+    Parameters
+    ----------
+    SetofObjects : setOfObjects object
+        Instantiated and prepped instance.
+    epsilon : float
+        Determines maximum object size that can be extracted. Smaller epsilons
         reduce run time.
-
+    
     """
-
+    
     for point in SetOfObjects._index:
         if not SetOfObjects._processed[point]:
-            expandClusterOrder(SetOfObjects, point, epsilon)
+            expand_cluster_order(SetOfObjects, point, epsilon)
 
 
-def expandClusterOrder(SetOfObjects, point, epsilon):
-
+def expand_cluster_order(SetOfObjects, point, epsilon):
     """
     Expands OPTICS ordered list of clustering structure
     
-    SetofObjects: Instantiated and prepped instance of 'setOfObjects' class
-    epsilon: Determines maximum object size that can be extracted. Smaller epsilons
+    Parameters
+    ----------
+    SetofObjects : setOfObjects object
+        Instantiated and prepped instance.
+    point : int
+        Index of event to process.
+    epsilon : float
+        Determines maximum object size that can be extracted. Smaller epsilons
         reduce run time.
-
+    
     """
     
     if SetOfObjects._core_dist[point] <= epsilon:
@@ -85,34 +96,44 @@ def expandClusterOrder(SetOfObjects, point, epsilon):
         SetOfObjects._processed[point] = True
 
 
-def set_reach_dist(SetOfObjects, point_index, epsilon):
-
+def set_reach_dist(SetOfObjects, point, epsilon):
     """
-    Sets reachability distance and ordering. This function is the primary workhorse of
-    the OPTICS algorithm.
+    Sets reachability distance and ordering.
     
-    SetofObjects: Instantiated and prepped instance of 'setOfObjects' class
-    epsilon: Determines maximum object size that can be extracted. Smaller epsilons
-        reduce run time. (float)
-
+    Parameters
+    ----------
+    SetofObjects : setOfObjects object
+        Instantiated and prepped instance.
+    point : int
+        Index of event to process.
+    epsilon : float
+        Determines maximum object size that can be extracted. Smaller epsilons
+        reduce run time.
+    
+    Returns
+    -------
+    point : int, list int
+        Index of event processed, or list of unprocessed points.
+    
     """
     
-    row = [SetOfObjects.data[point_index,:]]
+    row = [SetOfObjects.data[point,:]]
     indices = np.argsort(row)
     distances = np.sort(row)
 
     if scipy.iterable(distances):
-
+        
         unprocessed = indices[(SetOfObjects._processed[indices] < 1)[0].T]
-        rdistances = scipy.maximum(distances[(SetOfObjects._processed[indices] < 1)[0].T],
-            SetOfObjects._core_dist[point_index])
+        rdistances = scipy.maximum(distances[
+            (SetOfObjects._processed[indices] < 1)[0].T],
+            SetOfObjects._core_dist[point])
         SetOfObjects._reachability[unprocessed] = scipy.minimum(
             SetOfObjects._reachability[unprocessed], rdistances)
-
+        
         if unprocessed.size > 0:
             return unprocessed[np.argsort(np.array(SetOfObjects._reachability[
                 unprocessed]))[0]]
         else:
-            return point_index
+            return point
     else:
-        return point_index
+        return point
