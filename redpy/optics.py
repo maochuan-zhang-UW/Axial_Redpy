@@ -9,17 +9,18 @@ import scipy
 # Based on https://github.com/espg/OPTICS
 
 class setOfObjects(object):
-    """
-    Build data structure for OPTICS.
-    
-    Parameters
-    ----------
-    distance_pairs : float ndarray
-        NxN distance matrix.
-    
-    """
     
     def __init__(self, distance_pairs):
+        """
+        Builds and holds the data structure for OPTICS processing.
+    
+        Parameters
+        ----------
+        distance_pairs : float ndarray
+            NxN distance matrix.
+        
+        """
+        
         
         self.data = distance_pairs
         self._n = len(self.data)
