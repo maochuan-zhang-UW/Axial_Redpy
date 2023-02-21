@@ -669,8 +669,7 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
     # Otherwise, either update core or merge families.
     else:
         if len(famlist) == 1:
-            redpy.cluster.runFamOPTICS(rtable, ctable, ftable, famlist[0],
-                                                                         opt)
+            redpy.cluster.run_optics(rtable, ctable, ftable, famlist[0], opt)
         else:
             redpy.table.merge_families(rtable, ctable, ftable, famlist,
                                                                 laglist, opt)
@@ -829,8 +828,7 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
     # Otherwise, either update core or merge multiple families
     else:
         if len(famlist) == 1:
-            redpy.cluster.runFamOPTICS(rtable, ctable, ftable, famlist[0],
-                                                                          opt)
+            redpy.cluster.run_optics(rtable, ctable, ftable, famlist[0], opt)
         else:
             redpy.table.merge_families(rtable, ctable, ftable, famlist,
                                                                  laglist, opt)

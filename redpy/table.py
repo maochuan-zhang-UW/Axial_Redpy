@@ -821,7 +821,7 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
             ftable.attrs.nClust-=1
     ftable.cols.printme[f1] = 1
     ftable.cols.lastprint[f1] = -1
-    redpy.cluster.runFamOPTICS(rtable, ctable, ftable, f1, opt)
+    redpy.cluster.run_optics(rtable, ctable, ftable, f1, opt)
     reorder_families(ftable, opt)
 
 
