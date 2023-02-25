@@ -155,6 +155,36 @@ def update_window(xtable, rownum, lag, opt, coeff=[], fft=[], fi=[]):
     xtable.flush()
 
 
+def get_correlation_function(windowFFT1, windowFFT2, n, opt):
+    """
+    Calculates the correlation function for a single channel.
+    
+    Parameters
+    ----------
+    windowFFT1 : complex ndarray
+        Fourier transform of first window on all stations, concatenated.
+    windowFFT2 : complex ndarray
+        Fourier transform of second window on all stations, concatenated.
+    n : int
+        Index of station/channel of interest.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    correlation_function : float ndarray
+        Unscaled correlation function.
+    
+    """
+    
+    win1 = windowFFT1[n*opt.winlen:(n+1)*opt.winlen]
+    win2 = windowFFT2[n*opt.winlen:(n+1)*opt.winlen]
+    
+    correlation_function = np.real(ifft(win1 * np.conj(win2)))
+    
+    return correlation_function
+
+
 def xcorr_1x1(windowCoeff1, windowCoeff2, windowFFT1, windowFFT2, opt):
     """
     Calculates the cross-correlation coefficient and lag for two windows.
@@ -189,27 +219,28 @@ def xcorr_1x1(windowCoeff1, windowCoeff2, windowFFT1, windowFFT2, opt):
     """
     
     station_cors = np.zeros(opt.nsta)
-    station_lags = np.zeros(opt.nsta)
+    station_lags = np.zeros(opt.nsta, dtype=int)
+    
+    coeffs = windowCoeff1 * windowCoeff2
     
     # Loop over stations
     for n in range(opt.nsta):
-        coeff = windowCoeff1[n] * windowCoeff2[n]
-        correlation_function = np.real(ifft(
-                windowFFT1[n*opt.winlen:(n+1)*opt.winlen] * \
-                np.conj(windowFFT2[n*opt.winlen:(n+1)*opt.winlen]))) * coeff
         
+        # This is a very expensive calculation!
+        correlation_function = get_correlation_function(windowFFT1,
+                                                        windowFFT2, n, opt)
+    
         # Find index of maximum of the correlation function
         indx = np.argmax(correlation_function)
-        station_cors[n] = correlation_function[indx]
-        
-        # Deal with wrap-around for determining lag
-        if indx <= opt.winlen/2:
-            station_lags[n] = indx
-        else:
-            station_lags[n] = indx-opt.winlen
+        station_cors[n] = correlation_function[indx] * coeffs[n]
+        station_lags[n] = indx
+    
+    # Deal with wrap-around for determining lag
+    station_lags[station_lags > int(opt.winlen/2)] -= opt.winlen
     
     # Find maximum across all stations
-    maxcor = np.max(station_cors)
+    maxcor = np.amax(station_cors)
+    
     # Find correlation on opt.ncor-th station
     nthcor = np.sort(np.array(station_cors))[::-1][opt.ncor-1]
     
@@ -224,7 +255,7 @@ def xcorr_1x1(windowCoeff1, windowCoeff2, windowFFT1, windowFFT2, opt):
         maxlag = station_lags[np.argmax(station_cors)]
     
     return maxcor, maxlag, nthcor
-    
+
 
 def xcorr_1xtable(windowCoeff, windowFFT, xtable, opt):
     """
@@ -263,10 +294,11 @@ def xcorr_1xtable(windowCoeff, windowFFT, xtable, opt):
     nthcors = np.zeros(len(xtable))
     
     # Loop over rows
-    for i, row in enumerate(xtable):
+    for i in np.arange(0, len(xtable)):
         maxcors[i], maxlags[i], nthcors[i] = xcorr_1x1(windowCoeff,
-                         row['windowCoeff'], windowFFT, row['windowFFT'], opt)
-        
+                                        xtable[i]['windowCoeff'], windowFFT,
+                                        xtable[i]['windowFFT'], opt)
+    
     return maxcors, maxlags, nthcors
 
 
@@ -335,12 +367,8 @@ def correlate_remaining_family(rtable, ctable, ftable, rnum, fnum, opt):
     
     """
     
-    # Get corresponding rnums for members and cores
-    members = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
-    cores = ftable[fnum]['core']
-    
-    # Get family as table, extract idnums
-    family_table = rtable[np.setdiff1d(members, cores)] # Exclude core
+    # Get family subtable and the ids for those events
+    family_table = get_family_subtable(rtable, ftable, fnum, opt)
     family_ids = family_table['id']
     
     # Get repeater idnum
@@ -356,6 +384,63 @@ def correlate_remaining_family(rtable, ctable, ftable, rnum, fnum, opt):
             if repeater_id != family_ids[i]:
                 redpy.table.populate_correlation(ctable, repeater_id,
                                              family_ids[i], maxcors[i], opt)
+
+
+def get_family_subtable(rtable, ftable, fnum, opt):
+    """
+    Gets the 100 most recent and 100 largest remaining events in the family.
+    
+    Also automatically excludes the current core event.
+    # !!! N should be a setting in opt rather than hard-coded
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    ftable : Table object
+        Handle to the Families table.
+    fnum : integer
+        Family number to query.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    family_table : Table object
+        Subset of rtable.
+    
+    """
+    
+    n = 100 # !!!
+    
+    # Get corresponding row numbers for members and cores
+    members = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
+    cores = ftable[fnum]['core']
+    
+    # Exclude the core
+    members = np.setdiff1d(members, cores)
+    
+    if len(members) <= 2*n:
+        
+        # For small families we can return all of them
+        family_table = rtable[members]
+        
+    else:
+        
+        # Here we determine which events to bother correlating
+        # First figure out the N most recent
+        rtimes = rtable[members]['startTimeMPL']
+        n_recent = members[np.argsort(rtimes)[-n:]].copy()
+        
+        # Update members to exclude the most recent
+        members = np.setdiff1d(members, n_recent)
+        # Take the mean of all channels to punish missing data
+        ramps = np.mean(rtable[members]['windowAmp'], axis=1)
+        n_largest = members[np.argsort(ramps)[-n:]].copy()
+        
+        family_table = rtable[np.concatenate((n_recent,n_largest),axis=None)]
+    
+    return family_table
 
 
 def append_family_member(ftable, fnum, rnum, opt):
@@ -630,9 +715,8 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
         else:
             
             # Get family
-            members = np.fromstring(ftable[fnums[bestcor]]['members'],
-                dtype=int, sep=' ')
-            family_table = rtable[members]
+            family_table = get_family_subtable(rtable, ftable, fnums[bestcor],
+                                                                          opt)
             family_ids = family_table['id']
             
             # Correlate to family
@@ -669,7 +753,8 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
     # Otherwise, either update core or merge families.
     else:
         if len(famlist) == 1:
-            redpy.cluster.run_optics(rtable, ctable, ftable, famlist[0], opt)
+            redpy.cluster.update_family(rtable, ctable, ftable, famlist[0],
+                                                                         opt)
         else:
             redpy.table.merge_families(rtable, ctable, ftable, famlist,
                                                                 laglist, opt)
@@ -773,9 +858,8 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
             else:
                 
                 # Get family
-                members = np.fromstring(ftable[fnums[bestcor]]['members'],
-                    dtype=int, sep=' ')
-                family_table = rtable[members]
+                family_table = get_family_subtable(rtable, ftable,
+                                                          fnums[bestcor], opt)
                 
                 # Correlate to family
                 maxcors_fam, maxlags_fam, nthcors_fam = xcorr_1xtable(
@@ -805,11 +889,11 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
                     famlist.append(fnums[bestcor])
                     
                     # Populate Correlation table
-                    for x in range(len(maxcors_fam)):
-                        if nthcors_fam[x] >= opt.cmin:
+                    for i in np.arange(0, len(maxcors_fam)):
+                        if nthcors_fam[i] >= opt.cmin:
                             redpy.table.populate_correlation(ctable,
-                                rtable[-written]['id'], family_table[x]['id'],
-                                maxcors_fam[x], opt)
+                                rtable[-written]['id'], family_table[i]['id'],
+                                maxcors_fam[i], opt)
             
             # Remove from arrays when done
             fnums = np.delete(fnums, bestcor)
@@ -828,7 +912,8 @@ def compare_adopted_to_cores(rtable, ctable, ftable, written, opt):
     # Otherwise, either update core or merge multiple families
     else:
         if len(famlist) == 1:
-            redpy.cluster.run_optics(rtable, ctable, ftable, famlist[0], opt)
+            redpy.cluster.update_family(rtable, ctable, ftable, famlist[0],
+                                                                          opt)
         else:
             redpy.table.merge_families(rtable, ctable, ftable, famlist,
                                                                  laglist, opt)
@@ -974,9 +1059,9 @@ def get_matrix(rtable, ctable, opt):
     
     maxid = np.max((np.max(ids),np.max(id2)))+1
     
-    # !!! This is slow-ish, but I haven't figured out how to prevent duplicate
-    # !!! entries to the ctable, and when we use a sparse matrix duplicates
-    # !!! get summed, resulting in values far above 1
+    # !!! This is slow-ish, but if there are duplicate entries in the ctable
+    # !!! (e.g., from old or maybe interrupted runs), when we use a sparse
+    # !!! matrix duplicates get summed, resulting in values far above 1
     rc = np.vstack([id1, id2]).T.copy()
     dt = rc.dtype.descr * 2
     i = np.unique(rc.view(dt), return_index=True)[1]
@@ -1064,8 +1149,8 @@ def make_full(rtable_sub, ccc_sub, opt):
     ccc_full = ccc_sub.copy()
     total_missing = len(np.where(ccc_sub==0)[0])/2
     
-    for i in range(len(rtable_sub)-1):
-        for j in range(i+1,len(rtable_sub)):
+    for i in np.arange(0, len(rtable_sub)-1):
+        for j in np.arange(i+1, len(rtable_sub)):
             if ccc_full[i,j]==0:
                 if k%100000 is 0:
                     print('{:3.2f}% done...'.format(k*100/total_missing))

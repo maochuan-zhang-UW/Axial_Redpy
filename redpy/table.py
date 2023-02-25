@@ -813,15 +813,18 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
     
     # Perform merge, run clustering to find best new core
     f1 = min(famlist)
+    maxmem = ftable.cols.members[f1].decode('utf-8').count(' ')+1
     for f2 in np.sort(famlist)[::-1]:
         if f2!=f1:
+            maxmem = np.max((maxmem, ftable.cols.members[f2].decode(
+                                                       'utf-8').count(' ')+1))
             ftable.cols.members[f1] = ftable.cols.members[f1].decode(
                 'utf-8')+' '+ftable[f2]['members'].decode('utf-8')
             ftable.remove_row(f2)
-            ftable.attrs.nClust-=1
-    ftable.cols.printme[f1] = 1
+            ftable.attrs.nClust -= 1
     ftable.cols.lastprint[f1] = -1
-    redpy.cluster.run_optics(rtable, ctable, ftable, f1, opt)
+    merge = maxmem/(ftable.cols.members[f1].decode('utf-8').count(' ')+1)
+    redpy.cluster.update_family(rtable, ctable, ftable, f1, opt, merge=merge)
     reorder_families(ftable, opt)
 
 

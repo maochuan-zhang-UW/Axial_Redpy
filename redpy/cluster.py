@@ -6,13 +6,19 @@ import sys
 
 import numpy as np
 from tables import *
+from scipy.sparse import coo_matrix
 
 from redpy.optics import *
 
 
-def run_optics(rtable, ctable, ftable, fnum, opt):
+def update_family(rtable, ctable, ftable, fnum, opt, merge=1):
     """
-    Runs OPTICS ordering within a single family.
+    Decides whether to run OPTICS and then updates the Families table.
+    
+    OPTICS is (currently) extremely expensive for large families, so we update
+    the core less frequently as the family grows. The merge ratio allows
+    larger families to have their cores updated if less than 90% of the total
+    new family length is contained in a single family.
     
     Parameters
     ----------
@@ -26,51 +32,118 @@ def run_optics(rtable, ctable, ftable, fnum, opt):
         Family number.
     opt : Options object
         Describes the run parameters.
+    merge : float, optional
+        Ratio of the largest family to the total new family length from merge.
     
     """
     
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     
-    if len(fam) in (3, 4, 5, 6, 10, 15, 25, 50, 100, 250, 500, 1000, 2500,
-        5000, 10000, 25000, 50000, 100000, 250000, 500000):
+    if (len(fam) in (3, 4, 5, 6, 10, 15, 25, 50, 100, 250, 500, 1000, 2500,
+        5000, 10000, 25000, 50000, 100000, 250000, 500000)) or (merge <= 0.9):
         
-        # Could be sped up if these three don't have to be called every time
-        id1 = ctable.cols.id1[:]
-        id2 = ctable.cols.id2[:]
-        ccc = 1-ctable.cols.ccc[:]
-        
-        # Create distance matrix
-        ids = rtable[fam]['id']
-        ix = np.where(np.in1d(id2,ids))
-        r = np.zeros((max(ids)+1,)).astype('int')
-        r[ids] = range(len(ids))
-        D = np.ones((len(ids),len(ids)))
-        D[r[id2[ix]],r[id1[ix]]] = ccc[ix]
-        D[r[id1[ix]],r[id2[ix]]] = ccc[ix]
-        D[range(len(ids)),range(len(ids))] = 0
+        run_optics(rtable, ctable, ftable, fnum, fam, opt)
     
-        # Sort so most connected event is always considered for core
-        s = np.argsort(sum(D))[::-1]
-        D = D[s,:]
-        D = D[:,s]
-        fam = fam[s]
+    update_ftable(rtable, ftable, fnum, fam, opt)
+
+
+def run_optics(rtable, ctable, ftable, fnum, fam, opt):
+    """
+    Sets up distance matrix and runs OPTICS ordering to determine core event.
     
-        # Run OPTICS
-        ttree = setOfObjects(D)
-        prep_optics(ttree,1)
-        build_optics(ttree,1)
-        order = np.array(ttree._ordered_list)
-        core = fam[np.argmin(ttree._reachability)]
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    ctable : Table object
+        Handle to the Correlation table.
+    ftable : Table object
+        Handle to the Families table.
+    fnum : int
+        Family to run OPTICS on.
+    fam : int ndarray
+        List of family member locations in rtable.
+    opt : Options object
+        Describes the run parameters.
     
-        # Write to ftable
-        np.set_printoptions(threshold=sys.maxsize)
-        np.set_printoptions(linewidth=sys.maxsize)
-        ftable.cols.members[fnum] = np.array2string(fam[order])[1:-1]
-        ftable.cols.core[fnum] = core
-        
-    ftable.cols.startTime[fnum] = np.min(rtable[fam]['startTimeMPL'])
-    ftable.cols.longevity[fnum] = np.max(rtable[fam]['startTimeMPL']) - \
-        np.min(rtable[fam]['startTimeMPL'])
+    """
+    
+    # Get ids
+    ids = rtable[fam]['id']
+    
+    # Get data from ctable
+    id1 = ctable.cols.id1[:]
+    ix = np.where(np.in1d(id1,ids))
+    id1 = id1[ix]
+    id2 = ctable[ix]['id2']
+    ccc = ctable[ix]['ccc']
+    maxid = np.max((np.max(ids),np.max(id2)))+1
+    
+    # Ensure no duplicates
+    rc = np.vstack([id1,id2]).T.copy()
+    dt = rc.dtype.descr * 2
+    i = np.unique(rc.view(dt), return_index=True)[1]
+    
+    # Create sparse correlation matrix
+    ccc_sparse = coo_matrix((ccc[i], (id1[i],id2[i])),
+                             shape=(maxid,maxid)).tocsr()
+    ccc_sparse = ccc_sparse[ids,:]
+    ccc_sparse = ccc_sparse[:,ids]
+    ccc_sparse += ccc_sparse.transpose()
+    
+    # Sort so most connected event is always considered for core
+    s = np.argsort(np.squeeze(np.asarray(ccc_sparse.sum(axis=0))))
+    ccc_sparse = ccc_sparse[s,:]
+    ccc_sparse = ccc_sparse[:,s]
+    fam = fam[s]
+    
+    # Create dense distance matrix
+    D = np.ones(len(ids)) - ccc_sparse
+    D = np.squeeze(np.asarray(D))
+    D[range(len(ids)),range(len(ids))] = 0
+    
+    # Run OPTICS
+    ttree = setOfObjects(D)
+    prep_optics(ttree,1)
+    build_optics(ttree,1)
+    order = np.array(ttree._ordered_list)
+    core = fam[np.argmin(ttree._reachability)]
+    
+    # Write to ftable
+    np.set_printoptions(threshold=sys.maxsize)
+    np.set_printoptions(linewidth=sys.maxsize)
+    ftable.cols.members[fnum] = np.array2string(fam[order])[1:-1]
+    ftable.cols.core[fnum] = core
+
+
+def update_ftable(rtable, ftable, fnum, fam, opt):
+    """
+    Updates the Families table after a new member has been added.
+    
+    Primarily in charge of keeping track of times and printing.
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    ftable : Table object
+        Handle to the Families table.
+    fnum : int
+        Family number to update.
+    fam : int ndarray
+        List of family member locations in rtable.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    
+    # !!! This function should not need to call from rtable (scales poorly)
+    
+    startTimes = rtable[fam]['startTimeMPL']
+    
+    ftable.cols.startTime[fnum] = np.min(startTimes)
+    ftable.cols.longevity[fnum] = np.max(startTimes) - np.min(startTimes)
     ftable.cols.printme[fnum] = 1
     ftable.cols.printme[-1] = 1 
     ftable.flush()
+
