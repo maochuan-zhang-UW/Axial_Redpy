@@ -1000,33 +1000,26 @@ def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
     
     """
     
-    # !!! Need to check if this step can be skipped
-    # Check to ensure this isn't a duplicate in either rtable or otable
-    stime = trig.stats.starttime.matplotlib_date
-    
-    if not len(np.intersect1d(np.where(ttimes > stime - opt.mintrig/86400),
-                              np.where(ttimes < stime + opt.mintrig/86400))):
-
-        windowCoeff, windowFFT, windowFI = calculate_window(trig.data,
+    windowCoeff, windowFFT, windowFI = calculate_window(trig.data,
                                              int(opt.ptrig*opt.samprate), opt)
-        
-        # Correlate with the new event with all the orphans
-        maxcors, maxlags, nthcors = xcorr_1xtable(windowCoeff, windowFFT,
+    
+    # Correlate with the new event with all the orphans
+    maxcors, maxlags, nthcors = xcorr_1xtable(windowCoeff, windowFFT,
                                                                   otable, opt)
-        
-        # Allow the correlation step to fail for troubleshooting
-        if troubleshoot:
+    
+    # Allow the correlation step to fail for troubleshooting
+    if troubleshoot:
+        do_comparison(rtable, otable, ctable, ftable, trig, idnum,
+                       windowCoeff, windowFFT, maxcors, maxlags, nthcors, opt)
+    
+    # Do not allow a problem to interrupt flow
+    else:
+        try:
             do_comparison(rtable, otable, ctable, ftable, trig, idnum,
                        windowCoeff, windowFFT, maxcors, maxlags, nthcors, opt)
-        
-        # Do not allow a problem to interrupt flow
-        else:
-            try:
-                do_comparison(rtable, otable, ctable, ftable, trig, idnum,
-                       windowCoeff, windowFFT, maxcors, maxlags, nthcors, opt)
-            except:
-                print('Could not properly correlate, troubleshoot with -t')
-                redpy.table.populate_orphan(otable, idnum, trig, opt)
+        except:
+            print('Could not properly correlate, troubleshoot with -t')
+            redpy.table.populate_orphan(otable, idnum, trig, opt)
 
 
 def get_matrix(rtable, ctable, opt):

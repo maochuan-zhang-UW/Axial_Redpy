@@ -440,10 +440,6 @@ def populate_triggers(ttable, trigs, ttimes, opt):
     """
     Populates new rows in the Triggers table from a list of triggers.
     
-    !!! Change to have it return only triggers that were not found as
-    !!! duplicates? I have to do that check a lot down the line; should
-    !!! only have to do it once...
-    
     Parameters
     ----------
     ttable : Table object
@@ -455,18 +451,30 @@ def populate_triggers(ttable, trigs, ttimes, opt):
     opt : Options object
         Describes the run parameters.
     
+    Returns
+    -------
+    trigs : list of Trace objects
+        Triggers without duplicates found in Triggers table or too close to
+        previous triggers.
+    
     """
     
     for t in trigs:
-        trigtime = t.stats.starttime.matplotlib_date
         
+        trigtime = t.stats.starttime.matplotlib_date
         if not len(np.intersect1d(
                    np.where(ttimes > trigtime - opt.mintrig/86400),
                    np.where(ttimes < trigtime + opt.mintrig/86400))):
+            
             trigger = ttable.row
             trigger['startTimeMPL'] = trigtime
             trigger.append()
             ttable.flush()
+            
+        else:
+            trigs.remove(t)
+    
+    return trigs
 
 
 def populate_junk(jtable, trig, isjunk, opt):

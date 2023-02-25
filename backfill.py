@@ -167,7 +167,7 @@ while tstart+n*opt.nsec < tend:
         redpy.table.populate_junk(jtable, junk[i], jtype[i], opt)
     
     # Append times of triggers to ttable to compare total seismicity later
-    redpy.table.populate_triggers(ttable, trigs, ttimes, opt)
+    trigs = redpy.table.populate_triggers(ttable, trigs, ttimes, opt)
     
     # Check triggers against deleted events
     if len(dtable) > 0:
