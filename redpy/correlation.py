@@ -462,7 +462,7 @@ def append_family_member(ftable, fnum, rnum, opt):
     
     # Decode string then append a space and rnum
     ftable.cols.members[fnum] = ftable.cols.members[fnum].decode('utf-8') \
-                                                       + ' {}'.format(rnum)
+                                                                   + f' {rnum}'
     # Ensure plots are updated
     ftable.cols.printme[fnum] = 1
     ftable.flush()
@@ -1146,7 +1146,7 @@ def make_full(rtable_sub, ccc_sub, opt):
         for j in np.arange(i+1, len(rtable_sub)):
             if ccc_full[i,j]==0:
                 if k%100000 is 0:
-                    print('{:3.2f}% done...'.format(k*100/total_missing))
+                    print(f'{(100*k/total_missing):3.2f}% done...')
                 # Compute correlation
                 cor, lag, nthcor = xcorr_1x1(rtable_sub['windowCoeff'][i],
                                              rtable_sub['windowCoeff'][j],

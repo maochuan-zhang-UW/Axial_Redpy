@@ -29,8 +29,7 @@ def catalog_family(ftable, rtimes, opt):
     
     """
     
-    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                           'catalog.txt')
+    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'catalog.txt')
     
     with open(outfile, 'w') as f:
         
@@ -40,8 +39,8 @@ def catalog_family(ftable, rtimes, opt):
             fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
             
             for i in np.argsort(rtimes[fam]):
-                f.write('{}\t{}\n'.format(fnum,
-                                     UTCDateTime(rtimes[fam[i]]).isoformat()))
+                format_time = UTCDateTime(rtimes[fam[i]]).isoformat()
+                f.write(f'{fnum}\t{format_time}\n')
 
 
 def catalog_triggers(ttimes, opt):
@@ -59,15 +58,14 @@ def catalog_triggers(ttimes, opt):
     
     """
     
-    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                           'triggers.txt')
+    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'triggers.txt')
     
     with open(outfile, 'w') as f:
         
         f.write('Trigger Time (UTC)\n')
         for ttime in np.sort(ttimes):
-            f.write('{}\n'.format((UTCDateTime(mdates.num2date(ttime)
-                                                              ).isoformat())))
+            format_time = UTCDateTime(mdates.num2date(ttime)).isoformat()
+            f.write(f'{format_time}\n')
 
 
 def catalog_orphans(otable, opt):
@@ -85,8 +83,8 @@ def catalog_orphans(otable, opt):
     
     """
     
-    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                           'orphancatalog.txt')
+    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}',
+                                                           'orphancatalog.txt')
     
     startTimes = otable.cols.startTime[:]
     
@@ -94,8 +92,9 @@ def catalog_orphans(otable, opt):
         
         f.write('Trigger Time (UTC)\n')
         for i in np.argsort(startTimes):
-            f.write('{}\n'.format((UTCDateTime(startTimes[i]) + \
-                                         opt.ptrig/opt.samprate).isoformat()))
+            format_time = (UTCDateTime(startTimes[i]) + \
+                                           opt.ptrig/opt.samprate).isoformat()
+            f.write(f'{format_time}\n')
 
 
 def catalog_junk(jtable, opt):
@@ -115,8 +114,7 @@ def catalog_junk(jtable, opt):
     
     """
     
-    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                           'junk.txt')
+    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'junk.txt')
     
     startTimes = jtable.cols.startTime[:]
     jtype = jtable.cols.isjunk[:]
@@ -125,8 +123,9 @@ def catalog_junk(jtable, opt):
         
         f.write('Trigger Time (UTC)\tJunk Code\n')
         for i in np.argsort(startTimes):
-            f.write('{}\t{}\n'.format((UTCDateTime(startTimes[i]) + \
-                               opt.ptrig/opt.samprate).isoformat(), jtype[i]))
+            format_time = (UTCDateTime(startTimes[i]) + \
+                                           opt.ptrig/opt.samprate).isoformat()
+            f.write(f'{format_time}\t{jtype[i]}\n')
 
 
 def catalog_cores(ftable, rtimes, opt):
@@ -148,8 +147,7 @@ def catalog_cores(ftable, rtimes, opt):
     
     """
     
-    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                           'cores.txt')
+    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'cores.txt')
     
     with open(outfile, 'w') as f:
         
@@ -157,8 +155,8 @@ def catalog_cores(ftable, rtimes, opt):
         for fnum in range(ftable.attrs.nClust):
             
             core = ftable[fnum]['core']
-            f.write('{}\t{}\n'.format(fnum, UTCDateTime(
-                                                   rtimes[core]).isoformat()))
+            format_time = UTCDateTime(rtimes[core]).isoformat()
+            f.write(f'{fnum}\t{format_time}\n')
 
 
 def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
@@ -193,8 +191,7 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     """
     
-    outfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                           'catalog.txt')
+    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'catalog.txt')
     
     with open(outfile, 'w') as f:
         
@@ -225,12 +222,12 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                     dt = np.nan
                 else:
                     dt = spacing[i-1]
-                f.write('{}\t{}\t'.format(fnum, evTime.isoformat()))
-                f.write('{:4.3f}\t'.format(fi[member]))
-                f.write('{:3.2f}\t{:3.2f}\t'.format(ccc_max[i], ccc_core[i]))
-                f.write('{:12.6f}\t['.format(dt))
+                f.write(f'{fnum}\t{evTime.isoformat()}\t')
+                f.write(f'{fi[member]:4.3f}\t')
+                f.write(f'{ccc_max[i]:3.2f}\t{ccc_core[i]:3.2f}\t')
+                f.write(f'{dt:12.6f}\t[')
                 for a in amp:
-                    f.write(' {:10.2f}'.format(a))
+                    f.write(f' {a:10.2f}')
                 f.write(' ]\n')
 
 
@@ -269,10 +266,9 @@ def catalog_swarm(ftable, ttimes, rtimes, opt):
     locs = opt.location.split(',')
     chas = opt.channel.split(',')
     
-    catalogfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                               'swarm.csv')
-    triggerfile = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                               'triggerswarm.csv')
+    catalogfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'swarm.csv')
+    triggerfile = os.path.join(f'{opt.outputPath}{opt.groupName}',
+                                                            'triggerswarm.csv')
     
     with open(catalogfile, 'w') as f:
         

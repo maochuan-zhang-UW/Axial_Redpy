@@ -145,30 +145,26 @@ class Options(object):
         for key in ['station', 'channel', 'network', 'location']:
             if len(getattr(self, key).split(',')) != self.nsta:
                 raise ValueError(
-                    '{} length and nsta mismatch, check {}'.format(key,
-                                                                configfile))
+                    f'{key} length and nsta mismatch, check {configfile}')
         for key in ['nstaC', 'ncor', 'teleok']:
             if getattr(self,key) > self.nsta:
                 raise ValueError(
-                    '{} larger than nsta, check {}'.format(key, configfile))
+                    f'{key} larger than nsta, check {configfile}')
         if self.printsta >= self.nsta:
             raise ValueError(
-                'printsta must be 0-{}, check {}'.format(self.nsta-1,
-                                                                configfile))
+                f'printsta must be 0-{self.nsta-1}, check {configfile}')
         for key in ['filomin', 'filomax', 'fiupmin', 'fiupmax']:
             if (getattr(self,key) < self.fmin) or \
                (getattr(self,key) > self.fmax):
                 raise ValueError(
-                    '{} not within filter passband, check {}'.format(key,
-                                                                configfile))
+                    f'{key} not within filter passband, check {configfile}')
         for key in ['fmax', 'fmin']:
             if (getattr(self,key) > self.samprate/2):
                 raise ValueError(
-                    '{} above Nyquist, check {}'.format(key, configfile))
+                    f'{key} above Nyquist, check {configfile}')
         if (self.amplims != 'global') and (self.amplims != 'family'):
             raise ValueError(
-                'Use either global or family for amplims, check {}'.format(
-                                                                configfile))
+                f'Use either global or family for amplims, check {configfile}')
         
         # Define derived parameters
         self.ptrig = 1.5*self.winlen/self.samprate

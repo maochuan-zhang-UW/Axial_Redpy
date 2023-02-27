@@ -119,8 +119,8 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         print('Nothing to plot!')
     
     # Rename any .tmp files created in create_core_images()
-    tmplist = glob.glob(os.path.join('{}{}'.format(opt.outputPath,
-                                           opt.groupName),'clusters','*.tmp'))
+    tmplist = glob.glob(os.path.join(f'{opt.outputPath}{opt.groupName}',
+                                     'clusters','*.tmp'))
     for tmp in tmplist:
         os.rename(tmp,tmp[0:-4])
 
@@ -167,8 +167,8 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
             mintime = min(ttimes)
             minplot = opt.minplot
             fixedheight = opt.fixedheight
-            htmltitle = '{} Overview'.format(opt.title)
-            divtitle = '<h1>{}</h1>'.format(opt.title)
+            htmltitle = f'{opt.title} Overview'
+            divtitle = f'<h1>{opt.title}</h1>'
         elif i == 1: # overview_recent.html
             barpad = opt.recplot*0.01
             plotformat = opt.plotformat
@@ -177,10 +177,8 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
             mintime = max(ttimes)-opt.recplot
             minplot = 0
             fixedheight = opt.fixedheight
-            htmltitle = '{} Overview - Last {:.1f} Days'.format(opt.title,
-                                                                opt.recplot)
-            divtitle = '<h1>{} - Last {:.1f} Days</h1>'.format(opt.title,
-                                                               opt.recplot)
+            htmltitle = f'{opt.title} Overview - Last {opt.recplot:.1f} Days'
+            divtitle = f'<h1>{opt.title} - Last {opt.recplot:.1f} Days</h1>'
         else: # meta_recent.html
             barpad = opt.mrecplot*0.01
             plotformat = opt.plotformat.replace(',','+')
@@ -189,17 +187,16 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
             mintime = max(ttimes)-opt.mrecplot
             minplot = opt.mminplot
             fixedheight = True
-            htmltitle = '{} Overview - Last {:.1f} Days'.format(opt.title,
-                                                                 opt.mrecplot)
-            divtitle = """<h1>{} - Last {:.1f} Days |
+            htmltitle = f'{opt.title} Overview - Last {opt.mrecplot:.1f} Days'
+            divtitle = f"""<h1>{opt.title} - Last {opt.mrecplot:.1f} Days |
                           <a href='overview.html' style='color:red'
                           target='_blank'>Full Overview</a> |
-                          <a href="overview_recent.html"
-                          style="color:red" target="_blank">Recent</a>
-                          </h1>""".format(opt.title, opt.mrecplot)
+                          <a href='overview_recent.html'
+                          style='color:red' target='_blank'>Recent</a>
+                          </h1>"""
         
-        filepath = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                            '{}.html'.format(file))
+        filepath = os.path.join(f'{opt.outputPath}{opt.groupName}',
+                                f'{file}.html')
         
         assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
             famstarts, ttimes, barpad, plotformat, binsize_hist,
@@ -222,17 +219,16 @@ def create_core_images(rtable, ftable, opt):
     
     """
     
-    opath = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                         'clusters')
+    opath = os.path.join(f'{opt.outputPath}{opt.groupName}', 'clusters')
     
     # Deal with renaming files to reduce plotting time overhead
     for n in range(len(ftable))[::-1]:
         if ftable[n]['lastprint'] != n and ftable[n]['printme'] == 0:
             lastprint = ftable[n]['lastprint']
-            os.rename(os.path.join(opath,'{}.png'.format(lastprint)),
-                      os.path.join(opath,'{}.png.tmp'.format(n)))
-            os.rename(os.path.join(opath,'fam{}.png'.format(lastprint)),
-                      os.path.join(opath,'fam{}.png.tmp'.format(n)))
+            os.rename(os.path.join(opath,f'{lastprint}.png'),
+                      os.path.join(opath,f'{n}.png.tmp'))
+            os.rename(os.path.join(opath,f'fam{lastprint}.png'),
+                      os.path.join(opath,f'fam{n}.png.tmp'))
     
     # Iterate and plot
     cores = rtable[ftable.cols.core[:]]
@@ -242,8 +238,7 @@ def create_core_images(rtable, ftable, opt):
         if ftable[n]['printme'] == 1:
             data = prep_wiggle(r['waveform'], opt.printsta, r['windowStart'],
                                r['windowAmp'][opt.printsta], opt)
-            wiggle_plot(data, (5, 1), os.path.join(opath, '{}.png'.format(n)),
-                                                                          opt)
+            wiggle_plot(data, (5, 1), os.path.join(opath, f'{n}.png'), opt)
 
 
 def create_junk_images(jtable, opt):
@@ -275,10 +270,12 @@ def create_junk_images(jtable, opt):
             data = np.append(data, prep_wiggle(r['waveform'], s,
                       r['windowStart'] + int(opt.ptrig*opt.samprate), 0, opt))
         
-        wiggle_plot(data, (15, 0.5), os.path.join('{}{}'.format(
-                opt.outputPath, opt.groupName),'junk','{}-{}.png'.format(
-                (UTCDateTime(r['startTime']) + opt.ptrig).strftime(
-                '%Y%m%d%H%M%S'), r['isjunk']), opt))
+        jtime = (UTCDateTime(r['startTime']) + opt.ptrig).strftime(
+                '%Y%m%d%H%M%S')
+        jtype = r['isjunk']
+        wiggle_plot(data, (15, 0.5), os.path.join(
+                                    f'{opt.outputPath}{opt.groupName}', 'junk',
+                                    f'{jtime}-{jtype}.png', opt))
 
 
 def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
@@ -359,8 +356,8 @@ def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
         
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
             
-            with open(os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                                 'clusters','{}.html'.format(fnum)), 'w') as f:
+            with open(os.path.join(f'{opt.outputPath}{opt.groupName}',
+                                         'clusters',f'{fnum}.html'), 'w') as f:
                 
                 write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt)
                 
@@ -405,7 +402,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     """
     
-    basepath = '{}{}'.format(opt.outputPath, opt.groupName)
+    basepath = f'{opt.outputPath}{opt.groupName}'
     rpath = os.path.join(basepath, 'reports') 
     
     # Derive family-specific variables
@@ -418,8 +415,8 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                                                          return_type='matrix')
     
     # Copy static preview image in case cluster changes
-    shutil.copy(os.path.join(basepath,'clusters','{}.png'.format(fnum)),
-                os.path.join(rpath, '{}-report.png'.format(fnum)))
+    shutil.copy(os.path.join(basepath,'clusters',f'{fnum}.png'),
+                os.path.join(rpath, f'{fnum}-report.png'))
     
     if not skip_recalculate_ccc:
         # Warn the user about the very large matrix
@@ -464,20 +461,20 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     # Optional save to file
     if matrixtofile:
-        np.save(os.path.join(rpath,'{}-ccc_full.npy'.format(fnum)), ccc_full)
-        np.save(os.path.join(rpath,'{}-evTimes.npy'.format(fnum)), rtimes[fam])
+        np.save(os.path.join(rpath,f'{fnum}-ccc_full.npy'), ccc_full)
+        np.save(os.path.join(rpath,f'{fnum}-evTimes.npy'), rtimes[fam])
     
     # Plot correlation matrix
     correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
                                      skip_recalculate_ccc, os.path.join(rpath,
-                                       '{}-reportcmat.png'.format(fnum)), opt)
+                                       f'{fnum}-reportcmat.png'), opt)
     
     # Waveform images
     wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, os.path.join(rpath,
-                                      '{}-reportwaves.png'.format(fnum)), opt)
+                                      f'{fnum}-reportwaves.png'), opt)
     
     # HTML page
-    with open(os.path.join(rpath, '{}-report.html'.format(fnum)), 'w') as f:
+    with open(os.path.join(rpath, f'{fnum}-report.html'), 'w') as f:
         
         write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
                                                                   report=True)
@@ -575,7 +572,7 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
             tabtitles = tabtitles+['Occurrence (Color by FI)']
         
         else:
-            print('{} is not a valid plot type. Moving on.'.format(p))
+            print(f'{p} is not a valid plot type. Moving on.')
     
     # Set ranges
     for p in plots:
@@ -662,7 +659,7 @@ def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
             tabtitles = tabtitles+['Correlation']
         
         else:
-            print('{} is not a valid plot type. Moving on.'.format(p))
+            print(f'{p} is not a valid plot type. Moving on.')
     
     # Set ranges
     for p in plots:
@@ -690,10 +687,9 @@ def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
     
     o = gridplot(gridplot_items)
     
-    filepath = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                            'reports','{}-report-bokeh.html'.format(fnum))
-    output_file(filepath,title='{} - Cluster {} Detailed Report'.format(
-        opt.title, fnum))
+    filepath = os.path.join(f'{opt.outputPath}{opt.groupName}',
+                            'reports',f'{fnum}-report-bokeh.html')
+    output_file(filepath, title=f'{opt.title} - Cluster {fnum} Detailed Report')
     save(o)
 
 
@@ -792,8 +788,8 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
     axes[4].set_xlim(axes[2].get_xlim())
     
     # Save
-    plt.savefig(os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                'clusters', 'fam{}.{}'.format(fnum, oformat)), dpi=dpi)
+    plt.savefig(os.path.join(f'{opt.outputPath}{opt.groupName}', 'clusters',
+                                              f'fam{fnum}.{oformat}'), dpi=dpi)
 
 
 def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
@@ -921,12 +917,12 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
             pnum = pnum + 1
         
         else:
-            print('{} is not a valid plot type. Moving on.'.format(p))
+            print(f'{p} is not a valid plot type. Moving on.')
     
     # Clean up and save
     plt.tight_layout()
-    plt.savefig(os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                'overview.pdf'))
+    plt.savefig(os.path.join(f'{opt.outputPath}{opt.groupName}',
+                             'overview.pdf'))
     plt.close(fig)
 
 
@@ -967,10 +963,9 @@ def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
     
     hr_days = 'Day Bin' if binsize_hist>=1 else 'Hour Bin'
     if binsize_hist >= 1:
-        title = 'Repeaters vs. Orphans by {:.1f} Day Bin'.format(binsize_hist)
+        title = f'Repeaters vs. Orphans by {binsize_hist:.1f} Day Bin'
     else:
-        title = 'Repeaters vs. Orphans by {:.1f} Hour Bin'.format(
-                                                              binsize_hist*24)
+        title = f'Repeaters vs. Orphans by {binsize_hist*24:.1f} Hour Bin'
     
     # Create histogram of events/dybin
     histT, hT = np.histogram(ttimes, bins=np.arange(mintime,
@@ -1219,14 +1214,14 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
             'pan,box_zoom,reset,save,tap'], title='Occurrence Timeline',
             plot_height=250, plot_width=1250)
         fig.yaxis.axis_label = 'Cluster by Date' + (
-            ' ({}+ Members)'.format(minplot) if minplot>0 else '')
+            f' ({minplot}+ Members)' if minplot>0 else '')
         # Always plot at least one invisible point
         fig.circle(mdates.num2date(np.max(ttimes)), 0,
             line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Occurrence Timeline', loc='left', fontweight='bold')
         ax.set_ylabel('Cluster by Date' + (
-            ' ({}+ Members)'.format(minplot) if minplot>2 else ''),
+            f' ({minplot}+ Members)' if minplot>2 else ''),
             style='italic')
         ax.set_xlabel('Date', style='italic')
     
@@ -1354,13 +1349,13 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
                 
                 # Add label
                 if useBokeh:
-                    label = Label(x=max(d2), y=n, text='  {}'.format(len(
-                        rtimes_mpl[members])), text_font_size='9pt',
-                        text_baseline='middle')
+                    label = Label(x=max(d2), y=n,
+                        text=f'  {len(rtimes_mpl[members])}',
+                        text_font_size='9pt', text_baseline='middle')
                     fig.add_layout(label)
                 else:
-                    ax.annotate('  {}'.format(len(rtimes_mpl[members])), (
-                        mdates.num2date(x2),n), va='center',
+                    ax.annotate(f'  {len(rtimes_mpl[members])}',
+                        (mdates.num2date(x2),n), va='center',
                         ha='left')
                 
                 if useBokeh:
@@ -1835,9 +1830,9 @@ def determine_legend_text(binsize_occur):
     elif binsize_occur == 7:
         legtext = 'Week'
     elif binsize_occur < 2:
-        legtext = '{} Hours'.format(binsize_occur*24)
+        legtext = f'{binsize_occur*24} Hours'
     else:
-        legtext = '{} Days'.format(binsize_occur)
+        legtext = f'{binsize_occur} Days'
     
     return legtext
 
@@ -2289,12 +2284,11 @@ def wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, outfile, opt):
         
         ax = fig.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
         
+        title_text = '{}.{}'.format(opt.station.split(',')[sta],
+                                    opt.channel.split(',')[sta])
         if ordered:
-            title_text = '{}.{} (Ordered)'.format(opt.station.split(',')[sta],
-                                                  opt.channel.split(',')[sta])
+            title_text += ' (Ordered)'
         else:
-            title_text = '{}.{}'.format(opt.station.split(',')[sta],
-                                        opt.channel.split(',')[sta])
             ax = add_horizontal_annotations(ax, rtimes_mpl[fam], opt)
         plt.title(title_text, fontweight='bold')
         
@@ -2443,8 +2437,8 @@ def format_family_image(axes, opt):
         stas = opt.station.split(',')
         chas = opt.channel.split(',')
         for s in range(len(stas)):
-            axes[0].text(np.min(time_vector)-0.1,-1.75*s,'{}\n{}'.format(
-                stas[s], chas[s]), horizontalalignment='right',
+            axes[0].text(np.min(time_vector)-0.1,-1.75*s,
+                f'{stas[s]}\n{chas[s]}', horizontalalignment='right',
                 verticalalignment='center')
     axes[0].set_xlabel('Time Relative to Trigger (seconds)', style='italic')
     
@@ -2505,60 +2499,55 @@ def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
     
     if report:
         
-        htmltitle = '{} - Cluster {} Detailed Report'.format(opt.title, fnum)
-        topline = '<em>Last updated: {}</em>'.format(UTCDateTime.now())
-        header = 'Cluster {} - Detailed Report'.format(fnum)
-        coreimg = '{}-report'.format(fnum)
-        body = """
-            <img src='{0}-reportwaves.png'></br></br>
-            <iframe src="{0}-report-bokeh.html" width=1350 height=800
+        htmltitle = f'{opt.title} - Cluster {fnum} Detailed Report'
+        topline = f'<em>Last updated: {UTCDateTime.now()}</em>'
+        header = f'Cluster {fnum} - Detailed Report'
+        coreimg = f'{fnum}-report'
+        body = f"""
+            <img src='{fnum}-reportwaves.png'></br></br>
+            <iframe src="{fnum}-report-bokeh.html" width=1350 height=800
             style="border:none"></iframe></br>
-            <img src='{0}-reportcmat.png'></br></br></br>""".format(fnum)
+            <img src='{fnum}-reportcmat.png'></br></br></br>"""
         
     else:
         
-        htmltitle = '{} - Cluster {}'.format(opt.title, fnum)
+        htmltitle = f'{opt.title} - Cluster {fnum}'
         if fnum>0:
-            prevlink = "<a href='{0}.html'>&lt; Cluster {0}</a>".format(fnum-1)
+            prevlink = f"<a href='{fnum-1}.html'>&lt; Cluster {fnum-1}</a>"
         else:
             prevlink = " "
         if fnum < len(ftable)-1:
-            nextlink = "<a href='{0}.html'>Cluster {0} &gt;</a>".format(fnum+1)
+            nextlink = f"<a href='{fnum+1}.html'>Cluster {fnum+1} &gt;</a>"
         else:
             nextlink = " "
-        topline = '{} &nbsp; | &nbsp; {}'.format(prevlink, nextlink)
-        header = 'Cluster {}'.format(fnum)
+        topline = f'{prevlink} &nbsp; | &nbsp; {nexlink}'
+        header = f'Cluster {fnum}'
         coreimg = fnum
-        body = '<img src="fam{}.png"></br>'.format(fnum)
+        body = f'<img src="fam{fnum}.png"></br>'
     
-    f.write("""
-            <html><head><title>{}</title>
+    f.write(f"""
+            <html><head><title>{htmltitle}</title>
             </head><style>
             a {{color:red;}}
             body {{font-family:Helvetica; font-size:12px}}
             h1 {{font-size: 20px;}}
             </style>
             <body><center>
-            {}</br>
-            <h1>{}</h1>
-            <img src="{}.png" width=500 height=100></br></br>
+            {topline}</br>
+            <h1>{header}</h1>
+            <img src="{coreimg}.png" width=500 height=100></br></br>
                 
-                Number of events: {}</br>
-                Longevity: {:.2f} days</br>
-                Mean event spacing: {:.2f} hours</br>
-                Median event spacing: {:.2f} hours</br>
-                Mean Frequency Index: {:.2f}<br></br>
-                First event: {}</br>
-                Core event: {}</br>
-                Last event: {}</br>
+                Number of events: {len(fam)}</br>
+                Longevity: {ftable[fnum]['longevity']:.2f} days</br>
+                Mean event spacing: {np.mean(spacing):.2f} hours</br>
+                Median event spacing: {np.median(spacing):.2f} hours</br>
+                Mean Frequency Index: {np.nanmean(fi[fam]):.2f}<br></br>
+                First event: {UTCDateTime(rtimes[fam[0]]).isoformat()}</br>
+                Core event: {UTCDateTime(rtimes[corenum]).isoformat()}</br>
+                Last event: {UTCDateTime(rtimes[fam[-1]]).isoformat()}</br>
                 
-            {}
-            """.format(htmltitle, topline, header, coreimg, len(fam),
-                       ftable[fnum]['longevity'], np.mean(spacing),
-                       np.median(spacing), np.nanmean(fi[fam]),
-                       UTCDateTime(rtimes[fam[0]]).isoformat(),
-                       UTCDateTime(rtimes[corenum]).isoformat(),
-                       UTCDateTime(rtimes[fam[-1]]).isoformat(), body))
+            {body}
+            """)
 
 
 def prepare_catalog(ttimes, opt):
@@ -2591,8 +2580,8 @@ def prepare_catalog(ttimes, opt):
     
     for region in ['local', 'regional', 'teleseismic']:
         
-        fname = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                                             'external_{}.txt'.format(region))
+        fname = os.path.join(f'{opt.outputPath}{opt.groupName}',
+                             f'external_{region}.txt')
         
         if os.path.exists(fname):
             
@@ -2684,13 +2673,13 @@ def query_external(region, tmin, tmax, opt):
     # This assumes a lot about the path to get stuff
     base_url = Client(datacenter).base_url
     query_url = base_url + '/fdsnws/event/1/query' + \
-                '?starttime={}'.format(tmin) + \
-                '&endtime={}'.format(tmax) + \
-                '&latitude={}'.format(latitude_center) + \
-                '&longitude={}'.format(longitude_center) + \
-                '&maxradius={}'.format(maxrad) + \
-                '&minradius={}'.format(minrad) + \
-                '&minmagnitude={}'.format(minmag) + \
+                f'?starttime={tmin}' + \
+                f'&endtime={tmax}' + \
+                f'&latitude={latitude_center}' + \
+                f'&longitude={longitude_center}' + \
+                f'&maxradius={maxrad}' + \
+                f'&minradius={minrad}' + \
+                f'&minmagnitude={minmag}' + \
                 '&orderby=time-asc&format=text&limit=10000'
     
     try:
@@ -2704,7 +2693,7 @@ def query_external(region, tmin, tmax, opt):
             while not (len(catalog) % 10000):
                 
                 offset += 10000
-                catalog2 = pd.read_csv(query_url+'&offset={}'.format(offset),
+                catalog2 = pd.read_csv(query_url+f'&offset={offset}',
                                                                 delimiter='|')
                 
                 if len(catalog2) > 0:
@@ -2718,8 +2707,7 @@ def query_external(region, tmin, tmax, opt):
         # Pass an empty dataframe with the correct columns
         catalog = pd.DataFrame(columns=['EventID', 'Time', 'Latitude',
                      'Longitude', 'Depth/km','Magnitude','EventLocationName'])
-        print('Failed to download {} event catalog from {}'.format(region,
-                                                                  datacenter))
+        print(f'Failed to download {region} event catalog from {datacenter}')
     
     # Clean column names
     catalog.columns = catalog.columns.str.replace(' ','')
@@ -2767,7 +2755,7 @@ def calculate_arrivals(catalog, latitude_center, longitude_center, phase_list,
     
     # Add columns for predefined phases
     for phase in phase_list:
-        catalog['Arrival_{}'.format(phase)] = 'NaN'
+        catalog[f'Arrival_{phase}'] = 'NaN'
             
     # Loop over events to fill those columns
     if len(catalog) > 0:
@@ -2796,7 +2784,7 @@ def calculate_arrivals(catalog, latitude_center, longitude_center, phase_list,
                     
             if len(arrivals) > 0:
                 for a in range(len(arrivals)):
-                    catalog['Arrival_{}'.format(arrivals[a].name)][i] = \
+                    catalog[f'Arrival_{arrivals[a].name}'][i] = \
                                '{}'.format(UTCDateTime(catalog['Time'][i]) + \
                                                              arrivals[a].time)
     
@@ -2846,10 +2834,10 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
         nlargest = np.argsort(windowAmp[members])[::-1][:opt.matchMax]
         members = members[nlargest]
         order = np.argsort(rtimes[members])
-        matchstring = ("""
-            </br><b>ComCat matches ({} largest events):</b></br>'
+        matchstring = (f"""
+            </br><b>ComCat matches ({opt.matchMax} largest events):</b></br>'
             '<div style="overflow-y: auto; height:100px; width:1200px;">
-            """).format(opt.matchMax)
+            """)
     
     pc = ['Potential', 'Conflicting']
     region = ['local', 'regional', 'teleseismic']
@@ -2910,7 +2898,7 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
                             catmatch['Latitude'], catmatch['Longitude'],
                             catmatch['Depth/km'], catmatch['Magnitude'],
                             catmatch['EventLocationName'],
-                            anames[bestmatch[1]],np.nanmin(found),
+                            anames[bestmatch[1]], np.nanmin(found),
                             poststring[r])
                     
                     if r == 0: # Local catalog
@@ -2932,16 +2920,15 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
     if nfound > 0:
         
         matchstring += '</div>'
-        matchstring += 'Total potential matches: {}</br>'.format(nfound)
-        matchstring += 'Potential local matches: {}</br>'.format(
-                                                              len(local_deps))
+        matchstring += f'Total potential matches: {nfound}</br>'
+        matchstring += f'Potential local matches: {len(local_deps)}</br>'
         
         if len(local_deps) > 0:
             
             create_local_map(local_lats, local_lons, local_deps,
-                os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                'clusters','map{}.png'.format(fnum)), opt)
-            f.write('<img src="map{}.png"></br>'.format(fnum))
+                os.path.join(f'{opt.outputPath}{opt.groupName}',
+                'clusters', f'map{fnum}.png'), opt)
+            f.write(f'<img src="map{fnum}.png"></br>'
             
     else:
         
@@ -3044,7 +3031,7 @@ def remove_old_html(oldnClust, newnClust, opt):
     """
     
     for fnum in range(newnClust, oldnClust):
-        file = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                            'clusters','{}.html'.format(fnum))
+        file = os.path.join(f'{opt.outputPath}{opt.groupName}',
+                            'clusters', f'{fnum}.html')
         if os.path.exists(file):
             os.remove(file)

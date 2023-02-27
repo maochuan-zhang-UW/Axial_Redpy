@@ -147,8 +147,7 @@ def append_empty(st, n, opt):
     locs = opt.location.split(',')
     chas = opt.channel.split(',')    
     
-    print('No data found for {}.{}.{}.{}'.format(nets[n], stas[n], chas[n],
-                                                                   locs[n]))
+    print(f'No data found for {nets[n]}.{stas[n]}.{chas[n]}.{locs[n]}')
     
     trtmp = Trace()
     trtmp.stats.sampling_rate = opt.samprate
@@ -187,8 +186,7 @@ def get_filekey(opt, args):
     
     """
     
-    flname = os.path.join('{}{}'.format(opt.outputPath, opt.groupName),
-                          'filelist.csv')
+    flname = os.path.join(f'{opt.outputPath}{opt.groupName}', 'filelist.csv')
     
     if os.path.exists(flname):
         
@@ -196,7 +194,7 @@ def get_filekey(opt, args):
     
     else: 
         
-        print('Indexing {} files in {}'.format(opt.filepattern, opt.searchdir))
+        print(f'Indexing {opt.filepattern} files in {opt.searchdir}')
         
         # Generate list of files
         flist = list(itertools.chain.from_iterable(glob.iglob(os.path.join(
@@ -226,7 +224,7 @@ def get_filekey(opt, args):
         # Write full index to file
         filekey.to_csv(path_or_buf=flname, index=False)
         print('Done indexing!')
-        print('To force this index to update, remove {}'.format(flname))
+        print(f'To force this index to update, remove {flname}')
     
     return filekey
 
@@ -264,12 +262,11 @@ def preload_data(tstart, tend, filekey, opt):
     for n in range(len(stas)):
         
         # Format SCNL string
-        scnl = '{}.{}.{}.{}'.format(nets[n],stas[n],chas[n],locs[n])
+        scnl = f'{nets[n]}.{stas[n]}.{chas[n]}.{locs[n]}'
         
         # Find list of files to load
-        flist_sub = filekey.query("scnl == '{}' and starttime < '{}' \
-                                      and endtime > '{}'".format(scnl,
-                                      tend, tstart))['filename'].to_list()
+        flist_sub = filekey.query(f"scnl == '{scnl}' and starttime < '{tend}' \
+                               and endtime > '{tstart}'")['filename'].to_list()
         
         if len(flist_sub) > 0:
             
@@ -328,7 +325,7 @@ def get_data(tstart, tend, filekey, st_preload, opt):
         for n in range(len(stas)):
             
             # Format SCNL string
-            scnl = '{}.{}.{}.{}'.format(nets[n],stas[n],chas[n],locs[n])
+            scnl = f'{nets[n]}.{stas[n]}.{chas[n]}.{locs[n]}'
             
             stmp = Stream()
             for m in range(len(st_preload)):
@@ -348,19 +345,17 @@ def get_data(tstart, tend, filekey, st_preload, opt):
         
         # Load directly from file in correct order
         
-        filekey_sub = filekey.query("starttime < '{}' \
-                                      and endtime > '{}'".format(
-                                      tend+opt.maxdt,
-                                      tstart))
+        filekey_sub = filekey.query(f"starttime < '{tend+opt.maxdt}' \
+                                      and endtime > '{tstart}'")
         
         for n in range(len(stas)):
             
             # Format SCNL string
-            scnl = '{}.{}.{}.{}'.format(nets[n],stas[n],chas[n],locs[n])
+            scnl = f'{nets[n]}.{stas[n]}.{chas[n]}.{locs[n]}'
             
             # Find list of files to load
-            flist_sub = filekey_sub.query("scnl == '{}'".format(scnl)
-                                                       )['filename'].to_list()
+            flist_sub = filekey_sub.query(
+                                    f"scnl == '{scnl}'")['filename'].to_list()
             
             if len(flist_sub) > 0:
                 
