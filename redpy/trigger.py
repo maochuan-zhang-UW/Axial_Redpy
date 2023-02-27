@@ -186,7 +186,7 @@ def get_filekey(opt, args):
     
     """
     
-    flname = os.path.join(f'{opt.outputPath}{opt.groupName}', 'filelist.csv')
+    flname = os.path.join(opt.output_path, 'filelist.csv')
     
     if os.path.exists(flname):
         

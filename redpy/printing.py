@@ -29,7 +29,7 @@ def catalog_family(ftable, rtimes, opt):
     
     """
     
-    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'catalog.txt')
+    outfile = os.path.join(opt.output_path, 'catalog.txt')
     
     with open(outfile, 'w') as f:
         
@@ -58,7 +58,7 @@ def catalog_triggers(ttimes, opt):
     
     """
     
-    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'triggers.txt')
+    outfile = os.path.join(opt.output_path, 'triggers.txt')
     
     with open(outfile, 'w') as f:
         
@@ -83,8 +83,7 @@ def catalog_orphans(otable, opt):
     
     """
     
-    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}',
-                                                           'orphancatalog.txt')
+    outfile = os.path.join(opt.output_path, 'orphancatalog.txt')
     
     startTimes = otable.cols.startTime[:]
     
@@ -114,7 +113,7 @@ def catalog_junk(jtable, opt):
     
     """
     
-    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'junk.txt')
+    outfile = os.path.join(opt.output_path, 'junk.txt')
     
     startTimes = jtable.cols.startTime[:]
     jtype = jtable.cols.isjunk[:]
@@ -147,7 +146,7 @@ def catalog_cores(ftable, rtimes, opt):
     
     """
     
-    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'cores.txt')
+    outfile = os.path.join(opt.output_path, 'cores.txt')
     
     with open(outfile, 'w') as f:
         
@@ -191,7 +190,7 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     """
     
-    outfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'catalog.txt')
+    outfile = os.path.join(opt.output_path, 'catalog.txt')
     
     with open(outfile, 'w') as f:
         
@@ -266,9 +265,8 @@ def catalog_swarm(ftable, ttimes, rtimes, opt):
     locs = opt.location.split(',')
     chas = opt.channel.split(',')
     
-    catalogfile = os.path.join(f'{opt.outputPath}{opt.groupName}', 'swarm.csv')
-    triggerfile = os.path.join(f'{opt.outputPath}{opt.groupName}',
-                                                            'triggerswarm.csv')
+    catalogfile = os.path.join(opt.output_path, 'swarm.csv')
+    triggerfile = os.path.join(opt.output_path, 'triggerswarm.csv')
     
     with open(catalogfile, 'w') as f:
         

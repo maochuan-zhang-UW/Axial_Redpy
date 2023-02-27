@@ -175,3 +175,4 @@ class Options(object):
         self.mintrig = 0.75*self.winlen/self.samprate
         self.wshape = int((self.ptrig + self.atrig)*self.samprate) + 1
         self.maxdt = np.max(np.fromstring(self.offset, sep=','))
+        self.output_folder = f'{self.outputPath}{self.groupName}'

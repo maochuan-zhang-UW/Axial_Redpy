@@ -119,8 +119,7 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         print('Nothing to plot!')
     
     # Rename any .tmp files created in create_core_images()
-    tmplist = glob.glob(os.path.join(f'{opt.outputPath}{opt.groupName}',
-                                     'clusters','*.tmp'))
+    tmplist = glob.glob(os.path.join(opt.output_path, 'clusters','*.tmp'))
     for tmp in tmplist:
         os.rename(tmp,tmp[0:-4])
 
@@ -195,8 +194,7 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
                           style='color:red' target='_blank'>Recent</a>
                           </h1>"""
         
-        filepath = os.path.join(f'{opt.outputPath}{opt.groupName}',
-                                f'{file}.html')
+        filepath = os.path.join(opt.output_path, f'{file}.html')
         
         assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
             famstarts, ttimes, barpad, plotformat, binsize_hist,
@@ -219,7 +217,7 @@ def create_core_images(rtable, ftable, opt):
     
     """
     
-    opath = os.path.join(f'{opt.outputPath}{opt.groupName}', 'clusters')
+    opath = os.path.join(opt.output_path, 'clusters')
     
     # Deal with renaming files to reduce plotting time overhead
     for n in range(len(ftable))[::-1]:
@@ -273,9 +271,8 @@ def create_junk_images(jtable, opt):
         jtime = (UTCDateTime(r['startTime']) + opt.ptrig).strftime(
                 '%Y%m%d%H%M%S')
         jtype = r['isjunk']
-        wiggle_plot(data, (15, 0.5), os.path.join(
-                                    f'{opt.outputPath}{opt.groupName}', 'junk',
-                                    f'{jtime}-{jtype}.png', opt))
+        wiggle_plot(data, (15, 0.5), os.path.join(opt.output_path, 'junk',
+                                                  f'{jtime}-{jtype}.png', opt))
 
 
 def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
@@ -356,8 +353,8 @@ def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
         
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
             
-            with open(os.path.join(f'{opt.outputPath}{opt.groupName}',
-                                         'clusters',f'{fnum}.html'), 'w') as f:
+            with open(os.path.join(opt.output_path, 'clusters',
+                                   f'{fnum}.html'), 'w') as f:
                 
                 write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt)
                 
@@ -402,8 +399,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     """
     
-    basepath = f'{opt.outputPath}{opt.groupName}'
-    rpath = os.path.join(basepath, 'reports') 
+    rpath = os.path.join(opt.output_path, 'reports') 
     
     # Derive family-specific variables
     corenum = ftable[fnum]['core']
@@ -415,7 +411,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                                                          return_type='matrix')
     
     # Copy static preview image in case cluster changes
-    shutil.copy(os.path.join(basepath,'clusters',f'{fnum}.png'),
+    shutil.copy(os.path.join(opt.output_path, 'clusters', f'{fnum}.png'),
                 os.path.join(rpath, f'{fnum}-report.png'))
     
     if not skip_recalculate_ccc:
@@ -466,18 +462,18 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     
     # Plot correlation matrix
     correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
-                                     skip_recalculate_ccc, os.path.join(rpath,
-                                       f'{fnum}-reportcmat.png'), opt)
+                            skip_recalculate_ccc, os.path.join(rpath,
+                            f'{fnum}-reportcmat.png'), opt)
     
     # Waveform images
     wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, os.path.join(rpath,
-                                      f'{fnum}-reportwaves.png'), opt)
+                    f'{fnum}-reportwaves.png'), opt)
     
     # HTML page
     with open(os.path.join(rpath, f'{fnum}-report.html'), 'w') as f:
         
         write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
-                                                                  report=True)
+                          report=True)
         f.write('</center></body></html>')
 
 
@@ -687,9 +683,10 @@ def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
     
     o = gridplot(gridplot_items)
     
-    filepath = os.path.join(f'{opt.outputPath}{opt.groupName}',
-                            'reports',f'{fnum}-report-bokeh.html')
-    output_file(filepath, title=f'{opt.title} - Cluster {fnum} Detailed Report')
+    filepath = os.path.join(opt.output_path, 'reports',
+                            f'{fnum}-report-bokeh.html')
+    output_file(filepath,
+                title=f'{opt.title} - Cluster {fnum} Detailed Report')
     save(o)
 
 
@@ -788,8 +785,8 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
     axes[4].set_xlim(axes[2].get_xlim())
     
     # Save
-    plt.savefig(os.path.join(f'{opt.outputPath}{opt.groupName}', 'clusters',
-                                              f'fam{fnum}.{oformat}'), dpi=dpi)
+    plt.savefig(os.path.join(opt.output_path, 'clusters',
+                             f'fam{fnum}.{oformat}'), dpi=dpi)
 
 
 def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
@@ -921,8 +918,7 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
     
     # Clean up and save
     plt.tight_layout()
-    plt.savefig(os.path.join(f'{opt.outputPath}{opt.groupName}',
-                             'overview.pdf'))
+    plt.savefig(os.path.join(opt.output_path, 'overview.pdf'))
     plt.close(fig)
 
 
@@ -2580,8 +2576,7 @@ def prepare_catalog(ttimes, opt):
     
     for region in ['local', 'regional', 'teleseismic']:
         
-        fname = os.path.join(f'{opt.outputPath}{opt.groupName}',
-                             f'external_{region}.txt')
+        fname = os.path.join(opt.output_path, f'external_{region}.txt')
         
         if os.path.exists(fname):
             
@@ -2926,8 +2921,8 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
         if len(local_deps) > 0:
             
             create_local_map(local_lats, local_lons, local_deps,
-                os.path.join(f'{opt.outputPath}{opt.groupName}',
-                'clusters', f'map{fnum}.png'), opt)
+                             os.path.join(opt.output_path, 'clusters',
+                             f'map{fnum}.png'), opt)
             f.write(f'<img src="map{fnum}.png"></br>')
             
     else:
@@ -3031,7 +3026,6 @@ def remove_old_html(oldnClust, newnClust, opt):
     """
     
     for fnum in range(newnClust, oldnClust):
-        file = os.path.join(f'{opt.outputPath}{opt.groupName}',
-                            'clusters', f'{fnum}.html')
+        file = os.path.join(opt.output_path, 'clusters', f'{fnum}.html')
         if os.path.exists(file):
             os.remove(file)
