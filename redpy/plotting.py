@@ -2520,7 +2520,7 @@ def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
             nextlink = f"<a href='{fnum+1}.html'>Cluster {fnum+1} &gt;</a>"
         else:
             nextlink = " "
-        topline = f'{prevlink} &nbsp; | &nbsp; {nexlink}'
+        topline = f'{prevlink} &nbsp; | &nbsp; {nextlink}'
         header = f'Cluster {fnum}'
         coreimg = fnum
         body = f'<img src="fam{fnum}.png"></br>'
@@ -2928,7 +2928,7 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
             create_local_map(local_lats, local_lons, local_deps,
                 os.path.join(f'{opt.outputPath}{opt.groupName}',
                 'clusters', f'map{fnum}.png'), opt)
-            f.write(f'<img src="map{fnum}.png"></br>'
+            f.write(f'<img src="map{fnum}.png"></br>')
             
     else:
         
