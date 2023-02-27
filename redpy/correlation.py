@@ -411,8 +411,6 @@ def get_family_subtable(rtable, ftable, fnum, opt):
     
     """
     
-    n = 100 # !!!
-    
     # Get corresponding row numbers for members and cores
     members = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     cores = ftable[fnum]['core']
@@ -420,23 +418,35 @@ def get_family_subtable(rtable, ftable, fnum, opt):
     # Exclude the core
     members = np.setdiff1d(members, cores)
     
-    if len(members) <= 2*n:
+    ntotal = opt.corr_nrecent + opt.corr_nlargest
+    
+    if (len(members) <= ntotal) or (ntotal == 0):
         
         # For small families we can return all of them
         family_table = rtable[members]
         
     else:
         
-        # Here we determine which events to bother correlating
-        # First figure out the N most recent
-        rtimes = rtable[members]['startTimeMPL']
-        n_recent = members[np.argsort(rtimes)[-n:]].copy()
+        # !!! This is slow when rtable becomes large
         
-        # Update members to exclude the most recent
-        members = np.setdiff1d(members, n_recent)
-        # Take the mean of all channels to punish missing data
-        ramps = np.mean(rtable[members]['windowAmp'], axis=1)
-        n_largest = members[np.argsort(ramps)[-n:]].copy()
+        # Here we determine which events to bother correlating
+        n_recent = np.array([])
+        n_largest = np.array([])
+        
+        if opt.corr_nrecent:
+            
+            # First figure out the N most recent by ID number
+            rtimes = rtable[members]['id']
+            n_recent = members[np.argsort(rtimes)[-opt.corr_nrecent:]].copy()
+            
+            # Update members to exclude the most recent
+            members = np.setdiff1d(members, n_recent)
+        
+        if opt.corr_nlargest:
+            
+            # Take the mean of all channels to punish missing data
+            ramps = np.mean(rtable[members]['windowAmp'], axis=1)
+            n_largest = members[np.argsort(ramps)[-opt.corr_nlargest:]].copy()
         
         family_table = rtable[np.concatenate((n_recent,n_largest),axis=None)]
     

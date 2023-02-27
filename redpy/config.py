@@ -74,9 +74,12 @@ class Options(object):
             'winlen'         : 1024,
             'cmin'           : 0.7,
             'ncor'           : 4,
+            'merge_percent'  : 0.,
+            'corr_nrecent'   : 0,
+            'corr_nlargest'  : 0,
             
             # PLOTTING PARAMETERS
-            'plotformat'     :  'eqrate,fi,occurrence+occurrencefi,longevity',
+            'plotformat'     : 'eqrate,fi,occurrence+occurrencefi,longevity',
             'printsta'       : 2,
             'minplot'        : 5,
             'dybin'          : 1.,

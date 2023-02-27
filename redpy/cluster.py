@@ -17,8 +17,9 @@ def update_family(rtable, ctable, ftable, fnum, opt, merge=1):
     
     OPTICS is (currently) extremely expensive for large families, so we update
     the core less frequently as the family grows. The merge ratio allows
-    larger families to have their cores updated if less than 90% of the total
-    new family length is contained in a single family.
+    larger families to have their cores updated if less than
+    opt.merge_percent of the total new family length is contained in a
+    single family.
     
     Parameters
     ----------
@@ -40,7 +41,8 @@ def update_family(rtable, ctable, ftable, fnum, opt, merge=1):
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     
     if (len(fam) in (3, 4, 5, 6, 10, 15, 25, 50, 100, 250, 500, 1000, 2500,
-        5000, 10000, 25000, 50000, 100000, 250000, 500000)) or (merge <= 0.9):
+        5000, 10000, 25000, 50000, 100000, 250000, 500000)) or (
+        merge <= opt.merge_percent):
         
         run_optics(rtable, ctable, ftable, fnum, fam, opt)
     
