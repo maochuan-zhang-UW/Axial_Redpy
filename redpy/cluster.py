@@ -38,6 +38,11 @@ def update_family(rtable, ctable, ftable, fnum, opt, merge=1):
     
     """
     
+    # Update longest family
+    famlen = len(ftable[fnum]['members'])
+    if famlen > ftable.attrs.current_max_famlen:
+        ftable.attrs.current_max_famlen = famlen
+    
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     
     if (len(fam) in (3, 4, 5, 6, 10, 15, 25, 50, 100, 250, 500, 1000, 2500,

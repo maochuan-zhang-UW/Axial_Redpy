@@ -133,6 +133,11 @@ while tstart+n*opt.nsec < tend:
     else:
         st_preload = []
     
+    # Check to make sure we have space
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+        redpy.table.check_famlen(h5file, rtable, otable, ttable, ctable,
+                                                  jtable, dtable, ftable, opt)
+    
     # Download and trigger
     if args.troubleshoot:
         endtime = tstart+(n+1)*opt.nsec+opt.atrig

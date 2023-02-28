@@ -3,6 +3,7 @@
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 
 import configparser
+from copy import deepcopy
 
 import numpy as np
 
@@ -37,6 +38,7 @@ class Options(object):
             'minorph'        : 0.05,
             'maxorph'        : 7.0,
             'nsec'           : 3600,
+            'max_famlen'     : 30000, # 1000000
             
             # STATION PARAMETERS
             'nsta'           : 8,
@@ -176,3 +178,19 @@ class Options(object):
         self.wshape = int((self.ptrig + self.atrig)*self.samprate) + 1
         self.maxdt = np.max(np.fromstring(self.offset, sep=','))
         self.output_folder = f'{self.outputPath}{self.groupName}'
+    
+    
+    def copy(self):
+        """
+        Returns a deepcopy of the Options object.
+        
+        Returns
+        -------
+        Options object
+            A copy of itself that can be altered.
+        
+        """
+        
+        return deepcopy(self)
+    
+

@@ -2,6 +2,7 @@
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 
+import os
 import sys
 
 import matplotlib.dates as mdates
@@ -283,9 +284,8 @@ def Families(opt):
     
     """
     
-    # !!! members itemsize should be defined in opt !!!
     families_dictionary = {
-        "members"   : StringCol(itemsize=1000000, shape=(), pos=0),
+        "members"   : StringCol(itemsize=opt.max_famlen, shape=(), pos=0),
         "core"      : Int32Col(shape=(), pos=1),
         "startTime" : Float64Col(shape=(), pos=2),
         "longevity" : Float64Col(shape=(), pos=3),
@@ -353,6 +353,8 @@ def initialize_table(opt):
     ftable = h5file.create_table(group, "families", Families(opt),
                                  "Families Table")
     ftable.attrs.nClust = 0 # Number of clusters
+    ftable.attrs.allowed_max_famlen = opt.max_famlen
+    ftable.attrs.current_max_famlen = 0
     ftable.flush()
 
     h5file.close()
@@ -1104,3 +1106,296 @@ def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
                 if ftable.cols.startTime[i] < reftime:
                     ftable.cols.startTime[i] = \
                         ftable.cols.startTime[i] + epoch
+
+
+def ftable_compatability_check(ftable, opt):
+    """
+    Compatibility check to fill ftable.attrs.*_max_famlen on an old table.
+    
+    Parameters
+    ----------
+    ftable : Table object
+        Handle to the Families table.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    
+    if not 'allowed_max_famlen' in ftable.attrs._f_list('user'):
+        ftable.attrs.allowed_max_famlen = 1000000
+        ftable.attrs.current_max_famlen = np.max(
+            [len(ftable[i]['members']) for i in range(len(ftable))])
+
+
+def check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
+                                                                 ftable, opt):
+    """
+    Checks if the string holding family members is too long and expands table.
+    
+    When the current maximum family string length exceeds 45% of the current
+    allotted maximum length, the Families table needs to be expanded.
+    
+    Unfortunately, in order to do that we need to copy everything over into
+    a new file. Additionally, we use 45% instead of something higher like
+    95% to allow for the edge case that the largest family and the second
+    largest family with similar lengths are merged.
+    
+    It's still possible this is too generous based on how often the check is
+    done.
+    
+    Parameters
+    ----------
+    h5file : File object
+        Handle to the h5 file.
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    h5file : File object
+        Updated handle to the h5 file.
+    rtable : Table object
+        Updated handle to the Repeaters table.
+    otable : Table object
+        Updated handle to the Orphans table.
+    ttable : Table object
+        Updated handle to the Triggers table.
+    ctable : Table object
+        Updated handle to the Correlation table.
+    jtable : Table object
+        Updated handle to the Junk table.
+    dtable : Table object
+        Updated handle to the Deleted table.
+    ftable : Table object
+        Updated handle to the Families table.
+    opt : Options object
+        Updated description of the run parameters.
+    
+    """
+    
+    ftable_compatability_check(ftable, opt)
+    
+    if ftable.attrs.current_max_famlen >= 0.45*ftable.attrs.allowed_max_famlen:
+        print('Approaching maximum family length Families table can hold!')
+        print('Automatically expanding hdf5 file to compensate...')
+        
+        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+            expand_table(h5file, ftable, opt,
+                         max_famlen=3*ftable.attrs.allowed_max_famlen)
+        
+    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
+
+
+def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
+                                                              do_plot=False):
+    """
+    Expands an existing table to make more room by copying data to a new one.
+    
+    Has the capacity to expand the Families table to lengthen the maximum
+    allowed string length (and therefore members in a family) as well as allow
+    new channels to be appended to the end of tables that contain waveforms.
+    
+    Parameters
+    ----------
+    h5file : File object
+        Handle to the h5 file.
+    ftable : Table object
+        Handle to the Families table.
+    optfrom : Options object
+        Describes the current run parameters.
+    optto : Options object, optional
+        Describes the transformed run parameters.
+    max_famlen : int, optional
+        New maximum family string length.
+    do_plot : bool, optional
+        If true, update the 'printme' column in ftable
+    
+    Returns
+    -------
+    h5fileto : File object
+        Updated handle to the h5 file.
+    rtableto : Table object
+        Updated handle to the Repeaters table.
+    otableto : Table object
+        Updated handle to the Orphans table.
+    ttableto : Table object
+        Updated handle to the Triggers table.
+    ctableto : Table object
+        Updated handle to the Correlation table.
+    jtableto : Table object
+        Updated handle to the Junk table.
+    dtableto : Table object
+        Updated handle to the Deleted table.
+    ftableto : Table object
+        Updated handle to the Families table.
+    optto : Options object
+        Updated description of the run parameters.
+    
+    """
+    
+    if max_famlen:
+        optto = optfrom.copy()
+        optto.max_famlen = max_famlen
+    else:
+        max_famlen = optto.max_famlen
+    
+    ftable_compatability_check(ftable, optfrom)
+    
+    # Check to ensure optto.max_famlen is long enough to hold longest string
+    while max_famlen < 3*ftable.attrs.current_max_famlen:
+        max_famlen *= 3
+    
+    # Check if additional channels need to be appended
+    dsta = optto.nsta - optfrom.nsta
+    # Complain if there are fewer, as this isn't supported
+    if dsta < 0:
+        raise ValueError(f'New config file must have nsta >= {optfrom.nsta}')
+    
+    # Close currently open table
+    h5file.close()
+    
+    # Rename and change filename in optfrom to point to the .old version
+    os.rename(optfrom.filename,'{}.old'.format(optfrom.filename))
+    
+    # Change filename in optfrom to point to the .old version
+    optfrom.filename = '{}.old'.format(optfrom.filename)
+    
+    # Initialize new table
+    redpy.table.initialize_table(optto)
+    
+    # Open tables
+    h5filefrom, rtablefrom, otablefrom, ttablefrom, ctablefrom, jtablefrom, \
+        dtablefrom, ftablefrom = redpy.table.open_table(optfrom)
+    h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, \
+        dtableto, ftableto = redpy.table.open_table(optto)
+    
+    # Check MPL version mismatch on old table
+    redpy.table.check_epoch_date(rtablefrom, ftablefrom, ttablefrom,
+        otablefrom, dtablefrom, optfrom)
+    
+    # Do all the copying!
+    print('Copying data into new table... please wait...')
+    
+    for rfrom in rtablefrom.iterrows():
+        rto = rtableto.row
+        # These stay the same
+        rto['id'] = rfrom['id']
+        rto['startTime'] = rfrom['startTime']
+        rto['startTimeMPL'] = rfrom['startTimeMPL']
+        rto['windowStart'] = rfrom['windowStart']
+        # These can be extended
+        rto['windowAmp'] = np.append(rfrom['windowAmp'] ,np.zeros(dsta))
+        rto['windowCoeff'] = np.append(rfrom['windowCoeff'], np.zeros(dsta))
+        rto['FI'] = np.append(rfrom['FI'], np.empty(dsta)*np.nan)
+        rto['waveform'] = np.append(rfrom['waveform'],
+                                    np.zeros(dsta*optto.wshape))
+        rto['windowFFT'] = np.append(rfrom['windowFFT'],
+                                    np.zeros(dsta*optto.winlen))
+        rto.append()
+    rtableto.attrs.ptime = rtablefrom.attrs.ptime
+    rtableto.attrs.previd = rtablefrom.attrs.previd
+    rtableto.flush()
+    
+    for ofrom in otablefrom.iterrows():
+        oto = otableto.row
+        # These stay the same
+        oto['id'] = ofrom['id']
+        oto['startTime'] = ofrom['startTime']
+        oto['startTimeMPL'] = ofrom['startTimeMPL']
+        oto['windowStart'] = ofrom['windowStart']
+        oto['expires'] = ofrom['expires']
+        # These can be extended
+        oto['windowAmp'] = np.append(ofrom['windowAmp'], np.zeros(dsta))
+        oto['windowCoeff'] = np.append(ofrom['windowCoeff'], np.zeros(dsta))
+        oto['FI'] = np.append(ofrom['FI'], np.empty(dsta)*np.nan)
+        oto['waveform'] = np.append(ofrom['waveform'],
+                                    np.zeros(dsta*optto.wshape))
+        oto['windowFFT'] = np.append(ofrom['windowFFT'],
+                                    np.zeros(dsta*optto.winlen))
+        oto.append()
+    otableto.flush()
+    
+    for tfrom in ttablefrom.iterrows():
+        tto = ttableto.row
+        # This stays the same
+        tto['startTimeMPL'] = tfrom['startTimeMPL']
+        tto.append()
+    ttableto.flush()
+    
+    for dfrom in dtablefrom.iterrows():
+        dto = dtableto.row
+        # These stay the same
+        dto['id'] = dfrom['id']
+        dto['startTime'] = dfrom['startTime']
+        dto['startTimeMPL'] = dfrom['startTimeMPL']
+        dto['windowStart'] = dfrom['windowStart']
+        # These can be extended
+        dto['windowAmp'] = np.append(dfrom['windowAmp'], np.zeros(dsta))
+        dto['windowCoeff'] = np.append(dfrom['windowCoeff'], np.zeros(dsta))
+        dto['FI'] = np.append(dfrom['FI'], np.empty(dsta)*np.nan)
+        dto['waveform'] = np.append(dfrom['waveform'],
+                                    np.zeros(dsta*optto.wshape))
+        dto['windowFFT'] = np.append(dfrom['windowFFT'],
+                                    np.zeros(dsta*optto.winlen))
+        dto.append()
+    dtableto.flush()
+    
+    for jfrom in jtablefrom.iterrows():
+        jto = jtableto.row
+        # These stay the same
+        jto['startTime'] = jfrom['startTime']
+        jto['windowStart'] = jfrom['windowStart']
+        jto['isjunk'] = jfrom['isjunk']
+        # This can be extended
+        jto['waveform'] = np.append(jfrom['waveform'],
+                                    np.zeros(dsta*optto.wshape))
+        jto.append()
+    jtableto.flush()
+    
+    for cfrom in ctablefrom.iterrows():
+        cto = ctableto.row
+        # All stay the same
+        cto['id1'] = cfrom['id1']
+        cto['id2'] = cfrom['id2']
+        cto['ccc'] = cfrom['ccc']
+        cto.append()
+    ctableto.flush()
+    
+    for ffrom in ftablefrom.iterrows():
+        fto = ftableto.row
+        # All stay the same, except maybe printme
+        fto['members'] = ffrom['members']
+        fto['core'] = ffrom['core']
+        fto['startTime'] = ffrom['startTime']
+        fto['longevity'] = ffrom['longevity']
+        fto['lastprint'] = ffrom['lastprint']
+        if do_plot:
+            fto['printme'] = 1
+        else:
+            fto['printme'] = ffrom['printme']
+        fto.append()
+    ftableto.attrs.nClust = ftablefrom.attrs.nClust
+    ftableto.attrs.current_max_famlen = ftablefrom.attrs.current_max_famlen
+    ftableto.attrs.allowed_max_famlen = max_famlen
+    ftableto.flush()
+    
+    # Clean up old table
+    h5filefrom.close()
+    os.remove(optfrom.filename)
+    
+    return h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, \
+        dtableto, ftableto, optto

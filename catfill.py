@@ -85,6 +85,11 @@ else:
 
 for event in eventlist:
     
+    # Check to make sure we have space
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+        redpy.table.check_famlen(h5file, rtable, otable, ttable, ctable,
+                                                  jtable, dtable, ftable, opt)
+    
     etime = UTCDateTime(event)
     if len(ttable) > 0:
         ttimes = ttable.cols.startTimeMPL[:]
