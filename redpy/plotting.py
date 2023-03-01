@@ -163,7 +163,8 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
             plotformat = opt.plotformat
             binsize_hist = opt.dybin
             binsize_occur = opt.occurbin
-            mintime = min(ttimes)
+            # Give a little extra padding to mintime
+            mintime = min(ttimes)-opt.winlen/opt.samprate/86400
             minplot = opt.minplot
             fixedheight = opt.fixedheight
             htmltitle = f'{opt.title} Overview'
