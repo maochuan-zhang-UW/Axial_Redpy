@@ -97,6 +97,8 @@ class Options(object):
             'verbosecatalog' : False,
             'anotfile'       : '',
             'amplims'        : 'global', # enforce else 'family'
+            'bokehendtime'   : 'trigger', # enforce else 'now'
+            'timeline_vs'    : 'orphans', # enforce else 'triggers'
             
             # CHECK COMCAT (/EXTERNAL) CATALOG
             'checkComCat'    : False,

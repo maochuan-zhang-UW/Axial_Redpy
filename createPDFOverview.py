@@ -7,7 +7,7 @@ import redpy.table
 import argparse
 import os
 import numpy as np
-import matplotlib.dates
+import matplotlib.dates as mdates
 
 """
 Run this script to manually produce an editable PDF version of the overview page
@@ -78,12 +78,12 @@ redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
 # Process arguments
 if args.starttime:
-    tmin = matplotlib.dates.date2num(np.datetime64(args.starttime))
+    tmin = mdates.date2num(np.datetime64(args.starttime))
 else:
     tmin = 0
 
 if args.endtime:
-    tmax = matplotlib.dates.date2num(np.datetime64(args.endtime))
+    tmax = mdates.date2num(np.datetime64(args.endtime))
 else:
     tmax = 0
 
@@ -111,8 +111,16 @@ else:
     plotformat = 'eqrate,fi,occurrence,longevity'
 
 if args.verbose: print("Creating overview.pdf in main output directory...")
-redpy.plotting.assemble_pdf_overview(rtable, ftable, ttable, tmin, tmax, binsize, minmembers,
-    occurheight, plotformat, opt)
+
+ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
+windowStart = rtable.cols.windowStart[:]
+rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
+rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
+fi = np.nanmean(rtable.cols.FI[:], axis=1)
+
+redpy.plotting.assemble_pdf_overview(rtable, ftable, ttimes, rtimes,
+    rtimes_mpl, fi, tmin, tmax, binsize, minmembers, occurheight,
+    plotformat, opt)
 
 if args.verbose: print("Closing table...")
 h5file.close()

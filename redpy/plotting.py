@@ -155,36 +155,41 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
     longevity = ftable.cols.longevity[:]
     famstarts = ftable.cols.startTime[:]
     
+    if opt.bokehendtime == 'now':
+        maxtime = UTCDateTime().matplotlib_date
+    else:
+        maxtime = np.max(ttimes)
+    
     for i, file in enumerate(['overview', 'overview_recent', 'meta_recent']):
         
         # Set parameters unique to each timeline type
         if i == 0: # overview.html
-            barpad = (max(ttimes)-min(ttimes))*0.01
+            # Give a little extra padding to mintime
+            mintime = np.min(ttimes)-opt.winlen/opt.samprate/86400
+            barpad = (maxtime-mintime)*0.01
             plotformat = opt.plotformat
             binsize_hist = opt.dybin
             binsize_occur = opt.occurbin
-            # Give a little extra padding to mintime
-            mintime = min(ttimes)-opt.winlen/opt.samprate/86400
             minplot = opt.minplot
             fixedheight = opt.fixedheight
             htmltitle = f'{opt.title} Overview'
             divtitle = f'<h1>{opt.title}</h1>'
         elif i == 1: # overview_recent.html
+            mintime = maxtime-opt.recplot
             barpad = opt.recplot*0.01
             plotformat = opt.plotformat
             binsize_hist = opt.hrbin/24
             binsize_occur = opt.recbin
-            mintime = max(ttimes)-opt.recplot
             minplot = 0
             fixedheight = opt.fixedheight
             htmltitle = f'{opt.title} Overview - Last {opt.recplot:.1f} Days'
             divtitle = f'<h1>{opt.title} - Last {opt.recplot:.1f} Days</h1>'
         else: # meta_recent.html
+            mintime = maxtime-opt.mrecplot
             barpad = opt.mrecplot*0.01
             plotformat = opt.plotformat.replace(',','+')
             binsize_hist = opt.mhrbin/24
             binsize_occur = opt.mrecbin
-            mintime = max(ttimes)-opt.mrecplot
             minplot = opt.mminplot
             fixedheight = True
             htmltitle = f'{opt.title} Overview - Last {opt.mrecplot:.1f} Days'
@@ -199,8 +204,8 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
         
         assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
             famstarts, ttimes, barpad, plotformat, binsize_hist,
-            binsize_occur, mintime, minplot, fixedheight, filepath, htmltitle,
-            divtitle, opt)
+            binsize_occur, mintime, maxtime, minplot, fixedheight, filepath,
+            htmltitle, divtitle, opt)
 
 
 def create_core_images(rtable, ftable, opt):
@@ -480,7 +485,8 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
 
 def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
         famstarts, ttimes, barpad, plotformat, binsize_hist, binsize_occur,
-        mintime, minplot, fixedheight, filepath, htmltitle, divtitle, opt):
+        mintime, maxtime, minplot, fixedheight, filepath, htmltitle, divtitle,
+        opt):
     """
     Assembles an interactive HTML timeline with given parameters using Bokeh.
     
@@ -512,6 +518,9 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
     mintime : float
         Minimum time to plot as matplotlib date; generates arrows if a family
         extends earlier in time.
+    maxtime : float
+        Maximum time to plot as matplotlib date; generates arrows if a family
+        extends later in time.
     minplot : int
         Minimum number of members in a family to include on occurence plot.
     fixedheight : bool
@@ -531,7 +540,6 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
     plot_types = plotformat.replace('+',',').split(',')
     plots = []
     tabtitles = []
-    maxtime = np.max(ttimes)
     
     # Create each of the subplots specified in the configuration file
     for p in plot_types:
@@ -790,8 +798,8 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
                              f'fam{fnum}.{oformat}'), dpi=dpi)
 
 
-def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
-                           binsize, minmembers, occurheight, plotformat, opt):
+def assemble_pdf_overview(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi,
+                tmin, tmax, binsize, minmembers, occurheight, plotformat, opt):
     """
     Generate a static PDF version of the overview plot for publication.
     
@@ -805,6 +813,12 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes_mpl, fi, tmin, tmax,
         Handle to the Families table.
     ttimes : float ndarray
         Times of all triggers as matplotlib dates.
+    rtimes : datetime ndarray
+        Times of repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of repeaters as matplotlib dates.
+    fi : float ndarray
+        Frequency index values for repeaters.
     tmin : float
         Minimum time on timeline axes as matplotlib date (0 for default tmin).
     tmax : float
@@ -958,33 +972,39 @@ def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
     
     dt_offset = binsize_hist/2 # used to create the lines
     
-    hr_days = 'Day Bin' if binsize_hist>=1 else 'Hour Bin'
-    if binsize_hist >= 1:
-        title = f'Repeaters vs. Orphans by {binsize_hist:.1f} Day Bin'
-    else:
-        title = f'Repeaters vs. Orphans by {binsize_hist*24:.1f} Hour Bin'
+    # Create histogram of events with time
+    hist_trigs, bin_times = np.histogram(ttimes, bins=np.arange(mintime,
+        maxtime+binsize_hist, binsize_hist))
+    hist_repeaters, bin_times = np.histogram(rtimes_mpl, bins=np.arange(mintime,
+        maxtime+binsize_hist, binsize_hist))
     
-    # Create histogram of events/dybin
-    histT, hT = np.histogram(ttimes, bins=np.arange(mintime,
-        maxtime+binsize_hist, binsize_hist))
-    histR, hR = np.histogram(rtimes_mpl, bins=np.arange(mintime,
-        maxtime+binsize_hist, binsize_hist))
+    if opt.timeline_vs == 'triggers':
+        trigorph = 'Total Triggers'
+        hist_trigorph = hist_trigs
+    else:
+        trigorph = 'Orphans'
+        hist_trigorph = hist_trigs-hist_repeaters
+    
+    # Determine title
+    hr_days = 'Day Bin' if binsize_hist>=1 else 'Hour Bin'
+    bin_text = binsize_hist if binsize_hist >= 1 else binsize_hist*24
+    title = f'Repeaters vs. {trigorph} by {bin_text:.1f} {hr_days}'
     
     if useBokeh:
         fig = bokeh_figure(title=title)
         fig.yaxis.axis_label = 'Events'
-        fig.line(mdates.num2date(hT[0:-1]+dt_offset), histT-histR,
-            color='black', legend_label='Orphans')
-        fig.line(mdates.num2date(hR[0:-1]+dt_offset), histR,
+        fig.line(mdates.num2date(bin_times[0:-1]+dt_offset), hist_trigorph,
+                color='black', legend_label=trigorph)
+        fig.line(mdates.num2date(bin_times[0:-1]+dt_offset), hist_repeaters,
             color='red', legend_label='Repeaters', line_width=2)
         fig.legend.location = 'top_left'
         
         return fig
     
     else:
-        ax.plot(mdates.num2date(hT[0:-1]+dt_offset), histT-histR,
-            color='black', label='Orphans', lw=0.5)
-        ax.plot(mdates.num2date(hR[0:-1]+dt_offset), histR,
+        ax.plot(mdates.num2date(bin_times[0:-1]+dt_offset), hist_trigorph,
+            color='black', label=trigorph, lw=0.5)
+        ax.plot(mdates.num2date(bin_times[0:-1]+dt_offset), hist_repeaters,
             color='red', label='Repeaters', lw=2)
         ax.set_title(title, loc='left', fontweight='bold')
         ax.set_ylabel('Events', style='italic')
@@ -1033,7 +1053,7 @@ def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt,
         fig = bokeh_figure(title='Frequency Index')
         fig.yaxis.axis_label = 'FI'
         # Always plot at least one invisible point
-        fig.circle(mdates.num2date(np.max(ttimes)), 0,
+        fig.circle(mdates.num2date(maxtime), 0,
             line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Frequency Index', loc='left', fontweight='bold')
@@ -1094,7 +1114,7 @@ def subplot_longevity(ttimes, famstarts, longevity, mintime, maxtime,
             title='Cluster Longevity')
         fig.yaxis.axis_label = 'Days'
         # Always plot at least one invisible point
-        fig.circle(mdates.num2date(np.max(ttimes)), 1,
+        fig.circle(mdates.num2date(maxtime), 1,
             line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Longevity', loc='left', fontweight='bold')
@@ -1213,7 +1233,7 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
         fig.yaxis.axis_label = 'Cluster by Date' + (
             f' ({minplot}+ Members)' if minplot>0 else '')
         # Always plot at least one invisible point
-        fig.circle(mdates.num2date(np.max(ttimes)), 0,
+        fig.circle(mdates.num2date(maxtime), 0,
             line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Occurrence Timeline', loc='left', fontweight='bold')
