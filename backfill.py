@@ -3,13 +3,13 @@
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 
 import argparse
-import redpy
-import numpy as np
-import pandas as pd
-import obspy
-from obspy import UTCDateTime
-from obspy.core.stream import Stream
 import time
+
+import numpy as np
+from obspy import UTCDateTime
+
+import redpy
+
 
 """
 Run this script to fill the table with data from the past. If a start time is not
@@ -42,7 +42,7 @@ t = time.time()
 
 parser = argparse.ArgumentParser(description=
     "Backfills table with data from the past")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-t", "--troubleshoot", action="store_true", default=False,
     help="run in troubleshoot mode (without try/except)")
@@ -60,8 +60,8 @@ args = parser.parse_args()
 h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-if args.nsec:
-    opt.nsec = args.nsec
+if args.nsec: opt.nsec = args.nsec
+if args.verbose: opt.verbose = True
 
 if args.endtime:
     tend = UTCDateTime(args.endtime)
@@ -87,21 +87,9 @@ else:
     ttimes = 0
 
 # Create or read in file key to improve file load times
-if opt.server == 'file':
-    
-    filekey = redpy.trigger.get_filekey(opt, args)
-    
-    # Subset filekey to only time of interest
-    filekey = filekey.query("starttime < '{}' \
-                        and endtime > '{}'".format(
-                        tend+opt.maxdt+opt.atrig+opt.ptrig+60,
-                        tstart-opt.atrig-60))
-    
-    # Set start time of preload (if to be used) to tstart
-    tend_preload = tstart
-    
-else:
-    filekey = []
+filekey = redpy.trigger.get_filekey(tstart, tend, opt)
+tend_preload = tstart
+
 
 n = 0
 rlen = len(rtable)

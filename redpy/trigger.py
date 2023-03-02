@@ -161,7 +161,7 @@ def append_empty(st, n, opt):
     return st
 
 
-def get_filekey(opt, args):
+def get_filekey(tstart, tend, opt):
     """
     Reads or generates a table that keys file names to a subset of metadata.
     
@@ -174,10 +174,12 @@ def get_filekey(opt, args):
     
     Parameters
     ----------
+    tstart : UTCDateTime object
+        Beginning time of query.
+    tend : UTCDateTime object
+        End time of query.
     opt : Options object
         Describes the run parameters.
-    args : ArugmentParser object
-        Passes arguments from command line for verbosity.
     
     Returns
     -------
@@ -186,45 +188,57 @@ def get_filekey(opt, args):
     
     """
     
-    flname = os.path.join(opt.output_folder, 'filelist.csv')
-    
-    if os.path.exists(flname):
+    if opt.server == 'file':
         
-        filekey = pd.read_csv(flname)
-    
-    else: 
+        flname = os.path.join(opt.output_folder, 'filelist.csv')
         
-        print(f'Indexing {opt.filepattern} files in {opt.searchdir}')
-        
-        # Generate list of files
-        flist = list(itertools.chain.from_iterable(glob.iglob(os.path.join(
-                      root,opt.filepattern)) for root, dirs, files in os.walk(
-                                                              opt.searchdir)))
-        
-        # Create empty dataframe
-        filekey = pd.DataFrame(columns=['filename', 'scnl', 'starttime',
-                  'endtime'], index=range(len(flist)))
-        
-        # Loop over files found
-        for n, f in enumerate(flist):
-            if args.verbose:
-                print(f)
+        # If filelist.csv exists, open it
+        if os.path.exists(flname):
             
-            # Read header
-            stmp = obspy.read(f, headonly=True)
+            filekey = pd.read_csv(flname)
+        
+        # If it doesn't exist, create it
+        else:
             
-            # Fill dataframe
-            filekey['filename'][n] = f
-            filekey['scnl'][n] = '{}.{}.{}.{}'.format(
+            print(f'Indexing {opt.filepattern} files in {opt.searchdir}')
+            
+            # Generate list of files
+            flist = list(itertools.chain.from_iterable(glob.iglob(
+                os.path.join(root,opt.filepattern)) for root, dirs, files in \
+                                                      os.walk(opt.searchdir)))
+            
+            # Create empty dataframe
+            filekey = pd.DataFrame(columns=['filename', 'scnl', 'starttime',
+                      'endtime'], index=range(len(flist)))
+            
+            # Loop over files found
+            for n, f in enumerate(flist):
+                
+                if opt.verbose: print(f)
+                
+                # Read header
+                stmp = obspy.read(f, headonly=True)
+                
+                # Fill dataframe
+                filekey['filename'][n] = f
+                filekey['scnl'][n] = '{}.{}.{}.{}'.format(
                                 stmp[0].stats.network,stmp[0].stats.station,
                                 stmp[0].stats.channel,stmp[0].stats.location)
-            filekey['starttime'][n] = stmp[0].stats.starttime
-            filekey['endtime'][n] = stmp[-1].stats.endtime
+                filekey['starttime'][n] = stmp[0].stats.starttime
+                filekey['endtime'][n] = stmp[-1].stats.endtime
+            
+            # Write full index to file
+            filekey.to_csv(path_or_buf=flname, index=False)
+            print('Done indexing!')
+            print(f'To force this index to update, remove {flname}')
         
-        # Write full index to file
-        filekey.to_csv(path_or_buf=flname, index=False)
-        print('Done indexing!')
-        print(f'To force this index to update, remove {flname}')
+        # Subset filekey to only time of interest with buffer
+        buf = opt.maxdt + opt.atrig + opt.ptrig + 60
+        filekey = filekey.query(
+                    f"starttime < '{tend+buf}' and endtime > '{tstart-buf}'")
+        
+    else:
+        filekey = []
     
     return filekey
 

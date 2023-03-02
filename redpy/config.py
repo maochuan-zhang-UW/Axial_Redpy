@@ -39,6 +39,7 @@ class Options(object):
             'maxorph'        : 7.0,
             'nsec'           : 3600,
             'max_famlen'     : 30000, # 1000000
+            'verbose'        : False,
             
             # STATION PARAMETERS
             'nsta'           : 8,

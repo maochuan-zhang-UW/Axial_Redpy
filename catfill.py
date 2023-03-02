@@ -3,12 +3,14 @@
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 
 import argparse
-import redpy
-import numpy as np
-import obspy
-from obspy import UTCDateTime
 import time
+
+import numpy as np
 import pandas as pd
+from obspy import UTCDateTime
+
+import redpy
+
 
 """
 Run this script to fill the table with data from the past using a catalog of events.
@@ -33,7 +35,7 @@ parser = argparse.ArgumentParser(description=
     "Backfills table with data from the past")
 parser.add_argument("csvfile",
     help="catalog csv file with a 'Time UTC' column of event times")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-t", "--troubleshoot", action="store_true", default=False,
     help="run in troubleshoot mode (without try/except)")
@@ -44,6 +46,8 @@ args = parser.parse_args()
 h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
+if args.verbose: opt.verbose = True
+
 # Read in csv file using pandas
 df = pd.read_csv(args.csvfile)
 # Grab event times from 'Time UTC' column, convert to datetimes also
@@ -52,24 +56,10 @@ eventlist = pd.to_datetime(df['Time UTC']).tolist()
 eventlist.sort()
 
 # Create or read in file key to improve file load times
-if opt.server == 'file':
-    
-    filekey = redpy.trigger.get_filekey(opt, args)
-    
-    tstart = UTCDateTime(eventlist[0])-5*opt.atrig
-    tend = UTCDateTime(eventlist[-1])+5*opt.atrig
-    
-    # Subset filekey to only time of interest
-    filekey = filekey.query("starttime < '{}' \
-                        and endtime > '{}'".format(
-                        tend+opt.maxdt+opt.atrig+opt.ptrig+60,
-                        tstart-opt.atrig-60))
-    
-    # Set start time of preload (if to be used) to just before first event
-    tend_preload = tstart
-    
-else:
-    filekey = []
+tstart = UTCDateTime(eventlist[0]) - 5*opt.atrig
+tend = UTCDateTime(eventlist[-1]) + 5*opt.atrig
+filekey = redpy.trigger.get_filekey(tstart, tend, opt)
+tend_preload = tstart
 
 
 for event in eventlist:
