@@ -7,6 +7,7 @@ import redpy.table
 import argparse
 import os
 import matplotlib
+import matplotlib.dates as mdates
 import numpy as np
 
 """
@@ -60,14 +61,11 @@ h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
 redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
 
 # Load into memory
-startTimeMPL = rtable.cols.startTimeMPL[:]
-windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
 windowStart = rtable.cols.windowStart[:]
-fi = rtable.cols.FI[:]
-ids = rtable.cols.id[:]
-id1 = ctable.cols.id1[:]
-id2 = ctable.cols.id2[:]
-ccc = ctable.cols.ccc[:]
+rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
+rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
+windowAmp = rtable.cols.windowAmp[:][:,opt.printsta]
+ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
 
 # Process arguments
 if args.starttime:
@@ -80,10 +78,14 @@ if args.endtime:
 else:
     tmax = 0
 
+# Initialize figure layout
+fig, axes, bboxes = redpy.plotting.initialize_family_image(opt)
+
 for fnum in args.famnum:
     if args.verbose: print("Creating PDF for family {}...".format(fnum))
-    redpy.plotting.assemble_family_image(rtable, ftable, ctable, startTimeMPL, windowAmp, 
-        windowStart, fi, ids, id1, id2, ccc, 'pdf', 100, fnum, tmin, tmax, opt)
+    redpy.plotting.assemble_family_image(bboxes, rtable, ftable, rtimes,
+        rtimes_mpl, windowAmp, ids, ccc_sparse, 'pdf', 100, fnum, tmin, tmax,
+        opt)
 
 if args.verbose: print("Closing table...")
 h5file.close()
