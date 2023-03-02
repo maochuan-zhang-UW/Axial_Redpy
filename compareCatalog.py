@@ -34,20 +34,14 @@ parser.add_argument("csvfile",
     help="catalog csv file with required column 'Time UTC'")
 parser.add_argument("-v", "--verbose", action="count", default=0,
     help="increase written print statements")
-parser.add_argument("-c", "--configfile",
+parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 args = parser.parse_args()
 
-if args.configfile:
-    opt = redpy.config.Options(args.configfile)
-    if args.verbose: print("Using config file: {0}".format(args.configfile))
-else:
-    opt = redpy.config.Options("settings.cfg")
-    if args.verbose: print("Using config file: settings.cfg")
+h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+    redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-if args.verbose: print("Opening hdf5 table: {0}".format(opt.filename))
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
-    redpy.table.open_table(opt)
+# !!! Massive rewrite needed! Leverage rewrite of match_external()
 
 # Read in csv file using pandas
 df = pd.read_csv(args.csvfile)
@@ -86,7 +80,7 @@ for i in range(len(jtable)):
         jtimes[i] = date2num(dt.datetime.strptime(jtable.cols.startTime[i].decode('utf-8'),
                              '%Y-%m-%dT%H:%M:%S')+dt.timedelta(
                              seconds=jtable.cols.windowStart[i]/opt.samprate))
-ttimes = ttable.cols.startTimeMPL[:]
+ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
 
 # Flatten families to list
 famlist = np.zeros((len(rtimes),)).astype(int)

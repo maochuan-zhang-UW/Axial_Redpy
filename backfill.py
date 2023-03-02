@@ -50,25 +50,18 @@ parser.add_argument("-s", "--starttime",
     help="optional start time to begin filling (YYYY-MM-DDTHH:MM:SS)")
 parser.add_argument("-e", "--endtime",
     help="optional end time to end filling (YYYY-MM-DDTHH:MM:SS)")
-parser.add_argument("-c", "--configfile",
+parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 parser.add_argument("-n", "--nsec", type=int,
     help="overwrite opt.nsec from configuration file with NSEC this run only")
 args = parser.parse_args()
 
-if args.configfile:
-    opt = redpy.config.Options(args.configfile)
-    if args.verbose: print("Using config file: {0}".format(args.configfile))
-else:
-    opt = redpy.config.Options("settings.cfg")
-    if args.verbose: print("Using config file: settings.cfg")
+
+h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+    redpy.table.open_with_cfg(args.configfile, args.verbose)
 
 if args.nsec:
     opt.nsec = args.nsec
-
-if args.verbose: print("Opening hdf5 table: {0}".format(opt.filename))
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
-    redpy.table.open_table(opt)
 
 if args.endtime:
     tend = UTCDateTime(args.endtime)
@@ -84,6 +77,9 @@ else:
         tstart = UTCDateTime(rtable.attrs.ptime)
     else:
         tstart = tend-opt.nsec
+
+# Enforce starttime < endtime
+if tstart > tend: raise ValueError(f'Start {tstart} is after end {tend}!')
 
 if len(ttable) > 0:
     ttimes = ttable.cols.startTimeMPL[:]

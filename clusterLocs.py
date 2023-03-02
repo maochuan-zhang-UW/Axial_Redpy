@@ -29,7 +29,7 @@ parser = argparse.ArgumentParser(description=
     "Finds families with regional/teleseismic matches by parsing their .html files")
 parser.add_argument("-v", "--verbose", action="count", default=0,
     help="increase written print statements, including table of matches")
-parser.add_argument("-c", "--configfile",
+parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 parser.add_argument("-d", "--distant", action="count", default=0,
     help="include distant (regional, teleseismic) matches in addition to local seismicity")
@@ -37,12 +37,8 @@ parser.add_argument("-r", "--regional", action="count", default=0,
     help="include regional matches in addition to local seismicity")
 args = parser.parse_args()
 
-if args.configfile:
-    opt = redpy.config.Options(args.configfile)
-    if args.verbose: print("Using config file: {0}".format(args.configfile))
-else:
-    opt = redpy.config.Options("settings.cfg")
-    if args.verbose: print("Using config file: settings.cfg")
+if args.verbose: print(f"Using config file: {args.configfile}")
+opt = redpy.config.Options(args.configfile)
 
 flist = np.array(list(itertools.chain.from_iterable(glob.iglob(os.path.join(
                 root,'*.html')) for root, dirs, files in os.walk(
@@ -66,13 +62,16 @@ with open('{}{}/clusterlocs.txt'.format(opt.outputPath,opt.groupName), 'w') as o
         file = open(f, "r")
         fnum = f.split("/")[-1][:-5]
         data = file.readlines()
-    
+        
         lats = np.array([])
         lons = np.array([])
         deps = np.array([])
-    
-        lines = data[20].split('>')
+        
+        lines = data[-1].split('>')
         for line in lines:
+        
+            line = line.strip()
+        
             if args.distant:
                 if line.count("teleseismic") or line.count("regional") or line.count(
                     "Potential local match:"):

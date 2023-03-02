@@ -78,7 +78,7 @@ parser = argparse.ArgumentParser(description=
     "Run this script to manually remove families/clusters using a GUI")
 parser.add_argument("-v", "--verbose", action="count", default=0,
     help="increase written print statements")
-parser.add_argument("-c", "--configfile",
+parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 parser.add_argument("-n", "--ncols", default=3, type=int,
     help="adjust number of columns in layout (default 3)")
@@ -86,16 +86,8 @@ parser.add_argument("-m", "--minclust", default=0, type=int,
     help="only look at clusters with numbers at or above MINCLUST")
 args = parser.parse_args()
 
-if args.configfile:
-    opt = redpy.config.Options(args.configfile)
-    if args.verbose: print("Using config file: {0}".format(args.configfile))
-else:
-    opt = redpy.config.Options("settings.cfg")
-    if args.verbose: print("Using config file: settings.cfg")
-
-if args.verbose: print("Opening hdf5 table: {0}".format(opt.filename))
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
-    redpy.table.open_table(opt)
+h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+    redpy.table.open_with_cfg(args.configfile, args.verbose)
 
 oldnClust = ftable.attrs.nClust
 

@@ -360,6 +360,48 @@ def initialize_table(opt):
     h5file.close()
 
 
+def open_with_cfg(configfile, verbose=False):
+    """
+    Convenience function to open the hdf5 file and opt with a config file.
+    
+    Parameters
+    ----------
+    configfile : str
+            Name of configuration file to read.
+    
+    Returns
+    -------
+    h5file : File object
+        Handle to the h5 file.
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    
+    if verbose: print(f'Using config file: {configfile}')
+    opt = redpy.config.Options(configfile)
+    
+    if verbose: print(f'Opening hdf5 table: {opt.filename}')
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
+        redpy.table.open_table(opt)
+    
+    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
+
+
 def open_table(opt):
     """
     Convenience function to open the hdf5 file and access the tables in it.

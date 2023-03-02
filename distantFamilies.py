@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser(description=
     "Finds families with regional/teleseismic matches by parsing their .html files")
 parser.add_argument("-v", "--verbose", action="count", default=0,
     help="increase written print statements, including table of matches")
-parser.add_argument("-c", "--configfile",
+parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 parser.add_argument("-e", "--etc",
     help="phrase to explicitly search for, e.g., name of a specific area")
@@ -38,12 +38,8 @@ parser.add_argument("-p", "--percent", type=float,
     help="minimum percentage of regional/teleseismic matches, default 90", default=90.0)
 args = parser.parse_args()
 
-if args.configfile:
-    opt = redpy.config.Options(args.configfile)
-    if args.verbose: print("Using config file: {0}".format(args.configfile))
-else:
-    opt = redpy.config.Options("settings.cfg")
-    if args.verbose: print("Using config file: settings.cfg")
+if args.verbose: print(f"Using config file: {args.configfile}")
+opt = redpy.config.Options(args.configfile)
 
 flist = np.array(list(itertools.chain.from_iterable(glob.iglob(os.path.join(
                 root,'*.html')) for root, dirs, files in os.walk(
