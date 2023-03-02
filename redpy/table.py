@@ -400,6 +400,12 @@ def open_table(opt):
     dtable = eval('h5file.root.' + opt.groupName + '.deleted')
     ftable = eval('h5file.root.' + opt.groupName + '.families')
     
+    # Check for MPL version mismatch
+    check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
+    
+    # Check attributes in ftable, fill if missing
+    ftable_compatibility_check(ftable, opt)
+    
     return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable
 
 
@@ -1108,7 +1114,7 @@ def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
                         ftable.cols.startTime[i] + epoch
 
 
-def ftable_compatability_check(ftable, opt):
+def ftable_compatibility_check(ftable, opt):
     """
     Compatibility check to fill ftable.attrs.*_max_famlen on an old table.
     
@@ -1187,8 +1193,6 @@ def check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
     
     """
     
-    ftable_compatability_check(ftable, opt)
-    
     if ftable.attrs.current_max_famlen >= 0.45*ftable.attrs.allowed_max_famlen:
         print('Approaching maximum family length Families table can hold!')
         print('Automatically expanding hdf5 file to compensate...')
@@ -1253,8 +1257,6 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
     else:
         max_famlen = optto.max_famlen
     
-    ftable_compatability_check(ftable, optfrom)
-    
     # Check to ensure optto.max_famlen is long enough to hold longest string
     while max_famlen < 3*ftable.attrs.current_max_famlen:
         max_famlen *= 3
@@ -1282,10 +1284,6 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
         dtablefrom, ftablefrom = redpy.table.open_table(optfrom)
     h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, \
         dtableto, ftableto = redpy.table.open_table(optto)
-    
-    # Check MPL version mismatch on old table
-    redpy.table.check_epoch_date(rtablefrom, ftablefrom, ttablefrom,
-        otablefrom, dtablefrom, optfrom)
     
     # Do all the copying!
     print('Copying data into new table... please wait...')

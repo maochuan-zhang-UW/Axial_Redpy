@@ -59,10 +59,6 @@ if args.verbose: print("Opening hdf5 table: {0}".format(opt.filename))
 h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
     redpy.table.open_table(opt)
 
-# Check for MPL version mismatch
-redpy.table.check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
-
-
 if args.verbose: print("Creating folder to store files '{}{}/reports'".format(
     opt.outputPath, opt.groupName))
     
