@@ -76,7 +76,7 @@ def mouse_wheel(event):
 
 parser = argparse.ArgumentParser(description=
     "Run this script to manually remove families/clusters using a GUI")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
@@ -169,7 +169,7 @@ dlist = glob.glob('{}{}/clusters/*.gif'.format(opt.outputPath,opt.groupName))
 for tmp in dlist:
     os.remove(tmp) 
     
-if args.verbose: print("Cleaning up .html files...")
+if opt.verbose: print("Cleaning up .html files...")
 redpy.plotting.remove_old_html(oldnClust, ftable.attrs.nClust, opt)
     
 print("Closing table...")

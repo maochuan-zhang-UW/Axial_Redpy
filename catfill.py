@@ -46,8 +46,6 @@ args = parser.parse_args()
 h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-if args.verbose: opt.verbose = True
-
 # Read in csv file using pandas
 df = pd.read_csv(args.csvfile)
 # Grab event times from 'Time UTC' column, convert to datetimes also
@@ -78,7 +76,7 @@ for event in eventlist:
     # Check if we need to preload waveform data from file into memory
     if (opt.preload > 0) and (len(filekey) > 0):
         if etime+5*opt.atrig > tend_preload:
-            if args.verbose:
+            if opt.verbose:
                 print('Loading waveforms into memory...')
                 
             # Determine end time to load
@@ -92,7 +90,7 @@ for event in eventlist:
         st_preload = []
     
     
-    if args.verbose: print(etime)
+    if opt.verbose: print(etime)
     
     # Download and trigger
     if args.troubleshoot:
@@ -158,20 +156,20 @@ for event in eventlist:
     # redpy.table.clearExpiredOrphans(otable, opt, tstart+(n+1)*opt.nsec)
     
     # Print some stats
-    if args.verbose:
+    if opt.verbose:
         print("Length of Orphan table: {}".format(len(otable)))
         if len(rtable) > 1:
             print("Number of repeaters: {}".format(len(rtable)))
             print("Number of clusters: {}".format(ftable.attrs.nClust))
 
 if len(rtable) > 1:
-    if args.verbose: print("Creating plots...")
+    if opt.verbose: print("Creating plots...")
     redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
 else:
     print("No repeaters to plot.")
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
 
-if args.verbose: print("Total time spent: {} minutes".format((time.time()-t)/60))
-if args.verbose: print("Done")
+if opt.verbose: print("Total time spent: {} minutes".format((time.time()-t)/60))
+if opt.verbose: print("Done")

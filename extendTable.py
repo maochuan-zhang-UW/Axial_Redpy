@@ -32,7 +32,7 @@ optional arguments:
 
 parser = argparse.ArgumentParser(description=
     "Create space for additional stations based on an existing table")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-n", "--noplot", action="count", default=0,
     help="do not re-render plots after extending")
@@ -47,13 +47,9 @@ do_plot = not args.noplot
 
 t = time.time()
 
-if args.verbose: print("Using old config file: {0}".format(args.cfgfrom[0]))
-optfrom = redpy.config.Options(args.cfgfrom)
+optfrom = redpy.config.Options(args.cfgfrom, args.verbose)
+optto = redpy.config.Options(args.cfgto, args.verbose)
 
-if args.verbose: print("Using new config file: {0}".format(args.cfgto[0]))
-optto = redpy.config.Options(args.cfgto)
-
-if args.verbose: print("Opening hdf5 table: {0}".format(optfrom.filename))
 h5filefrom, rtablefrom, otablefrom, ttablefrom, ctablefrom, jtablefrom, \
     dtablefrom, ftablefrom = redpy.table.open_table(optfrom)
 
@@ -62,11 +58,11 @@ h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, dtableto, \
                                    optto=optto, do_plot=do_plot)
 
 if do_plot:
-    if args.verbose: print("Creating plots...")
+    if optto.verbose: print("Creating plots...")
     redpy.plotting.generate_all_outputs(rtableto, ftableto, ttableto, 
                                                     ctableto, otableto, optto)
 
-if args.verbose: print("Closing table...")
+if optto.verbose: print("Closing table...")
 h5fileto.close()
 
-if args.verbose: print(f"Done in {time.time()-t:.3f} seconds")
+if optto.verbose: print(f"Done in {time.time()-t:.3f} seconds")

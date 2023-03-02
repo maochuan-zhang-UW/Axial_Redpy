@@ -308,7 +308,9 @@ def initialize_table(opt):
         Describes the run parameters.
     
     """
-
+    
+    if opt.verbose: print("Writing hdf5 table: {}".format(opt.filename))
+    
     # Open file
     h5file = open_file(opt.filename, mode="w", title=opt.title)
     group = h5file.create_group("/", opt.groupName, opt.title)
@@ -367,7 +369,9 @@ def open_with_cfg(configfile, verbose=False):
     Parameters
     ----------
     configfile : str
-            Name of configuration file to read.
+        Name of configuration file to read.
+    verbose : bool, optional
+        Enable additional print statements.
     
     Returns
     -------
@@ -392,10 +396,8 @@ def open_with_cfg(configfile, verbose=False):
     
     """
     
-    if verbose: print(f'Using config file: {configfile}')
-    opt = redpy.config.Options(configfile)
+    opt = redpy.config.Options(configfile, verbose)
     
-    if verbose: print(f'Opening hdf5 table: {opt.filename}')
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
         redpy.table.open_table(opt)
     
@@ -431,7 +433,9 @@ def open_table(opt):
         Handle to the Families table.
     
     """
-
+    
+    if opt.verbose: print(f'Opening hdf5 table: {opt.filename}')
+    
     h5file = open_file(opt.filename, "a")
     
     rtable = eval('h5file.root.' + opt.groupName + '.repeaters')

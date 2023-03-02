@@ -36,7 +36,7 @@ parser = argparse.ArgumentParser(description=
     "clusters directory (same location as fam*.png)")
 parser.add_argument('famnum', metavar='N', type=int, nargs='+',
     help="family number(s) to be plotted")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
@@ -71,11 +71,11 @@ else:
 fig, axes, bboxes = redpy.plotting.initialize_family_image(opt)
 
 for fnum in args.famnum:
-    if args.verbose: print("Creating PDF for family {}...".format(fnum))
+    if opt.verbose: print("Creating PDF for family {}...".format(fnum))
     redpy.plotting.assemble_family_image(bboxes, rtable, ftable, rtimes,
         rtimes_mpl, windowAmp, ids, ccc_sparse, 'pdf', 100, fnum, tmin, tmax,
         opt)
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
-if args.verbose: print("Done")
+if opt.verbose: print("Done")

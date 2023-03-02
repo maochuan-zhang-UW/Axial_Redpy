@@ -10,7 +10,7 @@ import numpy as np
 
 class Options(object):
     
-    def __init__(self, configfile='settings.cfg'):
+    def __init__(self, configfile='settings.cfg', verbose=False):
         """
         Options (opt) contains all of the settings from the configuration file.
         
@@ -21,6 +21,8 @@ class Options(object):
         ----------
         configfile : str
             Name of configuration file to read.
+        verbose : bool, optional
+            Enable additional print statements.
         
         """
         
@@ -39,7 +41,7 @@ class Options(object):
             'maxorph'        : 7.0,
             'nsec'           : 3600,
             'max_famlen'     : 30000, # 1000000
-            'verbose'        : False,
+            'verbose'        : verbose,
             
             # STATION PARAMETERS
             'nsta'           : 8,
@@ -181,6 +183,8 @@ class Options(object):
         self.wshape = int((self.ptrig + self.atrig)*self.samprate) + 1
         self.maxdt = np.max(np.fromstring(self.offset, sep=','))
         self.output_folder = f'{self.outputPath}{self.groupName}'
+        
+        if self.verbose: print(f"Using config file: {self.configfile}")
     
     
     def copy(self):

@@ -32,7 +32,7 @@ parser = argparse.ArgumentParser(description=
     "Compares REDPy catalog with csv catalog")
 parser.add_argument("csvfile",
     help="catalog csv file with required column 'Time UTC'")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
@@ -134,11 +134,11 @@ for i in range(len(df)):
             df['FI'][i] = fi[np.argmin(np.abs(dtimesr))]
         
 # Write to matches.csv
-if args.verbose: print("Saving to matches_{}.csv".format(opt.groupName))
+if opt.verbose: print("Saving to matches_{}.csv".format(opt.groupName))
 df.to_csv('matches_{}.csv'.format(opt.groupName), index=False)   
 
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
 
-if args.verbose: print("Done")
+if opt.verbose: print("Done")

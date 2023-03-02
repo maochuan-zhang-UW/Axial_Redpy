@@ -24,7 +24,7 @@ optional arguments:
 
 parser = argparse.ArgumentParser(description=
     "Run this script to clear the contents of the junk table.")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
@@ -33,7 +33,7 @@ args = parser.parse_args()
 h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-if args.verbose: print("Removing junk...")
+if opt.verbose: print("Removing junk...")
 
 if len(jtable) > 1:
 # This will remove all but the last row (have to leave one)
@@ -41,8 +41,8 @@ if len(jtable) > 1:
         jtable.remove_row(n)
     jtable.flush()
 else:
-    if args.verbose: print("No junk to remove!")
+    if opt.verbose: print("No junk to remove!")
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
 if args.verbose: print("Done")

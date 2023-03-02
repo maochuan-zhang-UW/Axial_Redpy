@@ -36,7 +36,7 @@ parser = argparse.ArgumentParser(description=
     "family (or families)")
 parser.add_argument('famnum', metavar='N', type=int, nargs='+',
     help="family number(s) to be reported on")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-o", "--ordered", action="count", default=0,
     help="order plots by OPTICS")
@@ -51,7 +51,7 @@ args = parser.parse_args()
 h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-if args.verbose: print("Creating folder to store files '{}{}/reports'".format(
+if opt.verbose: print("Creating folder to store files '{}{}/reports'".format(
     opt.outputPath, opt.groupName))
     
 try:
@@ -68,11 +68,11 @@ fi = rtable.cols.FI[:]
 ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
 
 for fnum in args.famnum:
-    if args.verbose: print("Creating report for family {}...".format(fnum))
+    if opt.verbose: print("Creating report for family {}...".format(fnum))
     redpy.plotting.create_report(rtable, ftable, rtimes, rtimes_mpl,
         windowAmps, fi, ids, ccc_sparse, fnum, args.ordered, args.skip,
         args.matrixtofile, opt)
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
-if args.verbose: print("Done")
+if opt.verbose: print("Done")

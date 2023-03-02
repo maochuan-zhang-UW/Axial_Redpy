@@ -41,7 +41,7 @@ optional arguments:
 
 parser = argparse.ArgumentParser(description=
     "Run this script to manually produce an editable PDF version of the overview page")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
@@ -99,7 +99,7 @@ if args.format:
 else:
     plotformat = 'eqrate,fi,occurrence,longevity'
 
-if args.verbose: print("Creating overview.pdf in main output directory...")
+if opt.verbose: print("Creating overview.pdf in main output directory...")
 
 ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
 windowStart = rtable.cols.windowStart[:]
@@ -111,6 +111,6 @@ redpy.plotting.assemble_pdf_overview(rtable, ftable, ttimes, rtimes,
     rtimes_mpl, fi, tmin, tmax, binsize, minmembers, occurheight,
     plotformat, opt)
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
-if args.verbose: print("Done")
+if opt.verbose: print("Done")

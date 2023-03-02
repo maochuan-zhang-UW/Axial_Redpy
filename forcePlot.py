@@ -38,7 +38,7 @@ optional arguments:
 
 parser = argparse.ArgumentParser(description=
     "Run this script to force plotting. Can be used after killing mid-run or updating settings.")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-a", "--all", action="count", default=0,
     help="replot everything, not just updated families")
@@ -60,12 +60,12 @@ h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
 if args.all:
-    if args.verbose: print("Resetting plotting column...")
+    if opt.verbose: print("Resetting plotting column...")
     ftable.cols.printme[0:ftable.attrs.nClust] = np.ones(
                                                         (ftable.attrs.nClust,))
 
 if args.resetlp:
-    if args.verbose: print("Resetting last print column...")
+    if opt.verbose: print("Resetting last print column...")
     ftable.cols.lastprint[:] = np.arange(len(ftable))
     
 if args.startfam or args.endfam:
@@ -79,7 +79,7 @@ if args.startfam or args.endfam:
         ftable.cols.printme[args.startfam:args.endfam] = np.ones(
                                                   (args.endfam-args.startfam,))
 
-if args.verbose: print("Creating requested plots...")
+if opt.verbose: print("Creating requested plots...")
 
 if args.famplot or args.html:
     windowStart = rtable.cols.windowStart[:]
@@ -110,6 +110,6 @@ else:
                                                                    otable, opt)
 
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
-if args.verbose: print("Done")
+if opt.verbose: print("Done")

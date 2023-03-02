@@ -27,7 +27,7 @@ optional arguments:
 
 parser = argparse.ArgumentParser(description=
     "Finds families with regional/teleseismic matches by parsing their .html files")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements, including table of matches")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
@@ -37,8 +37,7 @@ parser.add_argument("-r", "--regional", action="count", default=0,
     help="include regional matches in addition to local seismicity")
 args = parser.parse_args()
 
-if args.verbose: print(f"Using config file: {args.configfile}")
-opt = redpy.config.Options(args.configfile)
+opt = redpy.config.Options(args.configfile, args.verbose)
 
 flist = np.array(list(itertools.chain.from_iterable(glob.iglob(os.path.join(
                 root,'*.html')) for root, dirs, files in os.walk(
@@ -96,5 +95,5 @@ with open('{}{}/clusterlocs.txt'.format(opt.outputPath,opt.groupName), 'w') as o
             outfile.write('{}   \n'.format(fnum))  
 
 outfile.close()   
-if args.verbose: print('Done writing to {}{}/clusterlocs.txt'.format(
+if opt.verbose: print('Done writing to {}{}/clusterlocs.txt'.format(
     opt.outputPath,opt.groupName))

@@ -24,7 +24,7 @@ optional arguments:
 
 parser = argparse.ArgumentParser(description=
     "Run this script to output the contents of the junk table for troubleshooting.")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
@@ -33,16 +33,16 @@ args = parser.parse_args()
 h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-if args.verbose: print("Creating folder to store junk images named '{}{}'/junk".format(
+if opt.verbose: print("Creating folder to store junk images named '{}{}'/junk".format(
     opt.outputPath,opt.groupName))
 try:
     os.mkdir('{}{}/junk'.format(opt.outputPath,opt.groupName))
 except OSError:
     print("Folder exists.")
 
-if args.verbose: print("Creating junk plots...")
+if opt.verbose: print("Creating junk plots...")
 redpy.plotting.create_junk_images(jtable, opt)
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
-if args.verbose: print("Done")
+if opt.verbose: print("Done")

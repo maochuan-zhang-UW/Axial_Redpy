@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(description=
     """Run this script to generate 'meta.html' in a specified directory and with a list
        of runs. This page gathers the 'meta_recent.html' tabbed overviews within the
        output directories into a single page.""")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-p", "--path",
     help="relative path to where meta.html should be created (e.g., ./) and ending in /",

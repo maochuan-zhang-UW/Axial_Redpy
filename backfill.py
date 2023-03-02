@@ -61,7 +61,6 @@ h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
 if args.nsec: opt.nsec = args.nsec
-if args.verbose: opt.verbose = True
 
 if args.endtime:
     tend = UTCDateTime(args.endtime)
@@ -101,9 +100,9 @@ while tstart+n*opt.nsec < tend:
     # Check if we need to preload waveform data from file into memory
     if (opt.preload > 0) and (len(filekey) > 0):
         if np.min([tend+opt.maxdt,tstart+(n+1)*opt.nsec+opt.maxdt]) > tend_preload:
-            if args.verbose:
-                print('Loading waveforms into memory...')
-                
+            
+            if opt.verbose: print('Loading waveforms into memory...')
+            
             # Determine end time to load
             tend_preload = np.min([tend+opt.maxdt,
                 tstart+n*opt.nsec+opt.preload*86400+opt.maxdt])
@@ -187,7 +186,7 @@ while tstart+n*opt.nsec < tend:
     redpy.table.clear_expired_orphans(otable, tstart+(n+1)*opt.nsec, opt)
 
     # Print some stats
-    if args.verbose:
+    if opt.verbose:
         print("Length of Orphan table: {}".format(len(otable)))
         if len(rtable) > 1:
             print("Number of repeaters: {}".format(len(rtable)))
@@ -200,16 +199,16 @@ while tstart+n*opt.nsec < tend:
 
     n = n+1
 
-    if args.verbose: print("Time spent this iteration: {} minutes".format(
+    if opt.verbose: print("Time spent this iteration: {} minutes".format(
         (time.time()-ti)/60))
 
 print("Caught up to: {}".format(endtime-opt.atrig))
 
-if args.verbose: print("Updating plots...")
+if opt.verbose: print("Updating plots...")
 redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
 
 print("Total time spent: {} minutes".format((time.time()-t)/60))
-if args.verbose: print("Done")
+if opt.verbose: print("Done")

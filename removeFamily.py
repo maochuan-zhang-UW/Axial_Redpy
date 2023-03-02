@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description=
     "Run this script to manually remove families/clusters")
 parser.add_argument('famnum', metavar='N', type=int, nargs='+',
     help="family number(s) to be moved and deleted")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
@@ -40,12 +40,12 @@ oldnClust = ftable.attrs.nClust
 
 redpy.table.remove_families(rtable, ctable, dtable, ftable, args.famnum, opt, args.verbose)
 
-if args.verbose: print("Creating plots...")
+if opt.verbose: print("Creating plots...")
 redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
 
-if args.verbose: print("Cleaning up .html files...")
+if opt.verbose: print("Cleaning up .html files...")
 redpy.plotting.remove_old_html(oldnClust, ftable.attrs.nClust, opt)
 
-if args.verbose: print("Closing table...")
+if opt.verbose: print("Closing table...")
 h5file.close()
-if args.verbose: print("Done")
+if opt.verbose: print("Done")

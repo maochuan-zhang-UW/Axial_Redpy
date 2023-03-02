@@ -24,30 +24,28 @@ optional arguments:
 
 parser = argparse.ArgumentParser(description=
     "Initialize hdf5 table using configuration, overwrites existing table defined in config")
-parser.add_argument("-v", "--verbose", action="count", default=0,
+parser.add_argument("-v", "--verbose", action="store_true", default=False,
     help="increase written print statements")
 parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 args = parser.parse_args()
 
-if args.verbose: print(f"Using config file: {args.configfile}")
-opt = redpy.config.Options(args.configfile)
+opt = redpy.config.Options(args.configfile, args.verbose)
 
-if args.verbose: print("Writing hdf5 table: {}".format(opt.filename))
 redpy.table.initialize_table(opt)
 
-if args.verbose: print("Creating folder to store images '{}{}'".format(opt.outputPath,
+if opt.verbose: print("Creating folder to store images '{}{}'".format(opt.outputPath,
                                                                        opt.groupName))
 try:
     os.mkdir('{}{}'.format(opt.outputPath,opt.groupName))
 except OSError:
     print("Folder exists.")
     
-if args.verbose: print("Creating folder to store core images '{}{}/clusters'".format(
+if opt.verbose: print("Creating folder to store core images '{}{}/clusters'".format(
     opt.outputPath,opt.groupName))
 try:
     os.mkdir('{}{}/clusters'.format(opt.outputPath,opt.groupName))
 except OSError:
     print("Folder exists.")
 
-if args.verbose: print("Done")
+if opt.verbose: print("Done")
