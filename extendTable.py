@@ -65,4 +65,4 @@ if do_plot:
 if optto.verbose: print("Closing table...")
 h5fileto.close()
 
-if optto.verbose: print(f"Done in {time.time()-t:.3f} seconds")
+if optto.verbose: print(f"Done in {(time.time()-t)/60:.3f} minutes")
