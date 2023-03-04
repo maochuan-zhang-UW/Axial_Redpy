@@ -452,7 +452,31 @@ def open_table(opt):
     # Check attributes in ftable, fill if missing
     ftable_compatibility_check(ftable, opt)
     
+    print_stats(rtable, otable, ftable, opt)
+    
     return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable
+
+
+def print_stats(rtable, otable, ftable, opt):
+    """
+    Prints the current number of orphans, repeaters, and families.
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ftable : Table object
+        Handle to the Families table.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    if opt.verbose:
+        print(f'Number of orphans   : {len(otable)}')
+        print(f'Number of repeaters : {len(rtable)}')
+        print(f'Number of families  : {ftable.attrs.nClust}')
 
 
 def calculate_window_amplitude(data, trigger_sample, opt):
