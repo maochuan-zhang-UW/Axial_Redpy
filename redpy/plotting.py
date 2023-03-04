@@ -62,6 +62,7 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         Describes the run parameters.
     
     """
+    if opt.verbose: print('Updating plots...')
     
     # Call columns that are used multiple times into memory
     ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
