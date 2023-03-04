@@ -11,204 +11,211 @@ from obspy import UTCDateTime
 import redpy
 
 
-"""
-Run this script to fill the table with data from the past. If a start time is not
-specified, it will check the attributes of the repeater table to pick up where it left
-off. Additionally, if this is the first run and a start time is not specified, it will
-assume one time chunk prior to the end time. If an end time is not specified, "now" is
-assumed. The end time updates at the end of each time chunk processed (default: by hour,
-set in configuration). This script can be run as a cron job that will pick up where it
-left off if a chunk is missed. Use -n if you are backfilling with a large amount of time;
-it will consume less time downloading the data in small chunks if NSEC is an hour or a day
-instead of a few minutes, but at the cost of keeping orphans for longer.
-
-usage: backfill.py [-h] [-v] [-t] [-s STARTTIME] [-e ENDTIME] [-c CONFIGFILE] [-n NSEC]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -v, --verbose         increase written print statements
-  -t, --troubleshoot    run in troubleshoot mode (without try/except)
-  -s STARTTIME, --starttime STARTTIME
-                        optional start time to begin filling (YYYY-MM-DDTHH:MM:SS)
-  -e ENDTIME, --endtime ENDTIME
-                        optional end time to end filling (YYYY-MM-DDTHH:MM:SS)
-  -c CONFIGFILE, --configfile CONFIGFILE
-                        use configuration file named CONFIGFILE instead of
-                        default settings.cfg
-  -n NSEC, --nsec NSEC  overwrite opt.nsec from configuration file with NSEC this run only
-"""
-
-t = time.time()
-
-parser = argparse.ArgumentParser(description=
-    "Backfills table with data from the past")
-parser.add_argument("-v", "--verbose", action="store_true", default=False,
-    help="increase written print statements")
-parser.add_argument("-t", "--troubleshoot", action="store_true", default=False,
-    help="run in troubleshoot mode (without try/except)")
-parser.add_argument("-s", "--starttime",
-    help="optional start time to begin filling (YYYY-MM-DDTHH:MM:SS)")
-parser.add_argument("-e", "--endtime",
-    help="optional end time to end filling (YYYY-MM-DDTHH:MM:SS)")
-parser.add_argument("-c", "--configfile", default="settings.cfg",
-    help="use configuration file named CONFIGFILE instead of default settings.cfg")
-parser.add_argument("-n", "--nsec", type=int,
-    help="overwrite opt.nsec from configuration file with NSEC this run only")
-args = parser.parse_args()
-
-
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-    redpy.table.open_with_cfg(args.configfile, args.verbose)
-
-if args.nsec: opt.nsec = args.nsec
-
-if args.endtime:
-    tend = UTCDateTime(args.endtime)
-else:
-    tend = UTCDateTime()
-
-if args.starttime:
-    tstart = UTCDateTime(args.starttime)
-    if rtable.attrs.ptime:
-        rtable.attrs.ptime = UTCDateTime(tstart)
-else:
-    if rtable.attrs.ptime:
-        tstart = UTCDateTime(rtable.attrs.ptime)
-    else:
-        tstart = tend-opt.nsec
-
-# Enforce starttime < endtime
-if tstart > tend: raise ValueError(f'Start {tstart} is after end {tend}!')
-
-if len(ttable) > 0:
-    ttimes = ttable.cols.startTimeMPL[:]
-else:
-    ttimes = 0
-
-# Create or read in file key to improve file load times
-filekey = redpy.trigger.get_filekey(tstart, tend, opt)
-tend_preload = tstart
-
-
-n = 0
-rlen = len(rtable)
-while tstart+n*opt.nsec < tend:
-
-    ti = time.time()
-    print(tstart+n*opt.nsec)
+def main():
+    """
+    Backfills table with data from the past.
     
-    # Check if we need to preload waveform data from file into memory
-    if (opt.preload > 0) and (len(filekey) > 0):
-        if np.min([tend+opt.maxdt,tstart+(n+1)*opt.nsec+opt.maxdt]) > tend_preload:
-            
-            if opt.verbose: print('Loading waveforms into memory...')
-            
-            # Determine end time to load
-            tend_preload = np.min([tend+opt.maxdt,
-                tstart+n*opt.nsec+opt.preload*86400+opt.maxdt])
-            
-            # Load into memory
-            st_preload = redpy.trigger.preload_data(
-                tstart+n*opt.nsec-opt.atrig, tend_preload, filekey, opt)
-    else:
-        st_preload = []
+    Run this script to fill the table with data from the past. If a start time
+    is not specified, it will check the attributes of the repeater table to
+    pick up where it left off. Additionally, if this is the first run and a
+    start time is not specified, it will assume one time chunk prior to the
+    end time. If an end time is not specified, "now" is assumed. The end time
+    updates at the end of each time chunk processed (default: by hour, set in
+    configuration). This script can be run as a cron job that will pick up
+    where it left off if a chunk is missed. Use -n if you are backfilling with
+    a large amount of time; it will consume less time downloading the data in
+    small chunks if NSEC is an hour or a day instead of a few minutes, but at
+    the cost of keeping orphans for longer.
     
-    # Check to make sure we have space
+    usage: backfill.py [-h] [-v] [-t] [-s STARTTIME] [-e ENDTIME]
+                       [-c CONFIGFILE] [-n NSEC]
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      -v, --verbose         increase written print statements
+      -t, --troubleshoot    run in troubleshoot mode (without try/except)
+      -s STARTTIME, --starttime STARTTIME
+                            optional start time to begin filling
+                            (yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)
+      -e ENDTIME, --endtime ENDTIME
+                            optional end time to end filling
+                            (yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)
+      -c CONFIGFILE, --configfile CONFIGFILE
+                            use configuration file named CONFIGFILE instead of
+                            default settings.cfg
+      -n NSEC, --nsec NSEC  overwrite opt.nsec from configuration file with
+                            NSEC this run only
+    
+    """
+    t_func = time.time()
+    args = backfill_parse()
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-        redpy.table.check_famlen(h5file, rtable, otable, ttable, ctable,
-                                                  jtable, dtable, ftable, opt)
+        redpy.table.open_with_cfg(args.configfile, args.verbose)
     
-    # Download and trigger
-    if args.troubleshoot:
-        endtime = tstart+(n+1)*opt.nsec+opt.atrig
-        if endtime > tend:
-            endtime = tend
-        st = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime,
-                                                     filekey, st_preload, opt)
-        alltrigs = redpy.trigger.trigger(st, rtable, opt)
+    # Deal with input arguments
+    if args.nsec: opt.nsec = args.nsec
+    if args.endtime:
+        tend = UTCDateTime(args.endtime)
     else:
-        try:
-            endtime = tstart+(n+1)*opt.nsec+opt.atrig
-            if endtime > tend:
-                endtime = tend
-            st = redpy.trigger.get_data(tstart+n*opt.nsec-opt.atrig, endtime,
-                                                     filekey, st_preload, opt)
-            alltrigs = redpy.trigger.trigger(st, rtable, opt)
-        except KeyboardInterrupt:
-            print('\nManually interrupting!\n')
-            raise KeyboardInterrupt
-        except:
-            print('Could not download or trigger data... troubleshoot with -t')
-            alltrigs = []
-    
-    # Clean out data spikes etc.
-    trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt)
-    
-    # !!! This step already goes through and calculates the window, can I 
-    # !!! pass that down the line to save some duplicate calculations?
-    
-    # Save junk triggers in separate table for quality checking purposes
-    for i in range(len(junk)):
-        redpy.table.populate_junk(jtable, junk[i], jtype[i], opt)
-    
-    # Append times of triggers to ttable to compare total seismicity later
-    trigs = redpy.table.populate_triggers(ttable, trigs, ttimes, opt)
-    
-    # Check triggers against deleted events
-    if len(dtable) > 0:
-        trigs = redpy.correlation.compare_deleted(trigs, dtable, opt)
-    
-    if len(trigs) > 0:
-        id = rtable.attrs.previd
-        if len(trigs) == 1:
-            ostart = 0
-            if len(otable) == 0:
-                # First trigger goes to orphans table
-                redpy.table.populate_orphan(otable, 0, trigs[0], opt)
-                ostart = 1
-            else:
-                id = id + 1
-                redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable, ttimes,
-                    trigs[0], id, args.troubleshoot, opt)
-        else:
-            ostart = 0
-            if len(otable) == 0:
-                # First trigger goes to orphans table
-                redpy.table.populate_orphan(otable, 0, trigs[0], opt)
-                ostart = 1
-            # Loop through remaining triggers
-            for i in range(ostart,len(trigs)):
-                id = id + 1
-                redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable, ttimes,
-                    trigs[i], id, args.troubleshoot, opt)
-        rtable.attrs.previd = id
-
-    redpy.table.clear_expired_orphans(otable, tstart+(n+1)*opt.nsec, opt)
-
-    # Print some stats
-    if opt.verbose:
-        print("Length of Orphan table: {}".format(len(otable)))
-        if len(rtable) > 1:
-            print("Number of repeaters: {}".format(len(rtable)))
-            print("Number of clusters: {}".format(ftable.attrs.nClust))
-
-    # Update tend if an end date is not specified so this will run until it is fully
-    # caught up, instead of running to when the script was originally run.
-    if not args.endtime:
         tend = UTCDateTime()
+    if args.starttime:
+        tstart = UTCDateTime(args.starttime)
+        if rtable.attrs.ptime:
+            rtable.attrs.ptime = UTCDateTime(tstart)
+    else:
+        if rtable.attrs.ptime:
+            tstart = UTCDateTime(rtable.attrs.ptime)
+        else:
+            tstart = tend-opt.nsec
+    if tstart > tend: raise ValueError(f'Start {tstart} is after end {tend}!')
+    
+    if len(ttable) > 0:
+        ttimes = ttable.cols.startTimeMPL[:]
+    else:
+        ttimes = 0
+    
+    # Create or read in file key to improve local file load times
+    filekey, tend_preload = redpy.trigger.get_filekey(tstart, tend, opt)
+    
+    n = 0
+    rlen = len(rtable)
+    while tstart + n*opt.nsec < tend:
+        t_iter = time.time()
+        
+        starttime = tstart+n*opt.nsec
+        endtime = np.min((tstart+(n+1)*opt.nsec, tend))+opt.atrig+opt.maxdt
+        
+        print(starttime)
+        
+        ####
+        
+        # Check to make sure we have space
+        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+            redpy.table.check_famlen(h5file, rtable, otable, ttable, ctable,
+                                     jtable, dtable, ftable, opt)
+        
+        # Preload check
+        if (opt.preload > 0) and (len(filekey) > 0):
+            print(f'{endtime+opt.maxdt} {tend_preload}')
+            if endtime+opt.maxdt > tend_preload:
+                if opt.verbose: print('Loading waveforms into memory...')
+                tend_preload = np.min((tend,
+                    starttime+opt.preload*86400))+opt.atrig+opt.maxdt
+                st_preload = redpy.trigger.preload_data(
+                    starttime-opt.atrig, tend_preload, filekey, opt)
+        else:
+            st_preload = []
+        
+        # Download and trigger
+        if args.troubleshoot:
+            st = redpy.trigger.get_data(starttime-opt.atrig, endtime,
+                                        filekey, st_preload, opt)
+            alltrigs = redpy.trigger.trigger(st, rtable, opt)
+        else:
+            try:
+                st = redpy.trigger.get_data(starttime-opt.atrig, endtime,
+                                            filekey, st_preload, opt)
+                alltrigs = redpy.trigger.trigger(st, rtable, opt)
+            except KeyboardInterrupt:
+                print('\nManually interrupting!\n')
+                raise KeyboardInterrupt
+            except:
+                print(('Could not download or trigger data... '
+                       'troubleshoot with -t'))
+                alltrigs = []
+        
+        # Clean out data spikes etc.
+        trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt)
+        
+        # !!! This step already goes through and calculates the window, can I 
+        # !!! pass that down the line to save some duplicate calculations?
+        
+        # Save junk triggers in separate table for quality checking purposes
+        for i in range(len(junk)):
+            redpy.table.populate_junk(jtable, junk[i], jtype[i], opt)
+        
+        # Append times of triggers to ttable to compare total seismicity later
+        trigs = redpy.table.populate_triggers(ttable, trigs, ttimes, opt)
+        
+        # Check triggers against deleted events
+        if len(dtable) > 0:
+            trigs = redpy.correlation.compare_deleted(trigs, dtable, opt)
+        
+        if len(trigs) > 0:
+            id = rtable.attrs.previd
+            if len(trigs) == 1:
+                ostart = 0
+                if len(otable) == 0:
+                    # First trigger goes to orphans table
+                    redpy.table.populate_orphan(otable, 0, trigs[0], opt)
+                    ostart = 1
+                else:
+                    id += 1
+                    redpy.correlation.correlate_new_triggers(
+                        rtable, otable, ctable, ftable, ttimes,
+                        trigs[0], id, args.troubleshoot, opt)
+            else:
+                ostart = 0
+                if len(otable) == 0:
+                    # First trigger goes to orphans table
+                    redpy.table.populate_orphan(otable, 0, trigs[0], opt)
+                    ostart = 1
+                # Loop through remaining triggers
+                for i in range(ostart,len(trigs)):
+                    id += 1
+                    redpy.correlation.correlate_new_triggers(
+                        rtable, otable, ctable, ftable, ttimes,
+                        trigs[i], id, args.troubleshoot, opt)
+            rtable.attrs.previd = id
+        ####
+        
+        redpy.table.clear_expired_orphans(otable, tstart+(n+1)*opt.nsec, opt)
+        redpy.table.print_stats(rtable, otable, ftable, opt)
+        n += 1
+        if opt.verbose: print('Time spent this iteration: '
+                              f'{(time.time()-t_iter)/60:.3f} minutes')
+    print(f'Caught up to: {endtime-opt.atrig}')
+    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
+                                        otable, opt)
+    if opt.verbose: print('Closing table...')
+    h5file.close()
+    if opt.verbose: print('Total time spent: '
+                          f'{(time.time()-t_func)/60:.3f} minutes')
+    print('Done')
 
-    n = n+1
 
-    if opt.verbose: print("Time spent this iteration: {} minutes".format(
-        (time.time()-ti)/60))
+def backfill_parse():
+    """
+    Defines and parses acceptable command line inputs for backfill.py.
+    
+    Returns
+    -------
+    args : ArgumentParser Object
+    
+    """
+    parser = argparse.ArgumentParser(
+        description='Backfills table with data from the past.')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False,
+                        help='increase written print statements')
+    parser.add_argument('-t', "--troubleshoot", action='store_true',
+                        default=False,
+                        help='run in troubleshoot mode (without try/except)')
+    parser.add_argument('-s', '--starttime',
+                        help=('optional start time to begin filling '
+                              '(yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)'))
+    parser.add_argument('-e', '--endtime',
+                        help=('optional end time to end filling '
+                              '(yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)'))
+    parser.add_argument('-c', '--configfile', default='settings.cfg',
+                        help=('use configuration file named CONFIGFILE '
+                              'instead of default settings.cfg'))
+    parser.add_argument('-n', '--nsec', type=int,
+                        help=('overwrite opt.nsec from configuration file '
+                              'with NSEC this run only'))
+    args = parser.parse_args()
+    return args
 
-print("Caught up to: {}".format(endtime-opt.atrig))
 
-if opt.verbose: print("Updating plots...")
-redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
+if __name__ == '__main__':
+    main()
 
-if opt.verbose: print("Closing table...")
-h5file.close()
-
-print("Total time spent: {} minutes".format((time.time()-t)/60))
-if opt.verbose: print("Done")
