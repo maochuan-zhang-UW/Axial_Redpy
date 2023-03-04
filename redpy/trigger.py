@@ -185,6 +185,8 @@ def get_filekey(tstart, tend, opt):
     -------
     filekey : DataFrame object
         Table containing filenames matching search parameters with metadata.
+    tend_preload : UTCDateTime object
+        Beginning time of query as placeholder for loading data later.
     
     """
     
@@ -240,7 +242,7 @@ def get_filekey(tstart, tend, opt):
     else:
         filekey = []
     
-    return filekey
+    return filekey, tstart
 
 
 def preload_data(tstart, tend, filekey, opt):
