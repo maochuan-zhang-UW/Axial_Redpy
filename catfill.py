@@ -29,8 +29,6 @@ optional arguments:
                         default settings.cfg
 """
 
-t = time.time()
-
 parser = argparse.ArgumentParser(description=
     "Backfills table with data from the past")
 parser.add_argument("csvfile",
@@ -43,69 +41,70 @@ parser.add_argument("-c", "--configfile", default="settings.cfg",
     help="use configuration file named CONFIGFILE instead of default settings.cfg")
 args = parser.parse_args()
 
+t = time.time()
+
+print(args.verbose)
+
 h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
     redpy.table.open_with_cfg(args.configfile, args.verbose)
 
 # Read in csv file using pandas
 df = pd.read_csv(args.csvfile)
-# Grab event times from 'Time UTC' column, convert to datetimes also
+# Grab event times from 'Time UTC' column, convert to datevent_times also
 eventlist = pd.to_datetime(df['Time UTC']).tolist()
 # Sort so events are processed in order of occurrence
 eventlist.sort()
+tstart = UTCDateTime(eventlist[0])-5*opt.atrig
+tend = UTCDateTime(eventlist[-1])+5*opt.atrig
 
-# Create or read in file key to improve file load times
-tstart = UTCDateTime(eventlist[0]) - 5*opt.atrig
-tend = UTCDateTime(eventlist[-1]) + 5*opt.atrig
-filekey = redpy.trigger.get_filekey(tstart, tend, opt)
-tend_preload = tstart
+if len(ttable) > 0:
+    ttimes = ttable.cols.startTimeMPL[:]
+else:
+    ttimes = 0
 
+# Create or read in file key to improve local file load times
+filekey, tend_preload = redpy.trigger.get_filekey(tstart, tend, opt)
 
 for event in eventlist:
+    event_time = UTCDateTime(event)
+    if opt.verbose: print(event_time)
+    
+    starttime = event_time - 4*opt.atrig
+    endtime = event_time + 5*opt.atrig + opt.maxdt
+    
+    if len(ttable) > 0:
+        ttimes = ttable.cols.startTimeMPL[:]
+    else:
+        ttimes = 0
+    
+    ####
     
     # Check to make sure we have space
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
         redpy.table.check_famlen(h5file, rtable, otable, ttable, ctable,
                                                   jtable, dtable, ftable, opt)
     
-    etime = UTCDateTime(event)
-    if len(ttable) > 0:
-        ttimes = ttable.cols.startTimeMPL[:]
-    else:
-        ttimes = 0
-    
     # Check if we need to preload waveform data from file into memory
     if (opt.preload > 0) and (len(filekey) > 0):
-        if etime+5*opt.atrig > tend_preload:
-            if opt.verbose:
-                print('Loading waveforms into memory...')
-                
-            # Determine end time to load
-            tend_preload = np.min([tend+opt.maxdt,
-                etime+opt.preload*86400+opt.maxdt])
-            
-            # Load into memory
+        if endtime+opt.maxdt > tend_preload:
+            if opt.verbose: print('Loading waveforms into memory...')
+            tend_preload = np.min((tend,
+                starttime+opt.preload*86400)) + opt.maxdt
             st_preload = redpy.trigger.preload_data(
-                etime-5*opt.atrig, tend_preload, filekey, opt)
+                starttime, tend_preload, filekey, opt)
     else:
         st_preload = []
     
-    
-    if opt.verbose: print(etime)
-    
     # Download and trigger
     if args.troubleshoot:
-        st = redpy.trigger.get_data(etime-5*opt.atrig,
-                                        etime+5*opt.atrig, filekey, st_preload, opt)
+        st = redpy.trigger.get_data(starttime-opt.atrig, endtime, filekey,
+                                    st_preload, opt)
         alltrigs = redpy.trigger.trigger(st, rtable, opt)
-        # Reset ptime for refilling later
-        rtable.attrs.ptime = []
     else:
         try:
-            st = redpy.trigger.get_data(etime-5*opt.atrig,
-                                            etime+5*opt.atrig, filekey, st_preload, opt)
+            st = redpy.trigger.get_data(starttime-opt.atrig, endtime, filekey,
+                                        st_preload, opt)
             alltrigs = redpy.trigger.trigger(st, rtable, opt)
-            # Reset ptime for refilling later
-            rtable.attrs.ptime = []
         except KeyboardInterrupt:
             print('\nManually interrupting!\n')
             raise KeyboardInterrupt
@@ -136,7 +135,7 @@ for event in eventlist:
                 redpy.table.populate_orphan(otable, 0, trigs[0], opt)
                 ostart = 1
             else:        
-                id = id + 1
+                id += 1
                 redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable,
                     ttimes, trigs[0], id, args.troubleshoot, opt)
         else:
@@ -147,26 +146,21 @@ for event in eventlist:
                 ostart = 1        
             # Loop through remaining triggers
             for i in range(ostart,len(trigs)):  
-                id = id + 1
+                id += 1
                 redpy.correlation.correlate_new_triggers(rtable, otable, ctable, ftable,
                     ttimes, trigs[i], id, args.troubleshoot, opt)
         rtable.attrs.previd = id        
+    ####
+    
+    # Reset ptime for refilling later
+    rtable.attrs.ptime = []
     
     # Don't expire orphans in the catalog?
     # redpy.table.clearExpiredOrphans(otable, opt, tstart+(n+1)*opt.nsec)
     
-    # Print some stats
-    if opt.verbose:
-        print("Length of Orphan table: {}".format(len(otable)))
-        if len(rtable) > 1:
-            print("Number of repeaters: {}".format(len(rtable)))
-            print("Number of clusters: {}".format(ftable.attrs.nClust))
+    redpy.table.print_stats(rtable, otable, ftable, opt)
 
-if len(rtable) > 1:
-    if opt.verbose: print("Creating plots...")
-    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
-else:
-    print("No repeaters to plot.")
+redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
 
 if opt.verbose: print("Closing table...")
 h5file.close()
