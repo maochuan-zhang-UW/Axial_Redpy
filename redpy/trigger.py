@@ -184,7 +184,7 @@ def get_filekey(tstart, tend, opt):
     Returns
     -------
     filekey : DataFrame object
-        Table containing filenames matching search parameters with metadata.
+        Keys file names of local waveform data to their metadata.
     
     """
     
@@ -233,45 +233,109 @@ def preload_data(tstart, tend, filekey, opt):
     tend : UTCDateTime object
         End time of query.
     filekey : DataFrame object
-        Table containing filenames matching search parameters with metadata.
+        Keys file names of local waveform data to their metadata.
     opt : Options object
         Describes the run parameters.
     
     Returns
     -------
-    st_preload : Stream object
+    preload_waveforms : Stream object
         Preloaded waveform data from files on disk.
     
     """
-        
-    st_preload = Stream()
-    
+    preload_waveforms = Stream()
     nets = opt.network.split(',')
     stas = opt.station.split(',')
     locs = opt.location.split(',')
     chas = opt.channel.split(',')
-    
     # Load up waveform data from tstart to tend into memory
     for n in range(len(stas)):
-        
         # Format SCNL string
         scnl = f'{nets[n]}.{stas[n]}.{chas[n]}.{locs[n]}'
-        
         # Find list of files to load
-        flist_sub = filekey.query(f"scnl == '{scnl}' and starttime < '{tend}' \
-                               and endtime > '{tstart}'")['filename'].to_list()
-        
+        flist_sub = filekey.query(
+            f"scnl == '{scnl}' and starttime < '{tend}' "
+            f"and endtime > '{tstart}'")['filename'].to_list()
         if len(flist_sub) > 0:
-            
             # Fully load data from file(s)
             for f in flist_sub:
                 stmp = obspy.read(f, starttime=tstart, endtime=tend)
-                st_preload = st_preload.extend(stmp)
+                preload_waveforms = preload_waveforms.extend(stmp)
+    return preload_waveforms
+
+
+def preload_check(window_start_time, window_end_time, preload_end_time,
+                  run_end_time, filekey, opt, preload_waveforms=[]):
+    """
+    Checks if new data need to be 'preloaded' into memory.
     
-    return st_preload
+    Parameters
+    ----------
+    window_start_time : UTCDateTime object
+        Start time of window to process.
+    window_end_time : UTCDateTime object
+        End time of window to process.
+    preload_end_time : UTCDateTime object
+        End time of preloaded waveforms.
+    run_end_time : UTCDateTime object
+        End time of full span of interest.
+    filekey : DataFrame object
+        Keys file names of local waveform data to their metadata.
+    opt : Options object
+        Describes the run parameters.
+    preload_waveforms : Stream object, optional
+        Stream containing waveforms 'preloaded' into memory.
+    
+    Returns
+    -------
+    preload_waveforms : Stream object
+        Stream containing waveforms 'preloaded' into memory.
+    preload_end_time : UTCDateTime object
+        End time of preloaded waveforms.
+    
+    """
+    if (opt.preload > 0) and (len(filekey) > 0):
+        if window_end_time+opt.maxdt > preload_end_time:
+            if opt.verbose: print('Loading waveforms into memory...')
+            preload_end_time = np.min(
+                (run_end_time, window_start_time+opt.preload*86400)
+                ) + opt.atrig + opt.maxdt
+            preload_waveforms = preload_data(window_start_time-opt.atrig,
+                                             preload_end_time, filekey, opt)
+    return preload_waveforms, preload_end_time
 
 
-def get_data(tstart, tend, filekey, st_preload, opt):
+def initial_data_preload(run_start_time, run_end_time, opt):
+    """
+    Handles the first preload when starting a run.
+    
+    Parameters
+    ----------
+    run_start_time : UTCDateTime object
+        Start time of full span of interest.
+    run_end_time : UTCDateTime object
+        End time of full span of interest.
+    opt : Options object
+        Describes the run parameters
+    
+    Returns
+    -------
+    filekey : DataFrame object
+        Keys file names of local waveform data to their metadata.
+    preload_waveforms : Stream object
+        Stream containing waveforms 'preloaded' into memory.
+    preload_end_time : UTCDateTime object
+        End time of preloaded waveforms.
+    
+    """
+    filekey = get_filekey(run_start_time, run_end_time, opt)
+    preload_waveforms, preload_end_time = preload_check(
+        run_start_time, run_end_time, run_start_time, run_end_time,
+        filekey, opt)
+    return filekey, preload_waveforms, preload_end_time
+
+
+def get_data(tstart, tend, filekey, preload_waveforms, opt):
     """
     Download data from web or read from file.
     
@@ -288,7 +352,7 @@ def get_data(tstart, tend, filekey, st_preload, opt):
     filekey : DataFrame object
         Contains filenames, SCNL codes, start times, and end times of waveform
         files on disk. Empty if querying from a server.
-    st_preload : Stream object
+    preload_waveforms : Stream object
         Preloaded waveform data from files on disk. Empty if querying from a
         server.
     opt : Options object
@@ -309,11 +373,12 @@ def get_data(tstart, tend, filekey, st_preload, opt):
     st = Stream()
     
     # Only true if opt.server == file and opt.preload > 0
-    if len(st_preload) > 0:
+    if len(preload_waveforms) > 0:
         
         # Slice and put in correct order
         
-        st_preload = st_preload.slice(starttime=tstart, endtime=tend+opt.maxdt)
+        preload_waveforms = preload_waveforms.slice(starttime=tstart,
+                                                    endtime=tend+opt.maxdt)
         
         for n in range(len(stas)):
             
@@ -321,11 +386,13 @@ def get_data(tstart, tend, filekey, st_preload, opt):
             scnl = f'{nets[n]}.{stas[n]}.{chas[n]}.{locs[n]}'
             
             stmp = Stream()
-            for m in range(len(st_preload)):
-                if scnl == '{}.{}.{}.{}'.format(st_preload[m].stats.network,
-                    st_preload[m].stats.station,st_preload[m].stats.channel,
-                    st_preload[m].stats.location):
-                    stmp = stmp.extend([st_preload[m]])
+            for m in range(len(preload_waveforms)):
+                if scnl == '{}.{}.{}.{}'.format(
+                        preload_waveforms[m].stats.network,
+                        preload_waveforms[m].stats.station,
+                        preload_waveforms[m].stats.channel,
+                        preload_waveforms[m].stats.location):
+                    stmp = stmp.extend([preload_waveforms[m]])
             
             if len(stmp) > 0:
                 stmp = filter_merge(stmp, opt)
@@ -490,6 +557,51 @@ def trigger(st, rtable, opt):
             return trigs
     else:
         return []
+
+
+def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
+                     preload_waveforms, opt):
+    """
+    Combines getting data for a time window and triggering on that data.
+    
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    window_start_time : UTCDateTime object
+        Start time of window to process.
+    window_end_time : UTCDateTime object
+        End time of window to process.
+    filekey : DataFrame object
+        Keys file names of local waveform data to their metadata.
+    preload_waveforms : Stream object
+        Preloaded waveform data from files on disk.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    alltrigs : Stream object
+        Triggered events with data from each channel concatenated.
+    
+    """
+    if opt.troubleshoot:
+        st = get_data(window_start_time-opt.atrig, window_end_time,
+                                    filekey, preload_waveforms, opt)
+        alltrigs = trigger(st, rtable, opt)
+    else:
+        try:
+            st = get_data(window_start_time-opt.atrig, window_end_time,
+                                        filekey, preload_waveforms, opt)
+            alltrigs = trigger(st, rtable, opt)
+        except KeyboardInterrupt:
+            print('\nManually interrupting!\n')
+            raise KeyboardInterrupt
+        except:
+            print(('Could not download or trigger data... '
+                   'troubleshoot with -t'))
+            alltrigs = []
+    return alltrigs
 
 
 def clean_triggers(alltrigs, opt):

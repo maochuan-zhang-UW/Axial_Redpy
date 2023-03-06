@@ -527,7 +527,7 @@ def populate_triggers(ttable, trigs, ttimes, opt):
     trigs : list of Trace objects
         Output from triggering function, with data from all stations appended.
     ttimes : float ndarray
-        Array of times of existing triggers to prevent duplication.
+        Times of all triggers as matplotlib dates.
     opt : Options object
         Describes the run parameters.
     
@@ -629,7 +629,7 @@ def populate_orphan(otable, idnum, trig, opt):
     otable.flush()
 
 
-def clear_expired_orphans(otable, tend, opt):
+def clear_expired_orphans(otable, end_time, opt):
     """
     Deletes orphans that have passed their expiration date.
     
@@ -637,7 +637,7 @@ def clear_expired_orphans(otable, tend, opt):
     ----------
     otable : Table object
         Handle to the Orphans table.
-    tend : UTCDateTime object
+    end_time : UTCDateTime object
         Time to remove orphans older than.
     opt : Options object
         Describes the run parameters.
@@ -646,7 +646,7 @@ def clear_expired_orphans(otable, tend, opt):
     
     expired = np.empty(0).astype(int)
     for n in range(len(otable)):
-        if otable.cols.expires[n].decode('utf-8') < tend.isoformat():
+        if otable.cols.expires[n].decode('utf-8') < end_time.isoformat():
             expired = np.append(expired,n)
     
     if len(expired) > 0:
@@ -1472,88 +1472,158 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
 
 
 def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
-                  ftable, ttimes, filekey, st_preload, tend_preload, tend,
-                  starttime, endtime, opt):
+                  ftable, ttimes, filekey, preload_waveforms, preload_end_time,
+                  run_end_time, window_start_time, window_end_time, opt):
     """
     Primary processing loop to update the tables with data in a time window.
+    
+    This function handles downloading, triggering, and populating the tables
+    given a time window (window_start_time, window_end_time).
+    
+    Parameters
+    ----------
+    h5file : File object
+        Handle to the h5 file.
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    ttimes : float ndarray
+        Times of all triggers as matplotlib dates.
+    filekey : DataFrame object
+        Keys file names of local waveform data to their metadata.
+    preload_waveforms : Stream object
+        Stream containing waveforms 'preloaded' into memory.
+    preload_end_time : UTCDateTime object
+        End time of preloaded waveforms.
+    run_end_time : UTCDateTime object
+        End time of full span of interest.
+    window_start_time : UTCDateTime object
+        Start time of window to process.
+    window_end_time : UTCDateTime object
+        End time of window to process.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    h5file : File object
+        Handle to the h5 file.
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    preload_waveforms : Stream object
+        Stream containing waveforms 'preloaded' into memory.
+    preload_end_time : UTCDateTime object
+        End time of preloaded waveforms.
+    opt : Options object
+        Describes the run parameters.
     
     """
     # Check to make sure we have space
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-        redpy.table.check_famlen(h5file, rtable, otable, ttable, ctable,
-                                 jtable, dtable, ftable, opt)
-    
-    # Preload check
-    if (opt.preload > 0) and (len(filekey) > 0):
-        if endtime+opt.maxdt > tend_preload:
-            if opt.verbose: print('Loading waveforms into memory...')
-            tend_preload = np.min((tend,
-                starttime+opt.preload*86400))+opt.atrig+opt.maxdt
-            st_preload = redpy.trigger.preload_data(
-                starttime-opt.atrig, tend_preload, filekey, opt)
-    else:
-        st_preload = []
-    
+        check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
+                     ftable, opt)
+    # Check if we need to preload more data
+    preload_waveforms, preload_end_time = redpy.trigger.preload_check(
+        window_start_time, window_end_time, preload_end_time, run_end_time,
+        filekey, opt, preload_waveforms)
     # Download and trigger
-    if opt.troubleshoot:
-        st = redpy.trigger.get_data(starttime-opt.atrig, endtime,
-                                    filekey, st_preload, opt)
-        alltrigs = redpy.trigger.trigger(st, rtable, opt)
-    else:
-        try:
-            st = redpy.trigger.get_data(starttime-opt.atrig, endtime,
-                                        filekey, st_preload, opt)
-            alltrigs = redpy.trigger.trigger(st, rtable, opt)
-        except KeyboardInterrupt:
-            print('\nManually interrupting!\n')
-            raise KeyboardInterrupt
-        except:
-            print(('Could not download or trigger data... '
-                   'troubleshoot with -t'))
-            alltrigs = []
+    alltrigs = redpy.trigger.load_and_trigger(
+        rtable, window_start_time, window_end_time, filekey,
+        preload_waveforms, opt)
+    # Populate tables with triggers as appropriate
+    populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
+                    ttimes, alltrigs, opt)
+    return (h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable,
+            preload_waveforms, preload_end_time, opt)
+
+
+def populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
+                    ttimes, alltrigs, opt):
+    """
+    Populates tables with new triggers as appropriate.
     
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    ttimes : float ndarray
+        Times of all triggers as matplotlib dates.
+    alltrigs : Stream object
+        Stream of new triggers to process.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
     # Clean out data spikes etc.
     trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt)
-    
     # !!! This step already goes through and calculates the window, can I
     # !!! pass that down the line to save some duplicate calculations?
-    
     # Save junk triggers in separate table for quality checking purposes
     for i in range(len(junk)):
-        redpy.table.populate_junk(jtable, junk[i], jtype[i], opt)
-    
+        populate_junk(jtable, junk[i], jtype[i], opt)
     # Append times of triggers to ttable to compare total seismicity later
-    trigs = redpy.table.populate_triggers(ttable, trigs, ttimes, opt)
-    
+    trigs = populate_triggers(ttable, trigs, ttimes, opt)
     # Check triggers against deleted events
     if len(dtable) > 0:
         trigs = redpy.correlation.compare_deleted(trigs, dtable, opt)
-    
     if len(trigs) > 0:
-        id = rtable.attrs.previd
+        idnum = rtable.attrs.previd
         if len(trigs) == 1:
             ostart = 0
             if len(otable) == 0:
                 # First trigger goes to orphans table
-                redpy.table.populate_orphan(otable, 0, trigs[0], opt)
+                populate_orphan(otable, 0, trigs[0], opt)
                 ostart = 1
             else:
-                id += 1
+                idnum += 1
                 redpy.correlation.correlate_new_triggers(
                     rtable, otable, ctable, ftable, ttimes,
-                    trigs[0], id, opt)
+                    trigs[0], idnum, opt)
         else:
             ostart = 0
             if len(otable) == 0:
                 # First trigger goes to orphans table
-                redpy.table.populate_orphan(otable, 0, trigs[0], opt)
+                populate_orphan(otable, 0, trigs[0], opt)
                 ostart = 1
             # Loop through remaining triggers
             for i in range(ostart,len(trigs)):
-                id += 1
+                idnum += 1
                 redpy.correlation.correlate_new_triggers(
                     rtable, otable, ctable, ftable, ttimes,
-                    trigs[i], id, opt)
-        rtable.attrs.previd = id
-    
-    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, st_preload, tend_preload, opt
+                    trigs[i], idnum, opt)
+        rtable.attrs.previd = idnum

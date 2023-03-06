@@ -56,54 +56,53 @@ def main():
     # Deal with input arguments
     if args.nsec: opt.nsec = args.nsec
     if args.endtime:
-        tend = UTCDateTime(args.endtime)
+        run_end_time = UTCDateTime(args.endtime)
     else:
-        tend = UTCDateTime()
+        run_end_time = UTCDateTime()
     if args.starttime:
-        tstart = UTCDateTime(args.starttime)
+        run_start_time = UTCDateTime(args.starttime)
         if rtable.attrs.ptime:
-            rtable.attrs.ptime = UTCDateTime(tstart)
+            rtable.attrs.ptime = UTCDateTime(run_start_time)
     else:
         if rtable.attrs.ptime:
-            tstart = UTCDateTime(rtable.attrs.ptime)
+            run_start_time = UTCDateTime(rtable.attrs.ptime)
         else:
-            tstart = tend-opt.nsec
-    if tstart > tend: raise ValueError(f'Start {tstart} is after end {tend}!')
+            run_start_time = run_end_time-opt.nsec
+    if run_start_time > run_end_time:
+        raise ValueError(
+            f'Start {run_start_time} is after end {run_end_time}!')
     
     if len(ttable) > 0:
         ttimes = ttable.cols.startTimeMPL[:]
     else:
         ttimes = 0
     
-    # Create or read in file key to improve local file load times
-    filekey = redpy.trigger.get_filekey(tstart, tend, opt)
-    tend_preload = tstart
-    st_preload = []
+    # Load data from file
+    filekey, preload_waveforms, preload_end_time = \
+        redpy.trigger.initial_data_preload(run_start_time, run_end_time, opt)
     
     n = 0
-    rlen = len(rtable)
-    while tstart + n*opt.nsec < tend:
+    while run_start_time + n*opt.nsec < run_end_time:
         t_iter = time.time()
+        window_start_time = run_start_time+n*opt.nsec
+        window_end_time = np.min((run_start_time+(n+1)*opt.nsec,
+                                  run_end_time))+opt.atrig+opt.maxdt
+        print(window_start_time)
         
-        starttime = tstart+n*opt.nsec
-        endtime = np.min((tstart+(n+1)*opt.nsec, tend))+opt.atrig+opt.maxdt
-        
-        print(starttime)
-        
-        ####
         h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
-            st_preload, tend_preload, opt = redpy.table.update_tables(
-                h5file, rtable, otable, ttable, ctable, jtable, dtable,
-                ftable, ttimes, filekey, st_preload, tend_preload, tend,
-                starttime, endtime, opt)
-        ####
+            preload_waveforms, preload_end_time, opt = \
+                redpy.table.update_tables(
+                    h5file, rtable, otable, ttable, ctable, jtable, dtable,
+                    ftable, ttimes, filekey, preload_waveforms,
+                    preload_end_time, run_end_time, window_start_time,
+                    window_end_time, opt)
         
         n += 1
-        redpy.table.clear_expired_orphans(otable, endtime, opt)
+        redpy.table.clear_expired_orphans(otable, window_end_time, opt)
         redpy.table.print_stats(rtable, otable, ftable, opt)
         if opt.verbose: print('Time spent this iteration: '
                               f'{(time.time()-t_iter)/60:.3f} minutes')
-    print(f'Caught up to: {endtime-opt.atrig}')
+    print(f'Caught up to: {window_end_time-opt.atrig}')
     redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
                                         otable, opt)
     if opt.verbose: print('Closing table...')

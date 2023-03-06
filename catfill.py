@@ -54,44 +54,38 @@ df = pd.read_csv(args.csvfile)
 eventlist = pd.to_datetime(df['Time UTC']).tolist()
 # Sort so events are processed in order of occurrence
 eventlist.sort()
-tstart = UTCDateTime(eventlist[0])-5*opt.atrig
-tend = UTCDateTime(eventlist[-1])+5*opt.atrig
+run_start_time = UTCDateTime(eventlist[0])-5*opt.atrig
+run_end_time = UTCDateTime(eventlist[-1])+5*opt.atrig
 
-if len(ttable) > 0:
-    ttimes = ttable.cols.startTimeMPL[:]
-else:
-    ttimes = 0
 
 # Create or read in file key to improve local file load times
-filekey = redpy.trigger.get_filekey(tstart, tend, opt)
-tend_preload = tstart
-st_preload = []
+filekey, preload_waveforms, preload_end_time = redpy.trigger.initial_data_preload(
+    run_start_time, run_end_time, opt)
 
 for event in eventlist:
     event_time = UTCDateTime(event)
     if opt.verbose: print(event_time)
     
-    starttime = event_time - 4*opt.atrig
-    endtime = event_time + 5*opt.atrig + opt.maxdt
+    window_start_time = event_time - 4*opt.atrig
+    window_end_time = event_time + 5*opt.atrig + opt.maxdt
     
     if len(ttable) > 0:
         ttimes = ttable.cols.startTimeMPL[:]
     else:
         ttimes = 0
     
-    ####
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
-        st_preload, tend_preload, opt = redpy.table.update_tables(
-            h5file, rtable, otable, ttable, ctable, jtable, dtable,
-            ftable, ttimes, filekey, st_preload, tend_preload, tend,
-            starttime, endtime, opt)
-    ####
+        preload_waveforms, preload_end_time, opt = \
+            redpy.table.update_tables(h5file, rtable, otable, ttable,
+                ctable, jtable, dtable, ftable, ttimes, filekey,
+                preload_waveforms, preload_end_time, run_end_time,
+                window_start_time, window_end_time, opt)
     
     # Reset ptime for refilling later
     rtable.attrs.ptime = []
     
     # Don't expire orphans in the catalog?
-    # redpy.table.clearExpiredOrphans(otable, opt, tstart+(n+1)*opt.nsec)
+    # redpy.table.clearExpiredOrphans(otable, opt, run_start_time+(n+1)*opt.nsec)
     
     redpy.table.print_stats(rtable, otable, ftable, opt)
 
