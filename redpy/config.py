@@ -10,7 +10,8 @@ import numpy as np
 
 class Options(object):
     
-    def __init__(self, configfile='settings.cfg', verbose=False):
+    def __init__(self, configfile='settings.cfg', verbose=False,
+                 troubleshoot=False):
         """
         Options (opt) contains all of the settings from the configuration file.
         
@@ -23,6 +24,8 @@ class Options(object):
             Name of configuration file to read.
         verbose : bool, optional
             Enable additional print statements.
+        troubleshoot : bool, optional
+            Escape try/except statements to diagnose problems.
         
         """
         
@@ -42,6 +45,7 @@ class Options(object):
             'nsec'           : 3600,
             'max_famlen'     : 30000, # 1000000
             'verbose'        : False,
+            'troubleshoot'   : False,
             
             # STATION PARAMETERS
             'nsta'           : 8,
@@ -148,9 +152,11 @@ class Options(object):
         for key in ['occurbin', 'recbin', 'mrecbin']:
             setattr(self, key, getattr(self, key)/24)
         
-        # Override verbosity
+        # Override verbosity and troubleshooting
         if verbose:
             setattr(self, 'verbose', True)
+        if troubleshoot:
+            setattr(self, 'troubleshoot', True)
         
         # Check for any renamed parameters to allow old config files to be used
         # !!! None so far

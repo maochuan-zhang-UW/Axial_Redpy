@@ -978,14 +978,14 @@ def do_comparison(rtable, otable, ctable, ftable, trig, idnum, windowCoeff,
 
 
 def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
-    idnum, troubleshoot, opt):
+    idnum, opt):
     """
     Adds a new trigger to the correct table.
     
     Specifically, it checks to ensure the trigger doesn't already exist, then
     correlates it with all orphans, and sorts into the correct table based
-    on that result. If troubleshoot=False and a step within the sorting fails
-    for some reason, the trigger will be appended to the orphan table.
+    on that result. If a step within the sorting fails, the trigger will be
+    appended to the orphan table.
     
     Parameters
     ----------
@@ -1003,8 +1003,6 @@ def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
         New trigger to compare, with data from all stations concatenated.
     idnum : integer
         Unique ID of new trigger.
-    troubleshoot : bool
-        Flag to bypass try/catch and allow code to fail.
     opt : Options object
         Describes the run parameters.
     
@@ -1018,7 +1016,7 @@ def correlate_new_triggers(rtable, otable, ctable, ftable, ttimes, trig,
                                                                   otable, opt)
     
     # Allow the correlation step to fail for troubleshooting
-    if troubleshoot:
+    if opt.troubleshoot:
         do_comparison(rtable, otable, ctable, ftable, trig, idnum,
                        windowCoeff, windowFFT, maxcors, maxlags, nthcors, opt)
     
