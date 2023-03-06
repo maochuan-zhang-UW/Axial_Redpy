@@ -50,7 +50,8 @@ def main():
     t_func = time.time()
     args = backfill_parse()
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-        redpy.table.open_with_cfg(args.configfile, args.verbose)
+        redpy.table.open_with_cfg(args.configfile, args.verbose,
+                                  args.troubleshoot)
     
     # Deal with input arguments
     if args.nsec: opt.nsec = args.nsec
@@ -75,7 +76,9 @@ def main():
         ttimes = 0
     
     # Create or read in file key to improve local file load times
-    filekey, tend_preload = redpy.trigger.get_filekey(tstart, tend, opt)
+    filekey = redpy.trigger.get_filekey(tstart, tend, opt)
+    tend_preload = tstart
+    st_preload = []
     
     n = 0
     rlen = len(rtable)
@@ -88,90 +91,16 @@ def main():
         print(starttime)
         
         ####
-        
-        # Check to make sure we have space
-        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-            redpy.table.check_famlen(h5file, rtable, otable, ttable, ctable,
-                                     jtable, dtable, ftable, opt)
-        
-        # Preload check
-        if (opt.preload > 0) and (len(filekey) > 0):
-            print(f'{endtime+opt.maxdt} {tend_preload}')
-            if endtime+opt.maxdt > tend_preload:
-                if opt.verbose: print('Loading waveforms into memory...')
-                tend_preload = np.min((tend,
-                    starttime+opt.preload*86400))+opt.atrig+opt.maxdt
-                st_preload = redpy.trigger.preload_data(
-                    starttime-opt.atrig, tend_preload, filekey, opt)
-        else:
-            st_preload = []
-        
-        # Download and trigger
-        if args.troubleshoot:
-            st = redpy.trigger.get_data(starttime-opt.atrig, endtime,
-                                        filekey, st_preload, opt)
-            alltrigs = redpy.trigger.trigger(st, rtable, opt)
-        else:
-            try:
-                st = redpy.trigger.get_data(starttime-opt.atrig, endtime,
-                                            filekey, st_preload, opt)
-                alltrigs = redpy.trigger.trigger(st, rtable, opt)
-            except KeyboardInterrupt:
-                print('\nManually interrupting!\n')
-                raise KeyboardInterrupt
-            except:
-                print(('Could not download or trigger data... '
-                       'troubleshoot with -t'))
-                alltrigs = []
-        
-        # Clean out data spikes etc.
-        trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt)
-        
-        # !!! This step already goes through and calculates the window, can I 
-        # !!! pass that down the line to save some duplicate calculations?
-        
-        # Save junk triggers in separate table for quality checking purposes
-        for i in range(len(junk)):
-            redpy.table.populate_junk(jtable, junk[i], jtype[i], opt)
-        
-        # Append times of triggers to ttable to compare total seismicity later
-        trigs = redpy.table.populate_triggers(ttable, trigs, ttimes, opt)
-        
-        # Check triggers against deleted events
-        if len(dtable) > 0:
-            trigs = redpy.correlation.compare_deleted(trigs, dtable, opt)
-        
-        if len(trigs) > 0:
-            id = rtable.attrs.previd
-            if len(trigs) == 1:
-                ostart = 0
-                if len(otable) == 0:
-                    # First trigger goes to orphans table
-                    redpy.table.populate_orphan(otable, 0, trigs[0], opt)
-                    ostart = 1
-                else:
-                    id += 1
-                    redpy.correlation.correlate_new_triggers(
-                        rtable, otable, ctable, ftable, ttimes,
-                        trigs[0], id, args.troubleshoot, opt)
-            else:
-                ostart = 0
-                if len(otable) == 0:
-                    # First trigger goes to orphans table
-                    redpy.table.populate_orphan(otable, 0, trigs[0], opt)
-                    ostart = 1
-                # Loop through remaining triggers
-                for i in range(ostart,len(trigs)):
-                    id += 1
-                    redpy.correlation.correlate_new_triggers(
-                        rtable, otable, ctable, ftable, ttimes,
-                        trigs[i], id, args.troubleshoot, opt)
-            rtable.attrs.previd = id
+        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
+            st_preload, tend_preload, opt = redpy.table.update_tables(
+                h5file, rtable, otable, ttable, ctable, jtable, dtable,
+                ftable, ttimes, filekey, st_preload, tend_preload, tend,
+                starttime, endtime, opt)
         ####
         
-        redpy.table.clear_expired_orphans(otable, tstart+(n+1)*opt.nsec, opt)
-        redpy.table.print_stats(rtable, otable, ftable, opt)
         n += 1
+        redpy.table.clear_expired_orphans(otable, endtime, opt)
+        redpy.table.print_stats(rtable, otable, ftable, opt)
         if opt.verbose: print('Time spent this iteration: '
                               f'{(time.time()-t_iter)/60:.3f} minutes')
     print(f'Caught up to: {endtime-opt.atrig}')
