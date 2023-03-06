@@ -5,7 +5,6 @@
 import argparse
 import time
 
-import numpy as np
 from obspy import UTCDateTime
 
 import redpy
@@ -84,9 +83,9 @@ def main():
     n = 0
     while run_start_time + n*opt.nsec < run_end_time:
         t_iter = time.time()
-        window_start_time = run_start_time+n*opt.nsec
-        window_end_time = np.min((run_start_time+(n+1)*opt.nsec,
-                                  run_end_time))+opt.atrig+opt.maxdt
+        window_start_time = run_start_time + n*opt.nsec
+        window_end_time = min(run_start_time+(n+1)*opt.nsec,
+                              run_end_time) + opt.atrig + opt.maxdt
         print(window_start_time)
         
         h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
