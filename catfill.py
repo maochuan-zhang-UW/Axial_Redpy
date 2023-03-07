@@ -5,6 +5,7 @@
 import argparse
 import time
 
+import numpy as np
 import pandas as pd
 from obspy import UTCDateTime
 
@@ -41,17 +42,16 @@ def main():
     
     # Read in csv file using pandas
     df = pd.read_csv(args.csvfile)
-    event_list = pd.to_datetime(df['Time UTC']).tolist()
+    event_list = np.array([UTCDateTime(ev) for ev in df['Time UTC']])
     event_list.sort()
-    run_start_time = UTCDateTime(event_list[0])-5*opt.atrig
-    run_end_time = UTCDateTime(event_list[-1])+5*opt.atrig
+    run_start_time = event_list[0] - 4*opt.atrig
+    run_end_time = event_list[-1] +  5*opt.atrig + opt.maxdt
     
     # Create or read in file key to improve local file load times
     filekey, preload_waveforms, preload_end_time = \
         redpy.trigger.initial_data_preload(run_start_time, run_end_time, opt)
     
-    for event in event_list:
-        event_time = UTCDateTime(event)
+    for event_time in event_list:
         if opt.verbose: print(event_time)
         window_start_time = event_time - 4*opt.atrig
         window_end_time = event_time + 5*opt.atrig + opt.maxdt
@@ -65,10 +65,12 @@ def main():
                 redpy.table.update_tables(h5file, rtable, otable, ttable,
                     ctable, jtable, dtable, ftable, ttimes, filekey,
                     preload_waveforms, preload_end_time, run_end_time,
-                    window_start_time, window_end_time, opt)
+                    window_start_time, window_end_time, opt,
+                    event_list=event_list)
         
         redpy.table.print_stats(rtable, otable, ftable, opt)
-    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
+    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
+                                        otable, opt)
     if opt.verbose: print('Closing table...')
     h5file.close()
     if opt.verbose: print('Total time spent: '
@@ -89,7 +91,7 @@ def catfill_parse():
         description='Backfills table with data from the past given a catalog.')
     parser.add_argument('csvfile',
                         help=('catalog csv file with a "Time UTC" column of '
-                             'event times'))
+                              'event times'))
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
     parser.add_argument('-t', "--troubleshoot", action='store_true',

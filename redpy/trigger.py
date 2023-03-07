@@ -265,9 +265,16 @@ def preload_data(tstart, tend, filekey, opt):
 
 
 def preload_check(window_start_time, window_end_time, preload_end_time,
-                  run_end_time, filekey, opt, preload_waveforms=[]):
+                  run_end_time, filekey, opt, preload_waveforms=[],
+                  event_list=[]):
     """
     Checks if new data need to be 'preloaded' into memory.
+    
+    Nominally this is to load data from local files into memory, however, by
+    passing an event_list, if more than one event occurs within opt.nsec
+    seconds of the window_start_time, data containing those events will be
+    downloaded from a server. This prevents excessive calls to the server for
+    many events in a short amount of time.
     
     Parameters
     ----------
@@ -285,6 +292,8 @@ def preload_check(window_start_time, window_end_time, preload_end_time,
         Describes the run parameters.
     preload_waveforms : Stream object, optional
         Stream containing waveforms 'preloaded' into memory.
+    event_list : list of UTCDateTime objects, optional
+        List of catalog events to add.
     
     Returns
     -------
@@ -298,10 +307,22 @@ def preload_check(window_start_time, window_end_time, preload_end_time,
         if window_end_time+opt.maxdt > preload_end_time:
             if opt.verbose: print('Loading waveforms into memory...')
             preload_end_time = np.min(
-                (run_end_time, window_start_time+opt.preload*86400)
+                (run_end_time, window_start_time + opt.preload*86400)
                 ) + opt.atrig + opt.maxdt
-            preload_waveforms = preload_data(window_start_time-opt.atrig,
+            preload_waveforms = preload_data(window_start_time - opt.atrig,
                                              preload_end_time, filekey, opt)
+    elif (len(event_list) > 0) and (window_start_time >= preload_end_time):
+        sub_list = event_list[(event_list > window_start_time) &
+                              (event_list < window_end_time + opt.nsec)]
+        if len(sub_list) > 1:
+            preload_end_time = window_end_time + (sub_list[-1] - sub_list[0])
+            preload_waveforms = get_data(window_start_time - 4*opt.atrig,
+                                         preload_end_time + 5*opt.atrig,
+                                         filekey, [], opt,
+                                         do_filter_merge=False)
+        else:
+            preload_end_time = window_end_time
+            preload_waveforms = []
     return preload_waveforms, preload_end_time
 
 
@@ -335,7 +356,8 @@ def initial_data_preload(run_start_time, run_end_time, opt):
     return filekey, preload_waveforms, preload_end_time
 
 
-def get_data(tstart, tend, filekey, preload_waveforms, opt):
+def get_data(tstart, tend, filekey, preload_waveforms, opt,
+             do_filter_merge=True):
     """
     Download data from web or read from file.
     
@@ -357,6 +379,8 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt):
         server.
     opt : Options object
         Describes the run parameters.
+    do_filter_merge : bool, optional
+        If True, runs filter_merge() on Streams.
     
     Returns
     -------
@@ -376,7 +400,6 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt):
     if len(preload_waveforms) > 0:
         
         # Slice and put in correct order
-        
         preload_waveforms = preload_waveforms.slice(starttime=tstart,
                                                     endtime=tend+opt.maxdt)
         
@@ -395,7 +418,8 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt):
                     stmp = stmp.extend([preload_waveforms[m]])
             
             if len(stmp) > 0:
-                stmp = filter_merge(stmp, opt)
+                if do_filter_merge:
+                    stmp = filter_merge(stmp, opt)
                 st = st.extend(stmp.copy())
             else:
                 st = append_empty(st, n, opt)
@@ -424,7 +448,8 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt):
                 for f in flist_sub:
                     stmp = stmp.extend(obspy.read(f, starttime=tstart,
                                                       endtime=tend+opt.maxdt))
-                stmp = filter_merge(stmp, opt)
+                if do_filter_merge:
+                    stmp = filter_merge(stmp, opt)
                 st = st.extend(stmp.copy())
              
             # If no data found, append an empty trace
@@ -440,18 +465,24 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt):
             try:
                 stmp = client.get_waveforms(nets[n], stas[n], locs[n],
                                       chas[n], tstart, tend+opt.maxdt)
-                stmp = filter_merge(stmp, opt)
+                if do_filter_merge:
+                    stmp = filter_merge(stmp, opt)
             except (obspy.clients.fdsn.header.FDSNException):
                 # Try querying again in case timed out on accident
                 try:
                     stmp = client.get_waveforms(nets[n], stas[n], locs[n],
                                           chas[n], tstart, tend+opt.maxdt)
-                    stmp = filter_merge(stmp, opt)
+                    if do_filter_merge:
+                        stmp = filter_merge(stmp, opt)
                 except:
                     stmp = append_empty(Stream(), n, opt)
             
+            # Enforce location code
+            for i in range(len(stmp)):
+                stmp[i].stats.location = locs[n]
+            
             # Last check for length; catches problem with empty waveserver
-            if len(stmp) != 1:
+            if len(stmp) < 1:
                 st = append_empty(st, n, opt)
             else:
                 st.extend(stmp.copy())
@@ -462,7 +493,8 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt):
         for n, tr in enumerate(st):
             tr.stats.starttime = tr.stats.starttime-dts[n]
     
-    st = st.trim(starttime=tstart, endtime=tend, pad=True, fill_value=0)
+    if do_filter_merge:
+        st = st.trim(starttime=tstart, endtime=tend, pad=True, fill_value=0)
     
     return st
 

@@ -1473,7 +1473,8 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
 
 def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
                   ftable, ttimes, filekey, preload_waveforms, preload_end_time,
-                  run_end_time, window_start_time, window_end_time, opt):
+                  run_end_time, window_start_time, window_end_time, opt,
+                  event_list=[]):
     """
     Primary processing loop to update the tables with data in a time window.
     
@@ -1514,6 +1515,8 @@ def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
         End time of window to process.
     opt : Options object
         Describes the run parameters.
+    event_list : list of UTCDateTime objects, optional
+        List of catalog events to add.
     
     Returns
     -------
@@ -1548,7 +1551,8 @@ def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
     # Check if we need to preload more data
     preload_waveforms, preload_end_time = redpy.trigger.preload_check(
         window_start_time, window_end_time, preload_end_time, run_end_time,
-        filekey, opt, preload_waveforms)
+        filekey, opt, preload_waveforms=preload_waveforms,
+        event_list=event_list)
     # Download and trigger
     alltrigs = redpy.trigger.load_and_trigger(
         rtable, window_start_time, window_end_time, filekey,
