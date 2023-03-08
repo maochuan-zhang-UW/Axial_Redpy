@@ -6,7 +6,6 @@ import argparse
 import time
 
 import numpy as np
-import pandas as pd
 from obspy import UTCDateTime
 
 import redpy
@@ -19,11 +18,11 @@ def main():
     Run this script to fill the table with data from the past using a catalog
     of known events to limit the amount of waveforms to process.
     
-    usage: catfill.py [-h] [-v] [-t] [-c CONFIGFILE] csvfile
+    usage: catfill.py [-h] [-v] [-t] [-c CONFIGFILE] [-d DELIMITER] [-n NAME]
+                      csvfile
     
     positional arguments:
-      csvfile               catalog csv file with a "Time UTC" column of event
-                            times
+      csvfile               catalog csv file with a column of event times
     
     optional arguments:
       -h, --help            show this help message and exit
@@ -32,6 +31,12 @@ def main():
       -c CONFIGFILE, --configfile CONFIGFILE
                             use configuration file named CONFIGFILE instead of
                             default settings.cfg
+      -d DELIMITER, --delimiter DELIMITER
+                            define custom DELIMITER between columns instead
+                            of default "," (e.g., "\t" for tabs, " " for
+                            spaces, or "|" for pipes)
+      -n NAME, --name NAME  define custom time column NAME instead of default
+                            "Time"
     
     """
     t_func = time.time()
@@ -39,11 +44,13 @@ def main():
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
         redpy.table.open_with_cfg(args.configfile, args.verbose,
                                   args.troubleshoot)
-    
-    # Read in csv file using pandas
-    df = pd.read_csv(args.csvfile)
-    event_list = np.array([UTCDateTime(ev) for ev in df['Time UTC']])
-    event_list.sort()
+    try:
+        event_list = redpy.catalog.get_event_times_from_csv(
+            args.csvfile, args.name, args.delimiter, opt)
+    except KeyError:
+        print(f'Could not find "{args.name}" column in {args.csvfile}. '
+              'Check file, column name, and delimiter! Use -h for help.')
+        exit()
     run_start_time = event_list[0] - 4*opt.atrig
     run_end_time = event_list[-1] +  5*opt.atrig + opt.maxdt
     
@@ -90,8 +97,7 @@ def catfill_parse():
     parser = argparse.ArgumentParser(
         description='Backfills table with data from the past given a catalog.')
     parser.add_argument('csvfile',
-                        help=('catalog csv file with a "Time UTC" column of '
-                              'event times'))
+                        help=('catalog csv file with a column of event times'))
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
     parser.add_argument('-t', "--troubleshoot", action='store_true',
@@ -100,6 +106,13 @@ def catfill_parse():
     parser.add_argument('-c', '--configfile', default='settings.cfg',
                         help=('use configuration file named CONFIGFILE '
                               'instead of default settings.cfg'))
+    parser.add_argument('-d', '--delimiter', default=',',
+                        help=('define custom DELIMITER between columns '
+                              'instead of default "," (e.g., "\\t" for tabs, '
+                              '" " for spaces, or "|" for pipes)'))
+    parser.add_argument('-n', '--name', default='Time',
+                        help=('define custom time column NAME instead of '
+                              'default "Time"'))
     args = parser.parse_args()
     return args
 

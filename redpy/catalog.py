@@ -16,6 +16,32 @@ from obspy.taup import TauPyModel
 import redpy
 
 
+def get_event_times_from_csv(csvfile, time_column_name, sep, opt):
+    """
+    Reads event times from a catalog.
+    
+    Parameters
+    ----------
+    csvfile : str
+        Path to a .csv-like catalog.
+    time_column_name : str
+        Name of the column that contains event times.
+    sep : str
+        Separator (or delimiter) between columns.
+    opt : Options object
+        Describes the run parameters.
+    
+    Returns
+    -------
+    event_list : list of UTCDateTime objects
+    
+    """
+    df = pd.read_csv(csvfile, sep=sep)
+    event_list = np.array([UTCDateTime(ev) for ev in df[time_column_name]])
+    event_list.sort()
+    return event_list
+
+
 def prepare_catalog(ttimes, opt):
     """
     Downloads and formats event catalog from external datacenter.
