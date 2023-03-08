@@ -109,6 +109,7 @@ class Options(object):
             
             # CHECK COMCAT (/EXTERNAL) CATALOG
             'checkComCat'    : False,
+            'datacenter'     : 'USGS',
             'stalats'        : '46.200210,46.209550,46.174280,' + \
                 '46.193470,46.197170,46.237610,46.147060,46.243860',
             'stalons'        : '-122.190600,-122.188990,-122.180650,' + \
