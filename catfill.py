@@ -18,8 +18,8 @@ def main():
     Run this script to fill the table with data from the past using a catalog
     of known events to limit the amount of waveforms to process.
     
-    usage: catfill.py [-h] [-v] [-t] [-c CONFIGFILE] [-d DELIMITER] [-n NAME]
-                      csvfile
+    usage: catfill.py [-h] [-v] [-t] [-q] [-c CONFIGFILE] [-d DELIMITER]
+                      [-n NAME] [-s STARTTIME] [-e ENDTIME] csvfile
     
     positional arguments:
       csvfile               catalog csv file with a column of event times
@@ -28,6 +28,9 @@ def main():
       -h, --help            show this help message and exit
       -v, --verbose         increase written print statements
       -t, --troubleshoot    run in troubleshoot mode (without try/except)
+      -q, --query           queries external catalog for local seismicity
+                            as defined in the config file and saves output
+                            to csvfile
       -c CONFIGFILE, --configfile CONFIGFILE
                             use configuration file named CONFIGFILE instead of
                             default settings.cfg
@@ -37,6 +40,12 @@ def main():
                             spaces, or "|" for pipes)
       -n NAME, --name NAME  define custom time column NAME instead of default
                             "Time"
+      -s STARTTIME, --starttime STARTTIME
+                            subsets catalog to begin at STARTTIME
+                            (yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)
+      -e ENDTIME, --endtime ENDTIME
+                            subsets catalog to end at ENDTIME
+                            (yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)
     
     """
     t_func = time.time()
@@ -44,9 +53,27 @@ def main():
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
         redpy.table.open_with_cfg(args.configfile, args.verbose,
                                   args.troubleshoot)
+    if args.query:
+        if not args.endtime:
+            args.endtime = UTCDateTime()
+            if opt.verbose:
+                print(f'Defaulting to end time of "now" ({args.endtime})')
+        if not args.starttime:
+            args.starttime = args.endtime - opt.nsec
+            if opt.verbose:
+                print(f'Defaulting to start time of {opt.nsec} seconds '
+                      f'before end time ({args.starttime})')
+        catalog = redpy.catalog.query_external(
+            'local', UTCDateTime(args.starttime),
+            UTCDateTime(args.endtime), opt, arrivals=False)
+        if len(catalog) == 0:
+            print('No events found!')
+            quit()
+        catalog.to_csv(args.csvfile, index=False, sep=args.delimiter)
     try:
         event_list = redpy.catalog.get_event_times_from_csv(
-            args.csvfile, args.name, args.delimiter, opt)
+            args.csvfile, args.name, args.delimiter, opt,
+            start_time=args.starttime, end_time=args.endtime)
     except KeyError:
         print(f'Could not find "{args.name}" column in {args.csvfile}. '
               'Check file, column name, and delimiter! Use -h for help.')
@@ -100,9 +127,13 @@ def catfill_parse():
                         help=('catalog csv file with a column of event times'))
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
-    parser.add_argument('-t', "--troubleshoot", action='store_true',
+    parser.add_argument('-t', '--troubleshoot', action='store_true',
                         default=False,
                         help='run in troubleshoot mode (without try/except)')
+    parser.add_argument('-q', '--query', action='store_true', default=False,
+                        help=('queries external catalog for local seismicity '
+                             'as defined in the config file and saves output '
+                             'to csvfile'))
     parser.add_argument('-c', '--configfile', default='settings.cfg',
                         help=('use configuration file named CONFIGFILE '
                               'instead of default settings.cfg'))
@@ -113,6 +144,12 @@ def catfill_parse():
     parser.add_argument('-n', '--name', default='Time',
                         help=('define custom time column NAME instead of '
                               'default "Time"'))
+    parser.add_argument('-s', '--starttime', default=None,
+                        help=('subsets catalog to begin at STARTTIME '
+                              '(yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)'))
+    parser.add_argument('-e', '--endtime', default=None,
+                        help=('subsets catalog to end at ENDTIME '
+                              '(yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)'))
     args = parser.parse_args()
     return args
 

@@ -16,7 +16,8 @@ from obspy.taup import TauPyModel
 import redpy
 
 
-def get_event_times_from_csv(csvfile, time_column_name, sep, opt):
+def get_event_times_from_csv(
+        csvfile, time_column_name, sep, opt, start_time=None, end_time=None):
     """
     Reads event times from a catalog.
     
@@ -30,6 +31,10 @@ def get_event_times_from_csv(csvfile, time_column_name, sep, opt):
         Separator (or delimiter) between columns.
     opt : Options object
         Describes the run parameters.
+    start_time : UTCDateTime object, optional
+        Events returned must have happened after this date.
+    end_time : UTCDateTime object, optional
+        Events returned must have happened before this date.
     
     Returns
     -------
@@ -39,6 +44,10 @@ def get_event_times_from_csv(csvfile, time_column_name, sep, opt):
     df = pd.read_csv(csvfile, sep=sep)
     event_list = np.array([UTCDateTime(ev) for ev in df[time_column_name]])
     event_list.sort()
+    if start_time:
+        event_list = event_list[event_list >= start_time]
+    if end_time:
+        event_list = event_list[event_list <= end_time]
     return event_list
 
 
@@ -90,7 +99,7 @@ def prepare_catalog(ttimes, opt):
     return external_catalogs
 
 
-def query_external(region, tmin, tmax, opt):
+def query_external(region, tmin, tmax, opt, arrivals=True):
     """
     Handles querying and formatting the external event catalog.
     
@@ -117,7 +126,6 @@ def query_external(region, tmin, tmax, opt):
     """
     latitude_center = np.mean(np.array(opt.stalats.split(',')).astype(float))
     longitude_center = np.mean(np.array(opt.stalons.split(',')).astype(float))
-    datacenter = 'USGS' # Eventually may have options to choose here
     if region in 'local':
         minrad = 0
         maxrad = opt.locdeg
@@ -133,7 +141,7 @@ def query_external(region, tmin, tmax, opt):
         maxrad = 180
         minmag = opt.telemag
         phase_list = ['P','S','PP','SS','PcP','ScS','PKiKP','PKIKP']
-    base_url = Client(datacenter).base_url
+    base_url = Client(opt.datacenter).base_url
     query_url = base_url + ('/fdsnws/event/1/query'
                 + f'?starttime={tmin}'
                 + f'&endtime={tmax}'
@@ -168,8 +176,9 @@ def query_external(region, tmin, tmax, opt):
         columns=['Author', 'Catalog', 'Contributor', 'ContributorID',
                  'MagType', 'MagAuthor', 'EventType'],
         errors='ignore', inplace=True)
-    catalog = calculate_arrivals(
-        catalog, latitude_center, longitude_center, phase_list, opt)
+    if arrivals:
+        catalog = calculate_arrivals(
+            catalog, latitude_center, longitude_center, phase_list, opt)
     return catalog
 
 
