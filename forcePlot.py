@@ -95,7 +95,7 @@ if args.famplot:
 if args.html:
     if opt.checkComCat==True:
         ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
-        external_catalogs = redpy.plotting.prepare_catalog(ttimes, opt)
+        external_catalogs = redpy.catalog.prepare_catalog(ttimes, opt)
     else:
         external_catalogs = []
     fi = np.nanmean(rtable.cols.FI[:], axis=1)
