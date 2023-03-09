@@ -16,13 +16,21 @@ def main():
     Backfills table with data from the past given a catalog.
     
     Run this script to fill the table with data from the past using a catalog
-    of known events to limit the amount of waveforms to process.
+    of known events to limit the amount of waveforms to process. By default,
+    catfill does not expire orphans, allowing backfill to be run over the
+    same time period and for orphaned catalog events to still exist. This
+    behavior can be overridden with -x to expire orphans after each event
+    time. When using -f, a trigger will be forced at the given time and
+    'junk' filtering will be skipped, however, the minimum allowed time
+    between events is still enforced.
     
-    usage: catfill.py [-h] [-v] [-t] [-a] [-q] [-c CONFIGFILE] [-d DELIMITER]
-                      [-n NAME] [-s STARTTIME] [-e ENDTIME] csvfile
+    usage: catfill.py [-h] [-v] [-t] [-a] [-f] [-q] [-x] [-c CONFIGFILE]
+                      [-d DELIMITER] [-n NAME] [-s STARTTIME] [-e ENDTIME]
+                      csvfile
     
     positional arguments:
-      csvfile               catalog csv file with a column of event times
+      csvfile               catalog csv file with a column of event times or
+                            file to write a queried catalog to disk
     
     optional arguments:
       -h, --help            show this help message and exit
@@ -36,6 +44,7 @@ def main():
       -q, --query           queries external catalog for local seismicity
                             as defined in the config file and saves output
                             to csvfile
+      -x, --expire          expire orphans
       -c CONFIGFILE, --configfile CONFIGFILE
                             use configuration file named CONFIGFILE instead of
                             default settings.cfg
@@ -109,6 +118,11 @@ def main():
                     window_start_time, window_end_time, opt,
                     event_list=event_list, event=event)
         
+        if args.expire:
+            lot = len(otable)
+            redpy.table.clear_expired_orphans(otable, window_end_time, opt)
+            if lot > len(otable):
+                if opt.verbose: print(f'Expired {lot-len(otable)} orphan(s)')
         redpy.table.print_stats(rtable, otable, ftable, opt)
     redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
                                         otable, opt)
@@ -131,7 +145,8 @@ def catfill_parse():
     parser = argparse.ArgumentParser(
         description='Backfills table with data from the past given a catalog.')
     parser.add_argument('csvfile',
-                        help=('catalog csv file with a column of event times'))
+                        help=('catalog csv file with a column of event times '
+                              'or file to write a queried catalog to disk'))
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
     parser.add_argument('-t', '--troubleshoot', action='store_true',
@@ -148,6 +163,8 @@ def catfill_parse():
                         help=('queries external catalog for local seismicity '
                              'as defined in the config file and saves output '
                              'to csvfile'))
+    parser.add_argument('-x', '--expire', action='store_true', default=False,
+                        help='expire orphans')
     parser.add_argument('-c', '--configfile', default='settings.cfg',
                         help=('use configuration file named CONFIGFILE '
                               'instead of default settings.cfg'))
