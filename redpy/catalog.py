@@ -57,7 +57,8 @@ def get_event_times_from_csv(
                 time_column_name=time_column_name)
         # Temporarily overwrite the time column
         catalog[time_column_name] = catalog['Arrival_p'].replace(
-            to_replace='NaN', value=None).fillna(catalog['Arrival_P'])
+            to_replace='NaN', value=np.nan).fillna(
+                catalog['Arrival_P'])
     event_list = np.array(
         [UTCDateTime(event) for event in catalog[time_column_name]])
     event_list.sort()
