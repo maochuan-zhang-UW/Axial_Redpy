@@ -18,7 +18,7 @@ def main():
     Run this script to fill the table with data from the past using a catalog
     of known events to limit the amount of waveforms to process.
     
-    usage: catfill.py [-h] [-v] [-t] [-q] [-c CONFIGFILE] [-d DELIMITER]
+    usage: catfill.py [-h] [-v] [-t] [-a] [-q] [-c CONFIGFILE] [-d DELIMITER]
                       [-n NAME] [-s STARTTIME] [-e ENDTIME] csvfile
     
     positional arguments:
@@ -28,6 +28,9 @@ def main():
       -h, --help            show this help message and exit
       -v, --verbose         increase written print statements
       -t, --troubleshoot    run in troubleshoot mode (without try/except)
+      -a, --arrival         estimate and use the P-wave arrival time to the
+                            center of the network; requires a location to be
+                            included in the catalog
       -q, --query           queries external catalog for local seismicity
                             as defined in the config file and saves output
                             to csvfile
@@ -65,7 +68,7 @@ def main():
                       f'before end time ({args.starttime})')
         catalog = redpy.catalog.query_external(
             'local', UTCDateTime(args.starttime),
-            UTCDateTime(args.endtime), opt, arrivals=False)
+            UTCDateTime(args.endtime), opt, arrivals=args.arrival)
         if len(catalog) == 0:
             print('No events found!')
             quit()
@@ -73,7 +76,8 @@ def main():
     try:
         event_list = redpy.catalog.get_event_times_from_csv(
             args.csvfile, args.name, args.delimiter, opt,
-            start_time=args.starttime, end_time=args.endtime)
+            start_time=args.starttime, end_time=args.endtime,
+            arrivals=args.arrival)
     except KeyError:
         print(f'Could not find "{args.name}" column in {args.csvfile}. '
               'Check file, column name, and delimiter! Use -h for help.')
@@ -130,6 +134,10 @@ def catfill_parse():
     parser.add_argument('-t', '--troubleshoot', action='store_true',
                         default=False,
                         help='run in troubleshoot mode (without try/except)')
+    parser.add_argument('-a', '--arrival', action='store_true', default=False,
+                        help=('estimate and use the P-wave arrival time to '
+                              'the center of the network; requires a location '
+                              'to be included in the catalog'))
     parser.add_argument('-q', '--query', action='store_true', default=False,
                         help=('queries external catalog for local seismicity '
                              'as defined in the config file and saves output '

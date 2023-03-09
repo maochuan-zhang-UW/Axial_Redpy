@@ -17,7 +17,8 @@ import redpy
 
 
 def get_event_times_from_csv(
-        csvfile, time_column_name, sep, opt, start_time=None, end_time=None):
+        csvfile, time_column_name, sep, opt, start_time=None, end_time=None,
+        arrivals=False):
     """
     Reads event times from a catalog.
     
@@ -35,14 +36,30 @@ def get_event_times_from_csv(
         Events returned must have happened after this date.
     end_time : UTCDateTime object, optional
         Events returned must have happened before this date.
+    arrivals : bool, optional
+        Use P-wave arrival time instead of origin time.
     
     Returns
     -------
     event_list : list of UTCDateTime objects
     
     """
-    df = pd.read_csv(csvfile, sep=sep)
-    event_list = np.array([UTCDateTime(ev) for ev in df[time_column_name]])
+    catalog = pd.read_csv(csvfile, sep=sep)
+    if arrivals:
+        # Check to make sure arrivals have been calculated
+        if 'Arrival_p' not in catalog.columns:
+            latitude_center = np.mean(
+                np.array(opt.stalats.split(',')).astype(float))
+            longitude_center = np.mean(
+                np.array(opt.stalons.split(',')).astype(float))
+            catalog = calculate_arrivals(
+                catalog, latitude_center, longitude_center, ['p','P'], opt,
+                time_column_name=time_column_name)
+        # Temporarily overwrite the time column
+        catalog[time_column_name] = catalog['Arrival_p'].replace(
+            to_replace='NaN', value=None).fillna(catalog['Arrival_P'])
+    event_list = np.array(
+        [UTCDateTime(event) for event in catalog[time_column_name]])
     event_list.sort()
     if start_time:
         event_list = event_list[event_list >= start_time]
@@ -183,7 +200,8 @@ def query_external(region, tmin, tmax, opt, arrivals=True):
 
 
 def calculate_arrivals(
-        catalog, latitude_center, longitude_center, phase_list, opt):
+        catalog, latitude_center, longitude_center, phase_list, opt,
+        time_column_name='Time'):
     """
     Calculates the arrivals of given phases from source to study area.
     
@@ -214,23 +232,27 @@ def calculate_arrivals(
     if len(catalog) > 0:
         taupymodel_runs = 0
         model = TauPyModel(model="iasp91")
+        latitudes = np.squeeze(catalog.filter(regex='[lL]at.*'))
+        longitudes = np.squeeze(catalog.filter(regex='[lL]on.*'))
+        depths = np.squeeze(catalog.filter(regex='[dD]ep.*m'))
+        if len(depths) < 1:
+            depths = np.squeeze(catalog.filter(regex='[dD]ep.*'))
         for i in range(len(catalog)):
-            deg = locations2degrees(catalog['Latitude'][i],
-                                    catalog['Longitude'][i],
-                                    latitude_center,
-                                    longitude_center)
+            deg = locations2degrees(latitudes[i], longitudes[i],
+                                    latitude_center, longitude_center)
             # TauPyModel misbehaves if it's used too much
             # Determine if it needs to be reloaded (every 100 runs)
             taupymodel_runs += 1
             if np.remainder(taupymodel_runs,100) == 0:
                 model = TauPyModel(model="iasp91")
             arrivals = model.get_travel_times(
-                source_depth_in_km=max(0, catalog['Depth/km'][i]),
+                source_depth_in_km=max(0, depths[i]),
                 distance_in_degree=deg, phase_list=phase_list)
             if len(arrivals) > 0:
                 for arrival in arrivals:
-                    catalog[f'Arrival_{arrival.name}'][i] = (
-                        f'{UTCDateTime(catalog["Time"][i]) + arrival.time}')
+                    atime = (UTCDateTime(catalog[time_column_name][i])
+                             + arrival.time)
+                    catalog[f'Arrival_{arrival.name}'][i] = f'{atime}'
     return catalog
 
 
@@ -276,8 +298,8 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
         members = members[nlargest]
         order = np.argsort(rtimes[members])
         matchstring = (f"""
-            </br><b>ComCat matches ({opt.matchMax} largest events):</b></br>'
-            '<div style="overflow-y: auto; height:100px; width:1200px;">
+            </br><b>ComCat matches ({opt.matchMax} largest events):</b></br>
+            <div style="overflow-y: auto; height:100px; width:1200px;">
             """)
     pc = ['Potential', 'Conflicting']
     region = ['local', 'regional', 'teleseismic']
