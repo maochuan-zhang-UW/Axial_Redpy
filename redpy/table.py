@@ -1474,7 +1474,7 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
 def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
                   ftable, ttimes, filekey, preload_waveforms, preload_end_time,
                   run_end_time, window_start_time, window_end_time, opt,
-                  event_list=[]):
+                  event_list=[], event=None):
     """
     Primary processing loop to update the tables with data in a time window.
     
@@ -1517,6 +1517,8 @@ def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
         Describes the run parameters.
     event_list : list of UTCDateTime objects, optional
         List of catalog events to add.
+    event : UTCDateTime object, optional
+        Catalog event to add by force.
     
     Returns
     -------
@@ -1556,16 +1558,16 @@ def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
     # Download and trigger
     alltrigs = redpy.trigger.load_and_trigger(
         rtable, window_start_time, window_end_time, filekey,
-        preload_waveforms, opt)
+        preload_waveforms, opt, event=event)
     # Populate tables with triggers as appropriate
     populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
-                    ttimes, alltrigs, opt)
+                    ttimes, alltrigs, opt, event=event)
     return (h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable,
             preload_waveforms, preload_end_time, opt)
 
 
 def populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
-                    ttimes, alltrigs, opt):
+                    ttimes, alltrigs, opt, event=None):
     """
     Populates tables with new triggers as appropriate.
     
@@ -1591,10 +1593,12 @@ def populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
         Stream of new triggers to process.
     opt : Options object
         Describes the run parameters.
+    event : UTCDateTime object, optional
+        Catalog event to add by force.
     
     """
-    # Clean out data spikes etc.
-    trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt)
+    trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt,
+                                                      event=event)
     # !!! This step already goes through and calculates the window, can I
     # !!! pass that down the line to save some duplicate calculations?
     # Save junk triggers in separate table for quality checking purposes

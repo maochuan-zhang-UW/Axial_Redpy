@@ -499,9 +499,14 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt,
     return st
 
 
-def trigger(st, rtable, opt):
+def trigger(st, rtable, opt, event=None):
     """
     Run triggering algorithm on a stream of data.
+    
+    If an event to be added by force is passed, the coincidence triggering
+    algorithm is still run and the closest trigger's 'maxratio' is used to
+    allow the event to be expired as close as possible to the time it would
+    have were it allowed to trigger normally.
     
     Parameters
     ----------
@@ -511,6 +516,8 @@ def trigger(st, rtable, opt):
         Handle to the Repeaters table.
     opt : Options object
         Describes the run parameters.
+    event : UTCDateTime object, optional
+        Catalog event to add by force.
     
     Returns
     -------
@@ -521,11 +528,20 @@ def trigger(st, rtable, opt):
     
     t = st[0].stats.starttime
     
-    # !!! Force trigger to load ttimes, ratios from file instead
     cft = coincidence_trigger(opt.trigalg, opt.trigon, opt.trigoff, st.copy(),
         opt.nstaC, sta=opt.swin, lta=opt.lwin, details=True)
-    ttimes = [cft[n]['time'] for n in range(len(cft))]
-    ratios = [np.max(cft[n]['cft_peaks'])-opt.trigon for n in range(len(cft))]
+    if event:
+        ttimes = [event]
+        ratios = [0.0]
+        bestmatch = opt.mintrig
+        for c in cft:
+            if np.abs(c['time']-event) < bestmatch:
+                bestmatch = np.abs(c['time']-event)
+                ratios = [np.max(c['cft_peaks'])-opt.trigon]
+    else:
+        ttimes = [cft[n]['time'] for n in range(len(cft))]
+        ratios = [
+            np.max(cft[n]['cft_peaks'])-opt.trigon for n in range(len(cft))]
     
     if len(ttimes) > 0:
         
@@ -592,7 +608,7 @@ def trigger(st, rtable, opt):
 
 
 def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
-                     preload_waveforms, opt):
+                     preload_waveforms, opt, event=None):
     """
     Combines getting data for a time window and triggering on that data.
     
@@ -610,6 +626,8 @@ def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
         Preloaded waveform data from files on disk.
     opt : Options object
         Describes the run parameters.
+    event : UTCDateTime object, optional
+        Catalog event to add by force.
     
     Returns
     -------
@@ -620,12 +638,12 @@ def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
     if opt.troubleshoot:
         st = get_data(window_start_time-opt.atrig, window_end_time,
                                     filekey, preload_waveforms, opt)
-        alltrigs = trigger(st, rtable, opt)
+        alltrigs = trigger(st, rtable, opt, event=event)
     else:
         try:
             st = get_data(window_start_time-opt.atrig, window_end_time,
                                         filekey, preload_waveforms, opt)
-            alltrigs = trigger(st, rtable, opt)
+            alltrigs = trigger(st, rtable, opt, event=event)
         except KeyboardInterrupt:
             print('\nManually interrupting!\n')
             raise KeyboardInterrupt
@@ -636,13 +654,15 @@ def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
     return alltrigs
 
 
-def clean_triggers(alltrigs, opt):
+def clean_triggers(alltrigs, opt, event=None):
     """
     Cleans triggers of data spikes, calibration pulses, and teleseisms.
     
     Specifically, it attempts to weed out spikes and analog calibration pulses
     using kurtosis and outlier ratios; checks for teleseisms that have very
-    low frequency index.
+    low frequency index. If force triggering with a specific event, a warning
+    will be shown if the event would normally be categorized as junk, but
+    otherwise is allowed to pass the tests.
     
     Parameters
     ----------
@@ -650,6 +670,8 @@ def clean_triggers(alltrigs, opt):
         Triggered events with data from each channel concatenated.
     opt : Options object
         Describes the run parameters.
+    event : UTCDateTime object, optional
+        Catalog event to add by force.
     
     Returns
     -------
@@ -679,8 +701,8 @@ def clean_triggers(alltrigs, opt):
         ntele = 0
         
         # Get FI
-        windowCoeff, windowFFT, windowFI = calculate_window(alltrigs[i].data,
-            int(opt.ptrig*opt.samprate), opt)
+        windowCoeff, windowFFT, windowFI = calculate_window(
+            alltrigs[i].data, int(opt.ptrig*opt.samprate), opt)
         
         # Loop over channels
         for n in range(opt.nsta):
@@ -695,7 +717,7 @@ def clean_triggers(alltrigs, opt):
             
             # Cut out kurtosis window surrounding initial trigger
             datcut = dat[range(int((opt.ptrig-opt.kurtwin/2)*opt.samprate),
-                                 int((opt.ptrig+opt.kurtwin/2)*opt.samprate))]
+                               int((opt.ptrig+opt.kurtwin/2)*opt.samprate))]
             
             # If not filled with zeros
             if np.sum(np.abs(dat))!=0.0:
@@ -714,8 +736,8 @@ def clean_triggers(alltrigs, opt):
                 # Outliers have z > 4.45
                 oratio = len(z[z>4.45])/np.array(len(z)).astype(float)
                 
-                if k >= opt.kurtmax or oratio >= opt.oratiomax or \
-                                                          kf >= opt.kurtfmax:
+                if (k >= opt.kurtmax) or (oratio >= opt.oratiomax) or (
+                        kf >= opt.kurtfmax):
                     njunk+=1
         
         # Allow if there are enough good stations to correlate
@@ -730,5 +752,10 @@ def clean_triggers(alltrigs, opt):
                     jtype.append(1) # Failed kurtosis
             else:
                 jtype.append(0) # Failed FI
-    
+    if event:
+        trigs = alltrigs
+        if len(junk) > 0:
+            print(f'Forced trigger possible type-{jytpe} junk?')
+            junk = Stream()
+            jytpe = []
     return trigs, junk, jtype

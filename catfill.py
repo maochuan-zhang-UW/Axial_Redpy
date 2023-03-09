@@ -31,6 +31,8 @@ def main():
       -a, --arrival         estimate and use the P-wave arrival time to the
                             center of the network; requires a location to be
                             included in the catalog
+      -f, --force           force a trigger at time specified in catalog
+                            instead of using default STA/LTA triggering
       -q, --query           queries external catalog for local seismicity
                             as defined in the config file and saves output
                             to csvfile
@@ -98,13 +100,14 @@ def main():
         else:
             ttimes = 0
         
+        event = event_time if args.force else None
         h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
             preload_waveforms, preload_end_time, opt = \
                 redpy.table.update_tables(h5file, rtable, otable, ttable,
                     ctable, jtable, dtable, ftable, ttimes, filekey,
                     preload_waveforms, preload_end_time, run_end_time,
                     window_start_time, window_end_time, opt,
-                    event_list=event_list)
+                    event_list=event_list, event=event)
         
         redpy.table.print_stats(rtable, otable, ftable, opt)
     redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
@@ -138,6 +141,9 @@ def catfill_parse():
                         help=('estimate and use the P-wave arrival time to '
                               'the center of the network; requires a location '
                               'to be included in the catalog'))
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help=('force a trigger at time specified in catalog '
+                              'instead of using default STA/LTA triggering'))
     parser.add_argument('-q', '--query', action='store_true', default=False,
                         help=('queries external catalog for local seismicity '
                              'as defined in the config file and saves output '
