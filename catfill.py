@@ -133,7 +133,7 @@ def parse():
 
     Returns
     -------
-    args : ArgumentParser Object
+    args : ArgumentParser object
 
     """
     parser = argparse.ArgumentParser(
