@@ -1,149 +1,143 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
+r"""
+Fill tables with data using a catalog.
 
+Run this script to fill the table with data from the past using a catalog
+of known events to limit the amount of waveforms to process. By default,
+catfill does not expire orphans, allowing backfill to be run over the same
+time period and for orphaned catalog events to still exist. This behavior can
+be overridden with -x to expire orphans after each event time. When using -f,
+a trigger will be forced at the given time and 'junk' filtering will be
+skipped, however, the minimum allowed time between events is still enforced.
+
+usage: catfill.py [-h] [-v] [-t] [-a] [-f] [-q] [-x] [-c CONFIGFILE]
+                  [-d DELIMITER] [-n NAME] [-s STARTTIME] [-e ENDTIME]
+                  csvfile
+
+positional arguments:
+  csvfile               catalog csv file with a column of event times or file
+                        to write a queried catalog to disk
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --verbose         increase written print statements
+  -t, --troubleshoot    run in troubleshoot mode (without try/except)
+  -a, --arrival         estimate and use the P-wave arrival time to the center
+                        of the network; requires a location to be included in
+                        the catalog
+  -f, --force           force a trigger at time specified in catalog instead
+                        of using default STA/LTA triggering
+  -q, --query           queries external catalog for local seismicity as
+                        defined in the config file and saves output to csvfile
+  -x, --expire          expire orphans
+  -c CONFIGFILE, --configfile CONFIGFILE
+                        use configuration file named CONFIGFILE instead of
+                        default settings.cfg
+  -d DELIMITER, --delimiter DELIMITER
+                        define custom DELIMITER between columns instead of
+                        default "," (e.g., "\t" for tabs, " " for spaces, or
+                        "|" for pipes)
+  -n NAME, --name NAME  define custom time column NAME instead of default
+                        "Time"
+  -s STARTTIME, --starttime STARTTIME
+                        subsets catalog to begin at STARTTIME (yyyy-mm-dd or
+                        yyyy-mm-ddTHH:MM:SS)
+  -e ENDTIME, --endtime ENDTIME
+                        subsets catalog to end at ENDTIME (yyyy-mm-dd or yyyy-
+                        mm-ddTHH:MM:SS)
+"""
 import argparse
 import time
-
-import numpy as np
-from obspy import UTCDateTime
 
 import redpy
 
 
-def main():
+def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
+            troubleshoot=False, arrival=False, force=False, query=False,
+            expire=False, delimiter=',', name='Time', starttime=None,
+            endtime=None):
     """
-    Backfills table with data from the past given a catalog.
-    
-    Run this script to fill the table with data from the past using a catalog
-    of known events to limit the amount of waveforms to process. By default,
-    catfill does not expire orphans, allowing backfill to be run over the
-    same time period and for orphaned catalog events to still exist. This
-    behavior can be overridden with -x to expire orphans after each event
-    time. When using -f, a trigger will be forced at the given time and
-    'junk' filtering will be skipped, however, the minimum allowed time
-    between events is still enforced.
-    
-    usage: catfill.py [-h] [-v] [-t] [-a] [-f] [-q] [-x] [-c CONFIGFILE]
-                      [-d DELIMITER] [-n NAME] [-s STARTTIME] [-e ENDTIME]
-                      csvfile
-    
-    positional arguments:
-      csvfile               catalog csv file with a column of event times or
-                            file to write a queried catalog to disk
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      -v, --verbose         increase written print statements
-      -t, --troubleshoot    run in troubleshoot mode (without try/except)
-      -a, --arrival         estimate and use the P-wave arrival time to the
-                            center of the network; requires a location to be
-                            included in the catalog
-      -f, --force           force a trigger at time specified in catalog
-                            instead of using default STA/LTA triggering
-      -q, --query           queries external catalog for local seismicity
-                            as defined in the config file and saves output
-                            to csvfile
-      -x, --expire          expire orphans
-      -c CONFIGFILE, --configfile CONFIGFILE
-                            use configuration file named CONFIGFILE instead of
-                            default settings.cfg
-      -d DELIMITER, --delimiter DELIMITER
-                            define custom DELIMITER between columns instead
-                            of default "," (e.g., "\t" for tabs, " " for
-                            spaces, or "|" for pipes)
-      -n NAME, --name NAME  define custom time column NAME instead of default
-                            "Time"
-      -s STARTTIME, --starttime STARTTIME
-                            subsets catalog to begin at STARTTIME
-                            (yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)
-      -e ENDTIME, --endtime ENDTIME
-                            subsets catalog to end at ENDTIME
-                            (yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)
-    
+    Update tables defined in configfile with a catalog of known events.
+
+    This catalog can be a local .csv-like file, or you may query from an FDSN
+    webservice, which will save locally to 'catalog.csv' by default. If you
+    wish to calculate arrivals, a location must be provided in the catalog
+    (i.e., columns for Latitude, Longitude, and Depth). You may specify
+    custom names for the 'Time' column and delimiter.
+
+    Parameters
+    ----------
+    configfile : str, optional
+        Name of configuration file to read.
+    csvfile : str, optional
+        Name of catalog csv file to read or save to.
+    verbose : bool, optional
+        Enable additional print statements.
+    troubleshoot : bool, optional
+        Escape try/except statements to diagnose problems.
+    arrival : bool, optional
+        Calculate and use P-wave arrival to center of network.
+    force : bool, optional
+        Force trigger at times specified in catalog instead of using default
+        STA/LTA triggering.
+    query : bool, optional
+        Query an external webservice with parameters in configfile.
+    expire : bool, optional
+        Expire orphans.
+    delimiter : str, optional
+        Custom delimiter between columns in csvfile.
+    name : str, optional
+        Custom name of event time column.
+    starttime : str, optional
+        Subsets catalog to begin at this time.
+    endtime : str, optional
+        Subsets catalog to end at this time.
+
     """
     t_func = time.time()
-    args = catfill_parse()
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-        redpy.table.open_with_cfg(args.configfile, args.verbose,
-                                  args.troubleshoot)
-    if args.query:
-        if not args.endtime:
-            args.endtime = UTCDateTime()
-            if opt.verbose:
-                print(f'Defaulting to end time of "now" ({args.endtime})')
-        if not args.starttime:
-            args.starttime = args.endtime - opt.nsec
-            if opt.verbose:
-                print(f'Defaulting to start time of {opt.nsec} seconds '
-                      f'before end time ({args.starttime})')
-        catalog = redpy.catalog.query_external(
-            'local', UTCDateTime(args.starttime),
-            UTCDateTime(args.endtime), opt, arrivals=args.arrival)
-        if len(catalog) == 0:
-            print('No events found!')
-            quit()
-        catalog.to_csv(args.csvfile, index=False, sep=args.delimiter)
+        redpy.table.open_with_cfg(configfile, verbose, troubleshoot)
+    if query:
+        redpy.catalog.save_external_catalog(
+            csvfile, opt, arrival, starttime, endtime, rtable, delimiter)
     try:
         event_list = redpy.catalog.get_event_times_from_csv(
-            args.csvfile, args.name, args.delimiter, opt,
-            start_time=args.starttime, end_time=args.endtime,
-            arrivals=args.arrival)
-    except KeyError:
-        print(f'Could not find "{args.name}" column in {args.csvfile}. '
-              'Check file, column name, and delimiter! Use -h for help.')
-        exit()
-    run_start_time = event_list[0] - 4*opt.atrig
-    run_end_time = event_list[-1] +  5*opt.atrig + opt.maxdt
-    
-    # Create or read in file key to improve local file load times
-    filekey, preload_waveforms, preload_end_time = \
-        redpy.trigger.initial_data_preload(run_start_time, run_end_time, opt)
-    
-    for event_time in event_list:
-        if opt.verbose: print(event_time)
-        window_start_time = event_time - 4*opt.atrig
-        window_end_time = event_time + 5*opt.atrig + opt.maxdt
-        if len(ttable) > 0:
-            ttimes = ttable.cols.startTimeMPL[:]
-        else:
-            ttimes = 0
-        
-        event = event_time if args.force else None
-        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
-            preload_waveforms, preload_end_time, opt = \
-                redpy.table.update_tables(h5file, rtable, otable, ttable,
-                    ctable, jtable, dtable, ftable, ttimes, filekey,
-                    preload_waveforms, preload_end_time, run_end_time,
-                    window_start_time, window_end_time, opt,
-                    event_list=event_list, event=event)
-        
-        if args.expire:
-            lot = len(otable)
-            redpy.table.clear_expired_orphans(otable, window_end_time, opt)
-            if lot > len(otable):
-                if opt.verbose: print(f'Expired {lot-len(otable)} orphan(s)')
-        redpy.table.print_stats(rtable, otable, ftable, opt)
+            csvfile, name, delimiter, opt, starttime, endtime, arrival)
+    except KeyError as exc:
+        raise KeyError(
+            f'Could not find "{name}" column in {csvfile}. Check file, column '
+            'name, and delimiter! Use -h for help.') from exc
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+        redpy.table.update_with_event_list(
+            h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable,
+            event_list, opt, force, expire)
     redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
                                         otable, opt)
-    if opt.verbose: print('Closing table...')
     h5file.close()
-    if opt.verbose: print('Total time spent: '
-                          f'{(time.time()-t_func)/60:.3f} minutes')
+    if opt.verbose:
+        print(f'Total time spent: {(time.time()-t_func)/60:.3f} minutes')
+
+
+def main():
+    """Handle run from the command line."""
+    args = parse()
+    catfill(**vars(args))
     print('Done')
 
 
-def catfill_parse():
+def parse():
     """
-    Defines and parses acceptable command line inputs for catfill.py.
-    
+    Define and parse acceptable command line inputs.
+
     Returns
     -------
     args : ArgumentParser Object
-    
+
     """
     parser = argparse.ArgumentParser(
-        description='Backfills table with data from the past given a catalog.')
+        description='Fill tables with data using a catalog.')
     parser.add_argument('csvfile',
                         help=('catalog csv file with a column of event times '
                               'or file to write a queried catalog to disk'))
@@ -161,8 +155,8 @@ def catfill_parse():
                               'instead of using default STA/LTA triggering'))
     parser.add_argument('-q', '--query', action='store_true', default=False,
                         help=('queries external catalog for local seismicity '
-                             'as defined in the config file and saves output '
-                             'to csvfile'))
+                              'as defined in the config file and saves output '
+                              'to csvfile'))
     parser.add_argument('-x', '--expire', action='store_true', default=False,
                         help='expire orphans')
     parser.add_argument('-c', '--configfile', default='settings.cfg',
@@ -187,4 +181,3 @@ def catfill_parse():
 
 if __name__ == '__main__':
     main()
-
