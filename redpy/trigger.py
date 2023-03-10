@@ -292,7 +292,7 @@ def preload_check(window_start_time, window_end_time, preload_end_time,
         Describes the run parameters.
     preload_waveforms : Stream object, optional
         Stream containing waveforms 'preloaded' into memory.
-    event_list : list of UTCDateTime objects, optional
+    event_list : ndarray of UTCDateTime objects, optional
         List of catalog events to add.
     
     Returns
