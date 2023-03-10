@@ -4,6 +4,7 @@
 
 import os
 import sys
+import time
 
 import matplotlib.dates as mdates
 import numpy as np
@@ -373,7 +374,7 @@ def open_with_cfg(configfile, verbose=False, troubleshoot=False):
     verbose : bool, optional
         Enable additional print statements.
     troubleshoot : bool, optional
-            Escape try/except statements to diagnose problems.
+        Escape try/except statements to diagnose problems.
     
     Returns
     -------
@@ -1539,7 +1540,7 @@ def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
         End time of window to process.
     opt : Options object
         Describes the run parameters.
-    event_list : list of UTCDateTime objects, optional
+    event_list : ndarray of UTCDateTime objects, optional
         List of catalog events to add.
     event : UTCDateTime object, optional
         Catalog event to add by force.
@@ -1659,3 +1660,190 @@ def populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
                     rtable, otable, ctable, ftable, ttimes,
                     trigs[i], idnum, opt)
         rtable.attrs.previd = idnum
+
+
+def update_with_event_list(h5file, rtable, otable, ttable, ctable, jtable,
+                         dtable, ftable, event_list, opt, force=False,
+                         expire=False):
+    """
+    Update tables based on catalog events provided in a list.
+
+    Parameters
+    ----------
+    h5file : File object
+        Handle to the h5 file.
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    event_list : ndarray of UTCDateTime objects
+        List of catalog events to add.
+    opt : Options object
+        Describes the run parameters.
+    force : bool, optional
+        Force trigger at times specified in event_list.
+    expire : bool, optional
+        If True, expire orphans after adding each event.
+
+    Returns
+    -------
+    h5file : File object
+        Handle to the h5 file.
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    opt : Options object
+        Describes the run parameters.
+
+    """
+    run_start_time = event_list[0] - 4*opt.atrig
+    run_end_time = event_list[-1] +  5*opt.atrig + opt.maxdt
+    filekey, preload_waveforms, preload_end_time = \
+        redpy.trigger.initial_data_preload(run_start_time, run_end_time, opt)
+    if rtable.attrs.ptime:
+        rtable.attrs.ptime = UTCDateTime(run_start_time)
+    for event_time in event_list:
+        if opt.verbose:
+            print(event_time)
+        window_start_time = event_time - 4*opt.atrig
+        window_end_time = event_time + 5*opt.atrig + opt.maxdt
+        if len(ttable) > 0:
+            ttimes = ttable.cols.startTimeMPL[:]
+        else:
+            ttimes = 0
+        event = event_time if force else None
+        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
+            preload_waveforms, preload_end_time, opt = update_tables(
+                h5file, rtable, otable, ttable, ctable, jtable, dtable,
+                ftable, ttimes, filekey, preload_waveforms, preload_end_time,
+                run_end_time, window_start_time, window_end_time, opt,
+                event_list=event_list, event=event)
+        if expire:
+            clear_expired_orphans(otable, window_end_time, opt)
+        print_stats(rtable, otable, ftable, opt)
+    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
+
+
+def update_with_continuous(h5file, rtable, otable, ttable, ctable, jtable,
+        dtable, ftable, opt, start_time=None, end_time=None, nsec=None):
+    """
+    Update tables with continuous data for a fixed time period.
+
+    Parameters
+    ----------
+    h5file : File object
+        Handle to the h5 file.
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    opt : Options object
+        Describes the run parameters.
+    start_time : str, optional
+        Starting time. If not provided, will default to either the end of the
+        previous run time or opt.nsec seconds prior to end_time.
+    end_time : str, optional
+        Ending time. If not provided, will default to now.
+    nsec : int, optional
+        Temporarily override opt.nsec with this value.
+
+    Returns
+    -------
+    h5file : File object
+        Handle to the h5 file.
+    rtable : Table object
+        Handle to the Repeaters table.
+    otable : Table object
+        Handle to the Orphans table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    jtable : Table object
+        Handle to the Junk table.
+    dtable : Table object
+        Handle to the Deleted table.
+    ftable : Table object
+        Handle to the Families table.
+    opt : Options object
+        Describes the run parameters.
+
+    """
+    if nsec:
+        opt.nsec = nsec
+    if end_time:
+        run_end_time = UTCDateTime(end_time)
+    else:
+        run_end_time = UTCDateTime()
+    if start_time:
+        run_start_time = UTCDateTime(start_time)
+        if rtable.attrs.ptime:
+            rtable.attrs.ptime = UTCDateTime(run_start_time)
+    else:
+        if rtable.attrs.ptime:
+            run_start_time = UTCDateTime(rtable.attrs.ptime)
+        else:
+            run_start_time = run_end_time-opt.nsec
+    if run_start_time > run_end_time:
+        raise ValueError(
+            f'Start {run_start_time} is after end {run_end_time}!')
+    if len(ttable) > 0:
+        ttimes = ttable.cols.startTimeMPL[:]
+    else:
+        ttimes = 0
+    # Load data from file
+    filekey, preload_waveforms, preload_end_time = \
+        redpy.trigger.initial_data_preload(run_start_time, run_end_time, opt)
+    i = 0
+    while run_start_time + i*opt.nsec < run_end_time:
+        t_iter = time.time()
+        window_start_time = run_start_time + i*opt.nsec
+        window_end_time = min(run_start_time+(i+1)*opt.nsec,
+                              run_end_time) + opt.atrig + opt.maxdt
+        print(window_start_time)
+        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
+            preload_waveforms, preload_end_time, opt = \
+            redpy.table.update_tables(
+                h5file, rtable, otable, ttable, ctable, jtable, dtable,
+                ftable, ttimes, filekey, preload_waveforms,
+                preload_end_time, run_end_time, window_start_time,
+                window_end_time, opt)
+        i += 1
+        redpy.table.clear_expired_orphans(otable, window_end_time, opt)
+        redpy.table.print_stats(rtable, otable, ftable, opt)
+        if opt.verbose:
+            print('Time spent this iteration: '
+                  f'{(time.time()-t_iter)/60:.3f} minutes')
+    print(f'Caught up to: {window_end_time-opt.atrig}')
+    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
