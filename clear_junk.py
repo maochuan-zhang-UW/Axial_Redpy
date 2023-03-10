@@ -1,16 +1,8 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
-
-import redpy.config
-import redpy.table
-import redpy.plotting
-import argparse
-import numpy as np
-import os
-
 """
-Run this script to clear the contents of the junk table.
+Clear contents of the "junk" table.
 
 usage: clearJunk.py [-h] [-v] [-c CONFIGFILE]
 
@@ -21,28 +13,41 @@ optional arguments:
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
 """
+import argparse
 
-parser = argparse.ArgumentParser(description=
-    "Run this script to clear the contents of the junk table.")
-parser.add_argument("-v", "--verbose", action="store_true", default=False,
-    help="increase written print statements")
-parser.add_argument("-c", "--configfile", default="settings.cfg",
-    help="use configuration file named CONFIGFILE instead of default settings.cfg")
-args = parser.parse_args()
+import redpy
 
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-    redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-if opt.verbose: print("Removing junk...")
+def main():
+    """Remove all junk from the command line."""
+    args = parse()
+    h5file, _, _, _, _, jtable, _, _, opt = redpy.table.open_with_cfg(
+        args.configfile, args.verbose, False)
+    redpy.table.remove_all_junk(jtable, opt)
+    if opt.verbose:
+        print('Closing table...')
+    h5file.close()
+    print('Done')
 
-if len(jtable) > 1:
-# This will remove all but the last row (have to leave one)
-    for n in range(len(jtable)-1,0,-1):
-        jtable.remove_row(n)
-    jtable.flush()
-else:
-    if opt.verbose: print("No junk to remove!")
 
-if opt.verbose: print("Closing table...")
-h5file.close()
-if args.verbose: print("Done")
+def parse():
+    """
+    Define and parse acceptable command line inputs.
+
+    Returns
+    -------
+    args : ArgumentParser Object
+
+    """
+    parser = argparse.ArgumentParser(
+        description='Clear contents of the "junk" table.')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False,
+                        help='increase written print statements')
+    parser.add_argument('-c', '--configfile', default='settings.cfg',
+                        help=('use configuration file named CONFIGFILE '
+                              'instead of default settings.cfg'))
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    main()
