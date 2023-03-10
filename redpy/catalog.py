@@ -41,7 +41,7 @@ def get_event_times_from_csv(
     
     Returns
     -------
-    event_list : list of UTCDateTime objects
+    event_list : ndarray of UTCDateTime objects
     
     """
     catalog = pd.read_csv(csvfile, sep=sep)
@@ -115,6 +115,45 @@ def prepare_catalog(ttimes, opt):
         catalog.to_csv(fname, index=False, sep='|')
         external_catalogs.append(catalog)
     return external_catalogs
+
+
+def save_external_catalog(csvfile, opt, arrivals=False, start_time=None,
+                          end_time=None, rtable=None, delimiter=','):
+    """
+    Download and save catalog from external FDSN webservice to csvfile.
+
+    Parameters
+    ----------
+    csvfile : str
+        File to save catalog to.
+    opt : Options object
+        Describes the run parameters.
+    arrivals : bool, optional
+        If True, calculate P-wave arrival to center of network.
+    starttime : str, optional
+        Start time for catalog query.
+    endtime : str, optional
+        End time for catalog query.
+    rtable : Table object, optional
+        Handle to the Repeaters table.
+    delimiter : str, optional
+        Delimiter to use between columns in output .csv file.
+
+    """
+    if not end_time:
+        end_time = UTCDateTime()
+        print(f'Defaulting to end time of "now" ({args.endtime})')
+    if not start_time:
+        start_time = end_time - opt.nsec
+        if rtable:
+            if rtable.attrs.ptime:
+                start_time = rtable.attrs.ptime
+        print(f'Defaulting to start time of {starttime}')
+    catalog = query_external('local', UTCDateTime(start_time),
+                             UTCDateTime(end_time), opt, arrivals)
+    if len(catalog) == 0:
+        print('No events found!')
+    catalog.to_csv(csvfile, index=False, sep=delimiter)
 
 
 def query_external(region, tmin, tmax, opt, arrivals=True):
