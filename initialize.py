@@ -1,16 +1,11 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2018  Alicia Hotovec-Ellis (ahotovec@gmail.com)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
-
-import redpy.config
-import redpy.table
-import argparse
-import os
-
 """
-Run this script first to initialize the hdf5 table where everything will be stored.
-Warning: Running this script will overwrite an existing table with the same name defined
-    by filename in the .cfg file.
+Initialize and overwrite hdf5 table using configuration.
+
+Running this script will overwrite an existing table with the same name
+defined by filename in the .cfg file!
 
 usage: initialize.py [-h] [-v] [-c CONFIGFILE]
 
@@ -20,32 +15,82 @@ optional arguments:
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
+
 """
+import argparse
+import os
 
-parser = argparse.ArgumentParser(description=
-    "Initialize hdf5 table using configuration, overwrites existing table defined in config")
-parser.add_argument("-v", "--verbose", action="store_true", default=False,
-    help="increase written print statements")
-parser.add_argument("-c", "--configfile", default="settings.cfg",
-    help="use configuration file named CONFIGFILE instead of default settings.cfg")
-args = parser.parse_args()
+import redpy
 
-opt = redpy.config.Options(args.configfile, args.verbose)
 
-redpy.table.initialize_table(opt)
+def initialize(configfile='settings.cfg', verbose=False):
+    """
+    Initialize tables defined in configfile, overwriting any existing tables.
 
-if opt.verbose: print("Creating folder to store images '{}{}'".format(opt.outputPath,
-                                                                       opt.groupName))
-try:
-    os.mkdir('{}{}'.format(opt.outputPath,opt.groupName))
-except OSError:
-    print("Folder exists.")
-    
-if opt.verbose: print("Creating folder to store core images '{}{}/clusters'".format(
-    opt.outputPath,opt.groupName))
-try:
-    os.mkdir('{}{}/clusters'.format(opt.outputPath,opt.groupName))
-except OSError:
-    print("Folder exists.")
+    Additionally creates folder structure for outputs.
 
-if opt.verbose: print("Done")
+    Parameters
+    ----------
+    configfile : str, optional
+        Name of configuration file to read.
+    verbose : bool, optional
+        Enable additional print statements.
+
+    """
+    opt = redpy.config.Options(configfile, verbose)
+    redpy.table.initialize_table(opt)
+    create_folders(opt)
+
+
+def create_folders(opt):
+    """
+    Create folder structure for outputs.
+
+    Parameters
+    ----------
+    opt : Options object
+        Describes the run parameters.
+
+    """
+    if opt.verbose:
+        print(f'Creating folders to store outputs...\n{opt.output_folder}')
+    try:
+        os.mkdir(opt.output_folder)
+    except OSError as exc:
+        if opt.verbose:
+            print(exc)
+    if opt.verbose:
+        subfolder = os.path.join(opt.output_folder, 'clusters')
+        print(subfolder)
+    try:
+        os.mkdir(subfolder)
+    except OSError as exc:
+        if opt.verbose:
+            print(exc)
+
+
+def main():
+    """Handle run from the command line."""
+    args = parse()
+    initialize(**vars(args))
+    print('Done')
+
+
+def parse():
+    """
+    Define and parse acceptable command line inputs.
+
+    Returns
+    -------
+    args : ArgumentParser object
+
+    """
+    parser = argparse.ArgumentParser(
+        description='Initialize and overwrite hdf5 table using configuration.')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False,
+                        help='increase written print statements')
+    parser.add_argument('-c', '--configfile', default='settings.cfg',
+                        help=('use configuration file named CONFIGFILE '
+                              'instead of default settings.cfg'))
+    args = parser.parse_args()
+    return args
