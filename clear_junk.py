@@ -18,15 +18,30 @@ import argparse
 import redpy
 
 
-def main():
-    """Remove all junk from the command line."""
-    args = parse()
+def clear_junk(configfile='settings.cfg', verbose=False):
+    """
+    Remove all "junk" from hdf5 file defined in configuration file.
+
+    Closes file when done.
+
+    Parameters
+    ----------
+    configfile : str, optional
+        Name of configuration file to read.
+    verbose : bool, optional
+        Enable additional print statements.
+
+    """
     h5file, _, _, _, _, jtable, _, _, opt = redpy.table.open_with_cfg(
-        args.configfile, args.verbose, False)
+        configfile, verbose)
     redpy.table.remove_all_junk(jtable, opt)
-    if opt.verbose:
-        print('Closing table...')
     h5file.close()
+
+
+def main():
+    """Handle run from the command line."""
+    args = parse()
+    clear_junk(**vars(args))
     print('Done')
 
 
