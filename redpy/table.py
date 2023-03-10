@@ -916,6 +916,30 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
     reorder_families(ftable, opt)
 
 
+def remove_all_junk(jtable, opt):
+    """
+    Remove all but the last row of the junk table.
+    
+    Parameters
+    ----------
+    jtable : Table object
+        Handle to the Junk table.
+    opt : Options object
+        Describes the run parameters.
+    
+    """
+    if opt.verbose:
+        print('Removing junk...')
+    if len(jtable) > 1:
+        # We have to leave at least one row
+        for i in range(len(jtable)-1, 0, -1):
+            jtable.remove_row(i)
+        jtable.flush()
+    else:
+        if opt.verbose:
+            print('No junk to remove!')
+
+
 def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
     verbose=False):
     """
