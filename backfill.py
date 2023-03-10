@@ -23,15 +23,15 @@ optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         increase written print statements
   -t, --troubleshoot    run in troubleshoot mode (without try/except)
+  -c CONFIGFILE, --configfile CONFIGFILE
+                        use configuration file named CONFIGFILE instead of
+                        default settings.cfg
   -s STARTTIME, --starttime STARTTIME
                         optional start time to begin filling (yyyy-mm-dd or
                         yyyy-mm-ddTHH:MM:SS)
   -e ENDTIME, --endtime ENDTIME
                         optional end time to end filling (yyyy-mm-dd or yyyy-
                         mm-ddTHH:MM:SS)
-  -c CONFIGFILE, --configfile CONFIGFILE
-                        use configuration file named CONFIGFILE instead of
-                        default settings.cfg
   -n NSEC, --nsec NSEC  overwrite opt.nsec from configuration file with NSEC
                         this run only
 """
@@ -107,15 +107,15 @@ def parse():
     parser.add_argument('-t', "--troubleshoot", action='store_true',
                         default=False,
                         help='run in troubleshoot mode (without try/except)')
+    parser.add_argument('-c', '--configfile', default='settings.cfg',
+                        help=('use configuration file named CONFIGFILE '
+                              'instead of default settings.cfg'))
     parser.add_argument('-s', '--starttime',
                         help=('optional start time to begin filling '
                               '(yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)'))
     parser.add_argument('-e', '--endtime',
                         help=('optional end time to end filling '
                               '(yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)'))
-    parser.add_argument('-c', '--configfile', default='settings.cfg',
-                        help=('use configuration file named CONFIGFILE '
-                              'instead of default settings.cfg'))
     parser.add_argument('-n', '--nsec', type=int,
                         help=('overwrite opt.nsec from configuration file '
                               'with NSEC this run only'))
