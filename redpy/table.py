@@ -1301,6 +1301,65 @@ def check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
     return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
 
 
+def set_ftable_columns(ftable, opt, plotall=False, resetlp=False, startfam=0,
+                       endfam=0):
+    """
+    Reset 'printme' and 'lastprint' columns of Families table.
+
+    Parameters
+    ----------
+    ftable : Table object
+        Handle to the Families table.
+    opt : Options object
+        Describes the run parameters.
+    plotall : bool, optional
+        If True, completely resets 'printme' column so all families are output.
+    resetlp : bool, optional
+        If True, sets 'lastprint' column to match row index.
+    startfam : int, optional
+        Starting family to generate plots for. May be negative to count
+        backward from last family.
+    endfam : int, optional
+        Ending family to generate plots for. May be negative to count backward
+        from last family.
+
+    """
+    if plotall:
+        if opt.verbose:
+            print('Resetting plotting column...')
+        ftable.cols.printme[:] = np.ones(ftable.attrs.nClust)
+    if resetlp:
+        if opt.verbose:
+            print('Resetting last print column...')
+        ftable.cols.lastprint[:] = np.arange(ftable.attrs.nClust)
+    if startfam or endfam:
+        if startfam < 0:
+            startfam = ftable.attrs.nClust + startfam
+        if endfam < 0:
+            endfam = ftable.attrs.nClust + endfam
+        if (startfam > endfam) and endfam:
+            raise ValueError('startfam is larger than endfam!')
+        if startfam == endfam:
+            print('startfam is equal to endfam; no plots will be produced.')
+        if startfam >= ftable.attrs.nClust-1:
+            raise ValueError('startfam is larger than the number of available '
+                             f'families ({ftable.attrs.nClust})!')
+        if endfam > ftable.attrs.nClust:
+            raise ValueError('endfam is larger than the number of available '
+                             f'families ({ftable.attrs.nClust})!')
+        if startfam < 0:
+            raise ValueError('startfam cannot be less than '
+                             f'-{ftable.attrs.nClust}')
+        ftable.cols.printme[:] = np.zeros(ftable.attrs.nClust)
+        if startfam and not endfam:
+            ftable.cols.printme[startfam:] = np.ones(
+                ftable.attrs.nClust - startfam)
+        elif endfam and not startfam:
+            ftable.cols.printme[:endfam] = np.ones(endfam)
+        else:
+            ftable.cols.printme[startfam:endfam] = np.ones(endfam - startfam)
+
+
 def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
                                                               do_plot=False):
     """

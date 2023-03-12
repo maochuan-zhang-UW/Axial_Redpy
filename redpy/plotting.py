@@ -121,6 +121,52 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         os.rename(tmp,tmp[0:-4])
 
 
+def generate_subset_outputs(rtable, ftable, ttable, ctable, opt, famplot=True,
+                            html=True):
+    """
+    Generate family plot images and/or .html pages.
+
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    ftable : Table object
+        Handle to the Families table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    opt : Options object
+        Describes the run parameters.
+    famplot : bool, optional
+        If True, generates family plot images.
+    html : bool, optional
+        If True, generates .html pages.
+
+    """
+    windowStart = rtable.cols.windowStart[:]
+    windowAmps = rtable.cols.windowAmp[:]
+    rtimes_mpl = (rtable.cols.startTimeMPL[:]
+                  + windowStart[:]/opt.samprate/86400)
+    rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
+    if famplot:
+        ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
+        redpy.plotting.create_family_images(rtable, ftable, rtimes, rtimes_mpl,
+                                            windowAmps, ids, ccc_sparse, opt)
+    if html:
+        if opt.checkComCat:
+            ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
+            external_catalogs = redpy.catalog.prepare_catalog(ttimes, opt)
+        else:
+            external_catalogs = []
+        fi = np.nanmean(rtable.cols.FI[:], axis=1)
+        redpy.plotting.create_family_html(
+            rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
+            external_catalogs, opt)
+    ftable.cols.printme[:] = np.zeros(ftable.attrs.nClust)
+    ftable.cols.lastprint[:] = np.arange(ftable.attrs.nClust)
+
+
 def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
     """
     Creates HTML bokeh timelines: overview, overview_recent, and meta_recent.
