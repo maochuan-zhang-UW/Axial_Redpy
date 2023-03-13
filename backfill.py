@@ -81,7 +81,6 @@ def backfill(configfile='settings.cfg', verbose=False, troubleshoot=False,
     h5file.close()
     if opt.verbose:
         print(f'Total time spent: {(time.time()-t_func)/60:.3f} minutes')
-    print('Done')
 
 
 def main():
