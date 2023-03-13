@@ -39,11 +39,11 @@ def initialize(configfile='settings.cfg', verbose=False):
 
     """
     opt = redpy.config.Options(configfile, verbose)
-    create_folders(opt)
+    create_output_folders(opt)
     redpy.table.initialize_table(opt)
 
 
-def create_folders(opt):
+def create_output_folders(opt):
     """
     Create folder structure for outputs.
 
