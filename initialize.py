@@ -25,9 +25,10 @@ import redpy
 
 def initialize(configfile='settings.cfg', verbose=False):
     """
-    Initialize tables defined in configfile, overwriting any existing tables.
+    Initialize tables defined in configfile, overwriting any existing
+    tables.
 
-    Additionally creates folder structure for outputs.
+    Additionally, create folder structure for outputs.
 
     Parameters
     ----------
@@ -38,8 +39,8 @@ def initialize(configfile='settings.cfg', verbose=False):
 
     """
     opt = redpy.config.Options(configfile, verbose)
-    redpy.table.initialize_table(opt)
     create_folders(opt)
+    redpy.table.initialize_table(opt)
 
 
 def create_folders(opt):
@@ -94,3 +95,7 @@ def parse():
                               'instead of default settings.cfg'))
     args = parser.parse_args()
     return args
+
+
+if __name__ == '__main__':
+    main()
