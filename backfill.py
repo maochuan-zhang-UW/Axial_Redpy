@@ -30,8 +30,8 @@ optional arguments:
                         optional start time to begin filling (yyyy-mm-dd or
                         yyyy-mm-ddTHH:MM:SS)
   -e ENDTIME, --endtime ENDTIME
-                        optional end time to end filling (yyyy-mm-dd or yyyy-
-                        mm-ddTHH:MM:SS)
+                        optional end time to end filling (yyyy-mm-dd or
+                        yyyy-mm-ddTHH:MM:SS)
   -n NSEC, --nsec NSEC  overwrite opt.nsec from configuration file with NSEC
                         this run only
 """
@@ -61,8 +61,8 @@ def backfill(configfile='settings.cfg', verbose=False, troubleshoot=False,
     troubleshoot : bool, optional
         Escape try/except statements to diagnose problems.
     starttime : str, optional
-        Starting time. If not provided, will default to either the end of the
-        previous run time or opt.nsec seconds prior to end_time.
+        Starting time. If not provided, will default to either the end of
+        the previous run time or opt.nsec seconds prior to end_time.
     endtime : str, optional
         Ending time. If not provided, will default to now.
     nsec : int, optional

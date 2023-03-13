@@ -19,17 +19,17 @@ optional arguments:
   -a, --plotall         render everything, not just updated families
   -f, --famplot         only render the family plots, not .html pages
   -l, --html            only render the .html pages, not family plots
-  -r, --resetlp         reset the "last print" column (use for "missing file"
-                        errors)
+  -r, --resetlp         reset the "last print" column (use for "missing
+                        file" errors)
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
   -s STARTFAM, --startfam STARTFAM
-                        manual starting family to replot (assumes first family
-                        if not set)
+                        manual starting family to replot (assumes first
+                        family if not set)
   -e ENDFAM, --endfam ENDFAM
-                        manual (noninclusive) ending family to replot (assumes
-                        last family if not set)
+                        manual (noninclusive) ending family to replot
+                        (assumes last family if not set)
 
 """
 import argparse
@@ -54,7 +54,8 @@ def force_plot(configfile='settings.cfg', verbose=False, plotall=False,
     verbose : bool, optional
         Enable additional print statements.
     plotall : bool, optional
-        If True, completely resets 'printme' column so all families are output.
+        If True, completely resets 'printme' column so all families are
+        output.
     famplot : bool, optional
         If True, only generates family image plots.
     html : bool, optional
@@ -65,8 +66,8 @@ def force_plot(configfile='settings.cfg', verbose=False, plotall=False,
         Starting family to generate plots for. May be negative to count
         backward from last family.
     endfam : int, optional
-        Ending family to generate plots for. May be negative to count backward
-        from last family.
+        Ending family to generate plots for. May be negative to count
+        backward from last family.
 
     """
     h5file, rtable, otable, ttable, ctable, _, _, ftable, opt = \
