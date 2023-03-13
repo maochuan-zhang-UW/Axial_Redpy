@@ -38,6 +38,70 @@ matplotlib.rcParams['font.size'] = 8.0
 matplotlib.rcParams['pdf.fonttype'] = 42
 
 
+def get_plotting_columns(rtable, ttable, ctable, opt, load_ttimes=True,
+        load_fi=True, load_cmatrix=True):
+    """
+    Load several commonly used columns for plotting from tables into memory.
+
+    If any of the load_* arguments are False, the returned variables will be
+    empty. This can help reduce file read overhead when only a subset of these
+    columns are needed.
+
+    Parameters
+    ----------
+    rtable : Table object
+        Handle to the Repeaters table.
+    ttable : Table object
+        Handle to the Triggers table.
+    ctable : Table object
+        Handle to the Correlation table.
+    opt : Options object
+        Describes the run parameters.
+    load_ttimes : bool, optional
+        If True, return ttimes filled.
+    load_fi : bool, optional
+        If True, return fi filled.
+    load_cmatrix : bool, optional
+        If True, return ids and ccc_sparse filled.
+
+    Returns
+    -------
+    rtimes : datetime ndarray
+        Times of all repeaters as datetimes.
+    rtimes_mpl : float ndarray
+        Times of all repeaters as matplotlib dates.
+    windowAmps : float ndarray
+        "windowAmps" column from Repeaters table.
+    ttimes : float ndarray
+        Times of all triggers as matplotlib dates.
+    fi : float ndarray
+        "FI" column from Repeaters table.
+    ids : int ndarray
+        'id' column from Repeaters table.
+    ccc_sparse : float csr_matrix
+        Sparse correlation matrix with id as rows/columns.
+
+    """
+    windowStart = rtable.cols.windowStart[:]
+    windowAmps = rtable.cols.windowAmp[:]
+    rtimes_mpl = rtable.cols.startTimeMPL[:] + windowStart/opt.samprate/86400
+    rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
+    if load_ttimes:
+        ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
+    else:
+        ttimes = []
+    if load_fi:
+        fi = rtable.cols.FI
+    else:
+        fi = []
+    if load_cmatrix:
+        ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
+    else:
+        ids = []
+        ccc_sparse = []
+    return rtimes, rtimes_mpl, windowAmps, ttimes, fi, ids, ccc_sparse
+
+
 def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
     """
     Creates all output files.
@@ -61,11 +125,9 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
     if opt.verbose: print('Updating plots...')
     
     # Call columns that are used multiple times into memory
-    ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
-    windowStart = rtable.cols.windowStart[:]
-    windowAmps = rtable.cols.windowAmp[:]
-    rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
-    rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
+    rtimes, rtimes_mpl, windowAmps, ttimes, _, _, _ = \
+        get_plotting_columns(rtable, ttable, ctable, opt, load_fi=False,
+                             load_cmatrix=False)
     
     if opt.checkComCat==True:
         external_catalogs = redpy.catalog.prepare_catalog(ttimes, opt)
@@ -144,11 +206,9 @@ def generate_subset_outputs(rtable, ftable, ttable, ctable, opt, famplot=True,
         If True, generates .html pages.
 
     """
-    windowStart = rtable.cols.windowStart[:]
-    windowAmps = rtable.cols.windowAmp[:]
-    rtimes_mpl = (rtable.cols.startTimeMPL[:]
-                  + windowStart[:]/opt.samprate/86400)
-    rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
+    rtimes, rtimes_mpl, windowAmps, _, _, _, _ = get_plotting_columns(
+        rtable, ttable, ctable, opt, load_ttimes=False, load_fi=False,
+        load_cmatrix=False)
     if famplot:
         ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
         redpy.plotting.create_family_images(rtable, ftable, rtimes, rtimes_mpl,
@@ -448,7 +508,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
         Describes the run parameters.
     
     """
-    
+    if opt.verbose: print(f'Creating report for family {fnum}...')
     rpath = os.path.join(opt.output_folder, 'reports') 
     
     # Derive family-specific variables
