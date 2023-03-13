@@ -60,8 +60,8 @@ def create_folders(opt):
     except OSError as exc:
         if opt.verbose:
             print(exc)
+    subfolder = os.path.join(opt.output_folder, 'clusters')
     if opt.verbose:
-        subfolder = os.path.join(opt.output_folder, 'clusters')
         print(subfolder)
     try:
         os.mkdir(subfolder)
