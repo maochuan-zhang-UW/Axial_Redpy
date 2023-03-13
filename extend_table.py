@@ -1,27 +1,23 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
-
-import redpy.config
-import redpy.table
-import argparse
-import os
-import numpy as np
-import time
-
 """
-Run this script to create space for additional stations while preserving data in an
-existing table or to change the directory name for a run. Additional stations should
-always be included at the end of the station list; reordering that list is currently not
-supported. Running this script will overwrite any existing table with the same name
-defined by filename in the new .cfg file. If the table names in both .cfg files are the
-same, the original table will be renamed and then deleted. All output files are also
-remade to reflect the additional station, unless flagged otherwise.
+Copy data from an existing table into a new, larger table.
 
-usage: extendTable.py [-h] [-v] [-n] CONFIGFILE_FROM CONFIGFILE_TO
+Run this script to create space for additional stations while preserving
+data in an existing table or to change the directory name for a run.
+Additional stations should always be included at the end of the station
+list; reordering that list is currently not supported. Running this
+script will overwrite any existing table with the same name defined by
+filename in the new .cfg file. If the table names in both .cfg files are the
+same, the original table will be renamed and then deleted. All output files
+are also remade to reflect the additional station, unless flagged otherwise.
+
+usage: extend_table.py [-h] [-v] [-n] CONFIGFILE_FROM CONFIGFILE_TO
 
 positional arguments:
-  CONFIGFILE_FROM       old .cfg file corresponding to table to be copied from
+  CONFIGFILE_FROM       old .cfg file corresponding to table to be copied
+                        from
   CONFIGFILE_TO         new .cfg file corresponding to table to be copied to
 
 optional arguments:
@@ -29,40 +25,72 @@ optional arguments:
   -v, --verbose         increase written print statements
   -n, --noplot          do not re-render plots after extending
 """
+import argparse
 
-parser = argparse.ArgumentParser(description=
-    "Create space for additional stations based on an existing table")
-parser.add_argument("-v", "--verbose", action="store_true", default=False,
-    help="increase written print statements")
-parser.add_argument("-n", "--noplot", action="count", default=0,
-    help="do not re-render plots after extending")
-parser.add_argument('cfgfrom', metavar='CONFIGFILE_FROM', type=str, nargs=1,
-    help="old .cfg file corresponding to table to be copied from")
-parser.add_argument('cfgto', metavar='CONFIGFILE_TO', type=str, nargs=1,
-    help="new .cfg file corresponding to table to be copied to")
+import redpy
 
-args = parser.parse_args()
 
-do_plot = not args.noplot
+def extend_table(cfgfrom, cfgto, verbose=False, noplot=False):
+    """
+    Copy data from existing table into a new, larger table.
 
-t = time.time()
+    Parameters
+    ----------
+    cfgfrom : str
+        Configuration file corresponding to table to copy from.
+    cfgto : str
+        Configuration file corresponding to table to copy to.
+    verbose : bool, optional
+        Increase written print statements.
+    noplot : bool, optional
+        If True, skip plotting once done copying.
 
-optfrom = redpy.config.Options(args.cfgfrom, args.verbose)
-optto = redpy.config.Options(args.cfgto, args.verbose)
+    """
+    do_plot = not noplot
+    optfrom = redpy.config.Options(cfgfrom[0], verbose)
+    optto = redpy.config.Options(cfgto[0], verbose)
+    h5filefrom, _, _, _, _, _, _, ftablefrom = redpy.table.open_table(optfrom)
+    h5fileto, rtableto, otableto, ttableto, ctableto, _, _, ftableto, optto = \
+        redpy.table.expand_table(
+            h5filefrom, ftablefrom, optfrom, optto=optto, do_plot=do_plot)
+    if do_plot:
+        redpy.plotting.generate_all_outputs(rtableto, ftableto, ttableto,
+                                            ctableto, otableto, optto)
+    h5fileto.close()
 
-h5filefrom, rtablefrom, otablefrom, ttablefrom, ctablefrom, jtablefrom, \
-    dtablefrom, ftablefrom = redpy.table.open_table(optfrom)
 
-h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, dtableto, \
-    ftableto, optto = redpy.table.expand_table(h5filefrom, ftablefrom, optfrom,
-                                   optto=optto, do_plot=do_plot)
+def main():
+    """Handle run from the command line."""
+    args = parse()
+    extend_table(**vars(args))
+    print('Done')
 
-if do_plot:
-    if optto.verbose: print("Creating plots...")
-    redpy.plotting.generate_all_outputs(rtableto, ftableto, ttableto, 
-                                                    ctableto, otableto, optto)
 
-if optto.verbose: print("Closing table...")
-h5fileto.close()
+def parse():
+    """
+    Define and parse acceptable command line inputs.
 
-if optto.verbose: print(f"Done in {(time.time()-t)/60:.3f} minutes")
+    Returns
+    -------
+    args : ArgumentParser Object
+
+    """
+    parser = argparse.ArgumentParser(description=(
+        'Copy data from existing table into a new, larger table.'))
+    parser.add_argument('-v', '--verbose', action='store_true', default=False,
+                        help="increase written print statements")
+    parser.add_argument('-n', '--noplot', action='store_true', default=False,
+                        help='do not re-render plots after extending')
+    parser.add_argument('cfgfrom', metavar='CONFIGFILE_FROM', type=str,
+                        nargs=1, help=(
+                            'old .cfg file corresponding to table to be '
+                            'copied from'))
+    parser.add_argument('cfgto', metavar='CONFIGFILE_TO', type=str, nargs=1,
+                        help=('new .cfg file corresponding to table to be '
+                              'copied to'))
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    main()
