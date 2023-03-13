@@ -1,21 +1,18 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
-
-import redpy.config
-import redpy.table
-import redpy.plotting
-import argparse
-import os
-import numpy as np
-import redpy.correlation
-import matplotlib.dates as mdates
-
 """
-Run this script to manually produce a more detailed 'report' page for a given family
-(or families)
+Produce a detailed "report" page for one or more families.
 
-usage: createReport.py [-h] [-v] [-o] [-c CONFIGFILE] N [N ...]
+These report pages resemble the family images, but with more details and are
+more interactive. All waveforms are plotted instead of just the core and
+stack, and the timelines can be zoomed and panned. At the bottom are two
+correlation matrices, one depicting what values are stored in the file, and
+what that matrix would look like if it were filled with all possible pairs.
+Note that for very large families (1000+ members) this matrix can take a
+long time to calculate, and may be bypassed with -s.
+
+usage: create_report.py [-h] [-v] [-o] [-c CONFIGFILE] N [N ...]
 
 positional arguments:
   N                     family number(s) to be reported on
@@ -23,56 +20,108 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         increase written print statements
-  -o, --ordered         order plots by OPTICS
+  -o, --ordered         order plots by OPTICS instead of time
   -m, --matrixtofile    save correlation matrix to file
   -s, --skip            skip recalculating the full correlation matrix
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
 """
+import argparse
+import os
 
-parser = argparse.ArgumentParser(description=
-    "Run this script to manually produce a more detailed 'report' page for a given " +
-    "family (or families)")
-parser.add_argument('famnum', metavar='N', type=int, nargs='+',
-    help="family number(s) to be reported on")
-parser.add_argument("-v", "--verbose", action="store_true", default=False,
-    help="increase written print statements")
-parser.add_argument("-o", "--ordered", action="count", default=0,
-    help="order plots by OPTICS")
-parser.add_argument("-m", "--matrixtofile", action="count", default=0,
-    help="save correlation matrix to file")
-parser.add_argument("-s", "--skip", action="count", default=0,
-    help="skip recalculating the full correlation matrix")
-parser.add_argument("-c", "--configfile", default="settings.cfg",
-    help="use configuration file named CONFIGFILE instead of default settings.cfg")
-args = parser.parse_args()
+import redpy
 
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-    redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-if opt.verbose: print("Creating folder to store files '{}{}/reports'".format(
-    opt.outputPath, opt.groupName))
-    
-try:
-    os.mkdir('{}{}/reports'.format(opt.outputPath,opt.groupName))
-except OSError:
-    print("Folder exists.")
+def create_report(fam_list, configfile='settings.cfg', verbose=False,
+                  ordered=False, matrixtofile=False, skip=False):
+    """
+    Produce a detailed "report" page for one or more families.
 
-# Load from table to pass in case multiple families are to be plotted
-windowStart = rtable.cols.windowStart[:]
-rtimes_mpl = rtable.cols.startTimeMPL[:]+windowStart/opt.samprate/86400
-rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
-windowAmps = rtable.cols.windowAmp[:]
-fi = rtable.cols.FI[:]
-ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
+    Parameters
+    ----------
+    fam_list : int list
+        List of family numbers to produce reports for.
+    configfile : str
+        Name of configuration file to read.
+    verbose : bool, optional
+        Enable additional print statements.
+    ordered : bool, optional
+        If True, order plots by OPTICS instead of by time.
+    matrixtofile : bool, optional
+        If True, save correlation matrix to local .npy file.
+    skip : bool, optional
+        If True, skip recalculating the full correlation matrix.
 
-for fnum in args.famnum:
-    if opt.verbose: print("Creating report for family {}...".format(fnum))
-    redpy.plotting.create_report(rtable, ftable, rtimes, rtimes_mpl,
-        windowAmps, fi, ids, ccc_sparse, fnum, args.ordered, args.skip,
-        args.matrixtofile, opt)
+    """
+    h5file, rtable, _, ttable, ctable, _, _, ftable, opt = \
+        redpy.table.open_with_cfg(configfile, verbose)
+    create_report_folder(opt)
+    rtimes, rtimes_mpl, windowAmps, _, fi, ids, ccc_sparse = \
+        redpy.plotting.get_plotting_columns(rtable, ttable, ctable, opt,
+                                            load_ttimes=False)
+    for fnum in fam_list:
+        redpy.plotting.create_report(
+            rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
+            ccc_sparse, fnum, ordered, skip, matrixtofile, opt)
+    h5file.close()
 
-if opt.verbose: print("Closing table...")
-h5file.close()
-if opt.verbose: print("Done")
+
+def create_report_folder(opt):
+    """
+    Create folder to store reports.
+
+    Parameters
+    ----------
+    opt : Options object
+        Describes the run parameters.
+
+    """
+    subfolder = os.path.join(opt.output_folder, 'reports')
+    if opt.verbose:
+        print(f'Creating folder to store reports...\n{subfolder}')
+    try:
+        os.mkdir(subfolder)
+    except OSError as exc:
+        if opt.verbose:
+            print(exc)
+
+
+def main():
+    """Handle run from the command line."""
+    args = parse()
+    create_report(**vars(args))
+    print('Done')
+
+
+def parse():
+    """
+    Define and parse acceptable command line inputs.
+
+    Returns
+    -------
+    args : ArgumentParser Object
+
+    """
+    parser = argparse.ArgumentParser(
+        description=('Produce a detailed "report" page for one or more '
+                     'families.'))
+    parser.add_argument('fam_list', metavar='N', type=int, nargs='+',
+                        help='family number(s) to be reported on')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False,
+                        help='increase written print statements')
+    parser.add_argument('-o', '--ordered', action='store_true', default=False,
+                        help='order plots by OPTICS instead of time')
+    parser.add_argument('-m', '--matrixtofile', action='store_true',
+                        default=False, help='save correlation matrix to file')
+    parser.add_argument('-s', '--skip', action='store_true', default=False,
+                        help='skip recalculating the full correlation matrix')
+    parser.add_argument('-c', '--configfile', default='settings.cfg',
+                        help=('use configuration file named CONFIGFILE '
+                              'instead of default settings.cfg'))
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    main()
