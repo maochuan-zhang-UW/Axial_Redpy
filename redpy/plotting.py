@@ -91,7 +91,7 @@ def get_plotting_columns(rtable, ttable, ctable, opt, load_ttimes=True,
     else:
         ttimes = []
     if load_fi:
-        fi = rtable.cols.FI
+        fi = rtable.cols.FI[:]
     else:
         fi = []
     if load_cmatrix:
