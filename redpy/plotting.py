@@ -2743,23 +2743,25 @@ def create_local_map(local_lats, local_lons, local_deps, outfile, opt):
     plt.close()
 
 
-def remove_old_html(oldnClust, newnClust, opt):
+def remove_old_files(ftable, opt):
     """
-    Removes HTML files from deleted/moved family pages.
-    
-    Deletes removed family .html files that have fnum above the current
-    maximum family number.
-    
-    oldnClust : int
-        Previous number of clusters (ftable.attrs.nClust).
-    newnClust : int
-        New number of clusters.
+    Removes .html and .png files from deleted/moved family pages.
+
+    Deletes removed family files that have family numbers above the
+    current maximum family number.
+
+    ftable : Table object
+        Handle to the Families table.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    
-    for fnum in range(newnClust, oldnClust):
-        file = os.path.join(opt.output_folder, 'clusters', f'{fnum}.html')
-        if os.path.exists(file):
+    flist = glob.glob(os.path.join(opt.output_folder, 'clusters', '*.html'))
+    for file in flist:
+        fnum = int(os.path.split(file)[1].split('.')[0])
+        if fnum >= ftable.attrs.nClust:
             os.remove(file)
+            for itype in [f'{fnum}.png', f'fam{fnum}.png', f'map{fnum}.png']:
+                img = os.path.join(os.path.split(file)[0], itype)
+                if os.path.exists(img):
+                    os.remove(img)
