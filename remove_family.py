@@ -1,16 +1,16 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
-
-import redpy.config
-import redpy.table
-import argparse
-
 """
-Run this script to manually remove families/clusters (e.g., correlated noise that made it
-past the 'junk' detector). Reclusters and remakes images when done.
+Manually remove one or more families.
 
-usage: removeFamily.py [-h] [-v] [-c CONFIGFILE] N [N ...]
+Run this script to remove families that are not of interest such as
+correlated noise that made it past the 'junk' detector or regional
+seismicity. The cores from these families are moved to the "deleted" table
+and, if new triggers correlate with them, they are not considered further.
+Ensures outputs are up to date.
+
+usage: remove_family.py [-h] [-v] [-c CONFIGFILE] N [N ...]
 
 positional arguments:
   N                     family number(s) to be moved and deleted
@@ -22,30 +22,65 @@ optional arguments:
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
 """
+import argparse
 
-parser = argparse.ArgumentParser(description=
-    "Run this script to manually remove families/clusters")
-parser.add_argument('famnum', metavar='N', type=int, nargs='+',
-    help="family number(s) to be moved and deleted")
-parser.add_argument("-v", "--verbose", action="store_true", default=False,
-    help="increase written print statements")
-parser.add_argument("-c", "--configfile", default="settings.cfg",
-    help="use configuration file named CONFIGFILE instead of default settings.cfg")
-args = parser.parse_args()
+import redpy
 
-h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-    redpy.table.open_with_cfg(args.configfile, args.verbose)
 
-oldnClust = ftable.attrs.nClust
+def remove_family(fam_list, configfile='settings.cfg', verbose=False):
+    """
+    Manually remove one or more families.
 
-redpy.table.remove_families(rtable, ctable, dtable, ftable, args.famnum, opt, args.verbose)
+    The cores from these families are moved to the "deleted" table, and, if
+    new triggers correlate with them, they are not considered further.
 
-if opt.verbose: print("Creating plots...")
-redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt)
+    Parameters
+    ----------
+    fam_list : int list
+        List of family numbers to remove.
+    configfile : str, optional
+        Name of configuration file to read.
+    verbose : bool, optional
+        Enable additional print statements.
 
-if opt.verbose: print("Cleaning up .html files...")
-redpy.plotting.remove_old_html(oldnClust, ftable.attrs.nClust, opt)
+    """
+    h5file, rtable, otable, ttable, ctable, _, dtable, ftable, opt = \
+        redpy.table.open_with_cfg(configfile, verbose)
+    redpy.table.remove_families(rtable, ctable, dtable, ftable, fam_list, opt)
+    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable,
+                                        opt)
+    redpy.plotting.remove_old_files(ftable, opt)
+    h5file.close()
 
-if opt.verbose: print("Closing table...")
-h5file.close()
-if opt.verbose: print("Done")
+
+def main():
+    """Handle run from the command line."""
+    args = parse()
+    remove_family(**vars(args))
+    print('Done')
+
+
+def parse():
+    """
+    Define and parse acceptable command line inputs.
+
+    Returns
+    -------
+    args : ArgumentParser object
+
+    """
+    parser = argparse.ArgumentParser(
+        description='Manually remove one or more families.')
+    parser.add_argument('fam_list', metavar='N', type=int, nargs='+',
+                        help='family number(s) to be moved and deleted')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False,
+                        help='increase written print statements')
+    parser.add_argument('-c', '--configfile', default='settings.cfg',
+                        help=('use configuration file named CONFIGFILE '
+                              'instead of default settings.cfg'))
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    main()
