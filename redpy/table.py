@@ -941,16 +941,15 @@ def remove_all_junk(jtable, opt):
             print('No junk to remove!')
 
 
-def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
-    verbose=False):
+def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
     """
     Removes families from catalog.
-    
+
     Specifically, it removes the families from the Families table, removes the
     cross-correlation values from the Correlation table for members of those
     families, moves the core of the families into the Deleted table, and
     removes the rest of the members from the Repeaters table.
-    
+
     Parameters
     ----------
     rtable : Table object
@@ -961,34 +960,34 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
         Handle to the Deleted table.
     ftable : Table object
         Handle to the Families table.
-    remove_clusters : integer list
-        List of clusters/rows to remove from the Families table.
+    fam_list : integer list
+        List of families to remove from the Families table.
     opt : Options object
         Describes the run parameters.
-    verbose : bool, optional
-        Enable additional print statements.
-    
+
     """
-    
-    if verbose: print('Getting family members to remove...')
-    remove_clusters = np.sort(remove_clusters)[::-1] # Process in reverse
+    # !!! This function needs to be refactored into multiple smaller functions
+    if opt.verbose:
+        print('Getting family members to remove...')
+    fam_list = np.sort(fam_list)[::-1] # Process in reverse
     old_rrows = list(range(len(rtable)))
     transform = np.zeros((len(rtable),)).astype(int)
     old_cores = ftable.cols.core[:]
     
-    # Get members of each cluster and remove row in Families table
+    # Get members of each family and remove row in Families table
     members = np.array([])
-    for cluster in remove_clusters:
-        members = np.append(members, np.fromstring(ftable[cluster]['members'],
+    for fnum in fam_list:
+        members = np.append(members, np.fromstring(ftable[fnum]['members'],
                                                    dtype=int, sep=' '))
-        ftable.remove_row(cluster)
+        ftable.remove_row(fnum)
         ftable.flush()
-    ftable.attrs.nClust-=len(remove_clusters)
+    ftable.attrs.nClust-=len(fam_list)
     members = np.sort(members).astype('uint32')
     
     # !!! Provide option to not do this step for small families?
     # Populate cores in dtable before removing them from rtable
-    if verbose: print('Moving cores to deleted table...')
+    if opt.verbose:
+        print('Moving cores to deleted table...')
     cores = rtable[np.intersect1d(members, old_cores)]
     for core in cores:
         drow = dtable.row
@@ -1004,7 +1003,8 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
         drow.append()
     
     # !!! Functionalize finding rows in the Correlation table? !!!
-    if verbose: print('Updating correlation table...')
+    if opt.verbose:
+        print('Updating correlation table...')
     ids = rtable.cols.id[:]
     ids = ids[members]
     id2 = ctable.cols.id2[:]
@@ -1012,13 +1012,15 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
     for c in idxc[::-1]:
         ctable.remove_row(c)
     
-    if verbose: print('Updating repeater table...')    
+    if opt.verbose:
+        print('Updating repeater table...')
     # Remove rows from table and list
     for m in members[::-1]:
         rtable.remove_row(m)
         old_rrows.remove(m)
     
-    if verbose: print('Updating family table...')
+    if opt.verbose:
+        print('Updating family table...')
     # Update members of Families table with new row locations
     transform[old_rrows] = range(len(rtable))
     np.set_printoptions(threshold=sys.maxsize)
@@ -1034,7 +1036,8 @@ def remove_families(rtable, ctable, dtable, ftable, remove_clusters, opt,
     rtable.flush()
     dtable.flush()
     
-    if verbose: print('Done removing families!')
+    if opt.verbose:
+        print('Done removing families!')
 
 
 def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
