@@ -98,32 +98,30 @@ def catalog_orphans(otable, opt):
 
 def catalog_junk(jtable, opt):
     """
-    Prints simple catalog of junk table to text file (for debugging).
-    
+    Print simple catalog of junk table to text file for debugging.
+
     Columns of this catalog correspond to the original trigger time and a
     code corresponding to which 'type' of junk that clean_triggers() thought
     it was.
-    
+
     Parameters
     ----------
     jtable : Table object
         Handle to the Junk table.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    
     outfile = os.path.join(opt.output_folder, 'junk.txt')
-    
+    if opt.verbose:
+        print(f'Writing junk catalog to {outfile}...')
     startTimes = jtable.cols.startTime[:]
     jtype = jtable.cols.isjunk[:]
-    
-    with open(outfile, 'w') as f:
-        
+    with open(outfile, 'w', encoding='utf-8') as f:
         f.write('Trigger Time (UTC)\tJunk Code\n')
         for i in np.argsort(startTimes):
-            format_time = (UTCDateTime(startTimes[i]) + \
-                                           opt.ptrig/opt.samprate).isoformat()
+            format_time = (UTCDateTime(startTimes[i])
+                           + opt.ptrig/opt.samprate).isoformat()
             f.write(f'{format_time}\t{jtype[i]}\n')
 
 

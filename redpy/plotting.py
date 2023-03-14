@@ -350,38 +350,33 @@ def create_core_images(rtable, ftable, opt):
 
 def create_junk_images(jtable, opt):
     """
-    Creates images of waveforms contained in the junk table.
-    
+    Create images of waveforms contained in the junk table.
+
     File names correspond to the trigger time and the flag for the type of
-    junk it was flagged as.
-    
+    junk it was flagged as. Also writes a catalog to "junk.txt".
+
     Parameters
     ----------
     jtable : Table object
         Handle to the Junk table.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    
-    # Write out times of junk triggers
     redpy.printing.catalog_junk(jtable, opt)
-    
+    if opt.verbose:
+        print('Creating junk plots...')
     for r in jtable:
-        
         data = np.array([])
-        
         for s in range(opt.nsta):
-            
             # Concatenate all channels together
             data = np.append(data, prep_wiggle(r['waveform'], s,
                       r['windowStart'] + int(opt.ptrig*opt.samprate), 0, opt))
-        
         jtime = (UTCDateTime(r['startTime']) + opt.ptrig).strftime(
                 '%Y%m%d%H%M%S')
         jtype = r['isjunk']
         wiggle_plot(data, (15, 0.5), os.path.join(opt.output_folder, 'junk',
-                                                  f'{jtime}-{jtype}.png', opt))
+                                                  f'{jtime}-{jtype}.png'), opt)
 
 
 def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
