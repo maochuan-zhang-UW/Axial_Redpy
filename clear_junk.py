@@ -61,7 +61,8 @@ def parse():
     parser.add_argument('-c', '--configfile', default='settings.cfg',
                         help=('use configuration file named CONFIGFILE '
                               'instead of default settings.cfg'))
-    return parser.parse_args()
+    args = parser.parse_args()
+    return args
 
 
 if __name__ == '__main__':
