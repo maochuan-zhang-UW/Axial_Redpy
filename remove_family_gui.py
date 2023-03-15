@@ -2,12 +2,20 @@
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 """
-Run this script to manually remove families/clusters (e.g., correlated noise that made it
-past the 'junk' detector) using a GUI interface. Reclusters and remakes images when done.
-Note: using large NCOLS may make the window too wide for your monitor, and the GUI does
-not currently support side scrolling...
+Manually remove one or more families using a GUI.
 
-usage: removeFamilyGUI.py [-h] [-v] [-c CONFIGFILE]
+Images are set up in a grid, and may be clicked to be chosen. Below each
+image is the family number and how many members are in that family. When
+clicked, a checkbox next to the image is checked and the background color
+turns from white to red. Below the images are two buttons. "Remove Checked"
+removes the selected families, and "Cancel" exits without removing anything.
+These buttons may also be accessed by pressing <Enter> and <Esc>,
+respectively. Closing the window also exits without removing any families.
+Vertical scrolling with the mouse wheel is supported, but not horizontal
+scrolling. The user may alter the number of columns (e.g., if they have a
+wide or narrow screen), but only 250 rows of images can be rendered at once.
+
+usage: remove_family_gui.py [-h] [-v] [-c CONFIGFILE] [-n NCOLS] [-m MINFAM]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -17,8 +25,9 @@ optional arguments:
                         default settings.cfg
   -n NCOLS, --ncols NCOLS
                         adjust number of columns in layout (default 3)
-  -m MINCLUST, --minclust MINCLUST
-                        only look at clusters with numbers at or above MINCLUST
+  -m MINFAM, --minfam MINFAM
+                        only look at families with numbers at or above
+                        MINFAM
 """
 import argparse
 import glob
@@ -31,102 +40,146 @@ import numpy as np
 import redpy
 
 
-class ChooserGUI:
+class RemoveFamilyGUI(tk.Tk):
+    """Graphical User Interface (GUI) to remove families by image."""
 
-    def __init__(self, master, configfile='settings.cfg', ncols=3, minclust=0,
+    def __init__(self, configfile='settings.cfg', ncols=3, minfam=0,
                  verbose=False):
         """
-        Initialize the window.
+        Load tables and create the GUI.
 
         Parameters
         ----------
-        things
+        configfile : str, optional
+            Name of configuration file to read.
+        ncols : int, optional
+            Number of columns in layout.
+        minfam : int, optional
+            Starting family number. May be used if there are too many
+            families to render at once.
+        verbose : bool, optional
+            Enable additional print statements.
+
         """
-        self.master = master
-        self.minclust = minclust
+        tk.Tk.__init__(self)
+        self.ncols = ncols
+        self.minfam = minfam
+        self.maxfam = 250*self.ncols - self.minfam
+        (self.h5file, self.rtable, self.otable, self.ttable, self.ctable, _,
+            self.dtable, self.ftable, self.opt) = redpy.table.open_with_cfg(
+            configfile, verbose)
+        self.create_gifs()
+        self.build_frame()
+        self.build_grid()
+        self.add_buttons()
+        self.bind_all('<MouseWheel>', self.mouse_wheel)
+        self.bind('<Return>', self.remove)
+        self.bind('<Escape>', self.close)
+        self.pad()
 
-        self.master.title('Opening file... please wait...')
-        # Open stuff
-        self.h5file, self.rtable, self.otable, self.ttable, self.ctable, _, \
-        self.dtable, self.ftable, self.opt = \
-            redpy.table.open_with_cfg(configfile, verbose)
-        # Make images
-        create_gifs(self.ftable, minclust, ncols, self.opt)
-        members = [len(np.fromstring(
-            self.ftable[fnum]['members'], dtype=int, sep=' ')
-            ) for fnum in range(self.ftable.attrs.nClust)]
-
-        self.master.title(f'REDPy - {self.opt.groupName} - Check '
-                          'families to permanently remove')
-        self.canvas = tk.Canvas(master, borderwidth=0, width=560*ncols,
+    def build_frame(self):
+        """Build container for GUI."""
+        self.wm_title(f'REDPy - {self.opt.groupName} - Check families to '
+                      'permanently remove')
+        self.canvas = tk.Canvas(self, borderwidth=0, width=560*self.ncols,
                                 height=1500, background='#ececec')
         self.frame = tk.Frame(self.canvas, background='#ececec')
-        self.vsb = tk.Scrollbar(master, orient='vertical',
+        self.vsb = tk.Scrollbar(self, orient='vertical',
                                 command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=self.vsb.set)
         self.vsb.pack(side='right', fill='y')
         self.canvas.pack(side='left', fill='both', expand=True)
-        self.canvas.create_window((4,4), window=self.frame, anchor='nw')
-        self.frame.bind('<Configure>', lambda event,
-                        canvas=self.canvas: canvas.configure(
-                            scrollregion=canvas.bbox('all')))
+        self.canvas.create_window((4, 4), window=self.frame, anchor='nw')
+        self.frame.bind(
+            '<Configure>', lambda event, canvas=self.canvas: canvas.configure(
+                scrollregion=canvas.bbox('all')))
 
-        # Build grid of families
-        r = 1
-        c = 1
+    def add_buttons(self):
+        """Add 'Remove Checked' and 'Cancel' buttons at bottom."""
+        tk.Button(self.frame, text='Remove Checked', background='#ececec',
+                  command=self.remove).grid(column=1, row=self.row+1,
+                                            columnspan=self.ncols, sticky='N')
+        tk.Button(self.frame, text='Cancel', background='#ececec',
+                  command=self.close).grid(column=1, row=self.row+2,
+                                           columnspan=self.ncols, sticky='S')
+
+    def build_grid(self):
+        """Build grid of checkboxes with families."""
+        self.row = 1
+        column = 1
+        number_of_members = [len(np.fromstring(
+            self.ftable[fnum]['members'], dtype=int, sep=' ')
+            ) for fnum in range(self.ftable.attrs.nClust)]
         self.imgobj = []
         self.invimgobj = []
         self.check = []
         self.var = []
-        for n in range(minclust, self.ftable.attrs.nClust):
+        for fam in range(self.minfam, min(self.ftable.attrs.nClust,
+                                        self.maxfam)):
             self.imgobj.append(tk.PhotoImage(file=os.path.join(
-                self.opt.output_folder,'clusters',f'{n}.gif')))
+                self.opt.output_folder, 'clusters', f'{fam}.gif')))
             self.invimgobj.append(tk.PhotoImage(file=os.path.join(
-                self.opt.output_folder,'clusters',f'{n}_inv.gif')))
+                self.opt.output_folder, 'clusters', f'{fam}_inv.gif')))
             self.var.append(tk.IntVar())
             self.check.append(tk.Checkbutton(
-                self.frame, text=f'Family {n}: {members[n]} Members',
-                image=self.imgobj[n-minclust], compound='top',
-                variable = self.var[n-minclust],
-                selectimage=self.invimgobj[n-minclust]).grid(
-                    column=c, row=r, sticky='N'))
-            c = c+1
-            if c == ncols+1:
-                c = 1
-                r = r+1
-                if r > 255:
-                    print('Ran out of rows. Use -n or -m flags '
-                          'to view more...')
+                self.frame,
+                text=f'Family {fam}: {number_of_members[fam]} Members',
+                image=self.imgobj[fam-self.minfam],
+                compound='top',
+                variable=self.var[fam-self.minfam],
+                selectimage=self.invimgobj[fam-self.minfam]
+                ).grid(column=column, row=self.row, sticky='N'))
+            column += 1
+            if column > self.ncols:
+                column = 1
+                self.row += 1
+        if self.ftable.attrs.nClust > self.maxfam:
+            print('Ran out of rows. Use -n or -m flags to view more...')
 
-        # Add buttons
-        tk.Button(self.frame, text='Remove Checked', background='#ececec',
-                  command=self.remove).grid(column=1, row=r+1,
-                                            columnspan=ncols, sticky='N')
-        tk.Button(self.frame, text='Cancel', background='#ececec',
-                  command=self.close).grid(column=1, row=r+2,
-                                           columnspan=ncols, sticky='S')
-
-        # Bind MouseWheel, Return, Escape keys to be more useful
-        self.master.bind_all('<MouseWheel>', self.mouse_wheel)
-        self.master.bind('<Return>', self.remove)
-        self.master.bind('<Escape>', self.close)
-
-        # Add some padding
+    def pad(self):
+        """Add padding around grid items."""
         for child in self.frame.winfo_children():
             child.grid_configure(padx=15, pady=15)
 
+    def create_gifs(self):
+        """Create family .gif files."""
+        for fam in range(self.minfam, min(self.ftable.attrs.nClust,
+                                          250*self.ncols-self.minfam)):
+            image = Image.open(
+                os.path.join( self.opt.output_folder, 'clusters', f'{fam}.png')
+                ).convert('RGB')
+            image.save(os.path.join(self.opt.output_folder,
+                                 'clusters', f'{fam}.gif'))
+            source = image.split()
+            black = source[1].point(lambda i: i*0)
+            source[1].paste(black)
+            source[2].paste(black)
+            inverse_image = Image.merge('RGB', source)
+            inverse_image.save(os.path.join(
+                self.opt.output_folder, 'clusters', f'{fam}_inv.gif'))
+
+    def delete_gifs(self):
+        """Delete family .gif files."""
+        if self.opt.verbose:
+            print('Cleaning up .gif files...')
+        gif_list = glob.glob(os.path.join(self.opt.output_folder,
+                                          'clusters', '*.gif'))
+        for gif in gif_list:
+            os.remove(gif)
+
     def mouse_wheel(self, event):
+        """Handle vertical scroll with mouse wheel."""
         self.canvas.yview_scroll(-1*(event.delta), 'units')
 
-    def remove(self, *args):
+    def remove(self, *_):
+        """Remove selected families then exit."""
         fam_list = []
-        for n in range(len(self.var)):
-            if self.var[n].get() > 0:
-                fam_list.append(n+self.minclust)
+        for fam, var in enumerate(self.var):
+            if var.get() > 0:
+                fam_list.append(fam+self.minfam)
         if len(fam_list) > 0:
-            print('\n You have selected the following families to remove:')
-            print(f'{fam_list}\n')
-            self.master.title('Removing... please wait...')
+            print('\nYou have selected the following families to remove:')
+            print(' '.join([str(fam) for fam in fam_list])+'\n')
             redpy.table.remove_families(
                 self.rtable, self.ctable, self.dtable, self.ftable, fam_list,
                 self.opt)
@@ -135,13 +188,48 @@ class ChooserGUI:
                 self.otable, self.opt)
         else:
             print('\nNo families selected.\n')
-        self.h5file.close()
-        self.master.destroy()
+        self.exit()
 
-    def close(self, *args):
+    def close(self, *_):
+        """Close window without selecting any families."""
         print('\nNo families selected.\n')
+        self.exit()
+
+    def exit(self):
+        """Clean up and then exit."""
+        self.delete_gifs()
         self.h5file.close()
-        self.master.destroy()
+        self.destroy()
+
+
+def remove_family_gui(configfile='settings.cfg', ncols=3, minfam=0,
+                      verbose=False):
+    """
+    Run a Graphical User Interface (GUI) to remove families by image.
+
+    Parameters
+    ----------
+    configfile : str, optional
+        Name of configuration file to read.
+    ncols : int, optional
+        Number of columns in layout.
+    minfam : int, optional
+        Starting family number. May be used if there are too many families
+        to render at once.
+    verbose : bool, optional
+        Enable additional print statements.
+
+    """
+    gui = RemoveFamilyGUI(configfile, ncols, minfam, verbose)
+    gui.protocol("WM_DELETE_WINDOW", gui.close)
+    gui.mainloop()
+
+
+def main():
+    """Handle run from the command line."""
+    args = parse()
+    remove_family_gui(**vars(args))
+    print('Done')
 
 
 def parse():
@@ -153,132 +241,21 @@ def parse():
     args : ArgumentParser object
 
     """
-    parser = argparse.ArgumentParser(description=
-        'Run this script to manually remove families/clusters using a GUI')
+    parser = argparse.ArgumentParser(
+        description='Manually remove one or more families using a GUI.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
-        help='increase written print statements')
+                        help='increase written print statements')
     parser.add_argument('-c', '--configfile', default='settings.cfg',
-        help=('use configuration file named CONFIGFILE instead of default settings.cfg'))
+                        help=('use configuration file named CONFIGFILE '
+                              'instead of default settings.cfg'))
     parser.add_argument('-n', '--ncols', default=3, type=int,
-        help='adjust number of columns in layout (default 3)')
-    parser.add_argument('-m', '--minclust', default=0, type=int,
-        help='only look at clusters with numbers at or above MINCLUST')
+                        help='adjust number of columns in layout (default 3)')
+    parser.add_argument('-m', '--minfam', default=0, type=int,
+                        help=('only look at families with numbers at or '
+                              'above MINFAM'))
     args = parser.parse_args()
     return args
 
 
-def create_gifs(ftable, minclust, ncols, opt):
-    for n in range(minclust, min(ftable.attrs.nClust, 255*ncols-minclust)):
-        im = Image.open(os.path.join(
-            opt.output_folder, 'clusters', f'{n}.png')).convert('RGB')
-        im.save(os.path.join(opt.output_folder,'clusters',f'{n}.gif'))
-        # Create 'inverted' selection image
-        source = im.split()
-        blk = source[1].point(lambda i: i*0)
-        source[1].paste(blk)
-        source[2].paste(blk)
-        invim = Image.merge('RGB', source)
-        invim.save(os.path.join(opt.output_folder,'clusters',f'{n}_inv.gif'))
-
-
-def delete_gifs(opt):
-    if opt.verbose:
-        print('Cleaning up .gif files...')
-    gif_list = glob.glob(os.path.join(opt.output_folder,'clusters','*.gif'))
-    for gif in gif_list:
-        os.remove(gif)
-
-
-def main():
-    args = parse()
-    remove_family_gui(**vars(args))
-    print('Done')
-
-
-def remove_family_gui(configfile='settings.cfg', ncols=3, minclust=0,
-                      verbose=False):
-    """
-    """
-    root = tk.Tk()
-    gui = ChooserGUI(root, configfile, ncols, minclust, verbose)
-    root.mainloop()
-
-
 if __name__ == '__main__':
     main()
-
-
-#     args = parse()
-#     configfile = args.configfile
-#     verbose = args.verbose
-#     minclust = args.minclust
-#     ncols = args.ncols
-#
-#
-#     h5file, rtable, otable, ttable, ctable, _, dtable, ftable, opt = \
-#         redpy.table.open_with_cfg(configfile, verbose)
-#
-#
-#     # Create GUI window
-#     root = tk.Tk()
-#     root.title('REDPy - Check Families to Permanently Remove')
-#     canvas = tk.Canvas(root, borderwidth=0, width=560*ncols, height=1500,
-#                        background='#ececec')
-#     frame = tk.Frame(canvas, background='#ececec')
-#     vsb = tk.Scrollbar(root, orient='vertical', command=canvas.yview)
-#     canvas.configure(yscrollcommand=vsb.set)
-#     vsb.pack(side='right', fill='y')
-#     canvas.pack(side='left', fill='both', expand=True)
-#     canvas.create_window((4,4), window=frame, anchor='nw')
-#     frame.bind('<Configure>', lambda event,
-#                canvas=canvas: onFrameConfigure(canvas))
-#
-#     # Create images
-#     create_gifs(ftable, minclust, ncols, opt)
-#
-#     # Build grid of families
-#     r = 1
-#     c = 1
-#     imgobj = []
-#     invimgobj = []
-#     check = []
-#     var = []
-#     for n in range(minclust, ftable.attrs.nClust):
-#         imgobj.append(tk.PhotoImage(file=os.path.join(
-#             opt.output_folder,'clusters',f'{n}.gif')))
-#         invimgobj.append(tk.PhotoImage(file=os.path.join(
-#             opt.output_folder,'clusters',f'{n}_inv.gif')))
-#         var.append(tk.IntVar())
-#         check.append(tk.Checkbutton(frame, text=n, image=imgobj[n-minclust],
-#                                     compound='top', variable = var[n-minclust],
-#                                     selectimage=invimgobj[n-minclust]).grid(
-#                                         column=c, row=r, sticky='N'))
-#         c = c+1
-#         if c == ncols+1:
-#             c = 1
-#             r = r+1
-#             if r > 255:
-#                 print("Ran out of rows. Use -n or -m flags to view more...")
-#
-#     # Add buttons
-#     tk.Button(frame, text='Remove Checked', background='#ececec', command=remove).grid(
-#         column=1, row=r+1, columnspan=ncols, sticky='N')
-#     tk.Button(frame, text='Cancel', background='#ececec', command=close).grid(
-#         column=1, row=r+2, columnspan=ncols, sticky='S')
-#
-#     # Bind MouseWheel, Return, Escape keys to be more useful
-#     root.bind_all('<MouseWheel>', mouse_wheel)
-#     root.bind('<Return>', remove)
-#     root.bind('<Escape>', close)
-#
-#     # Add some padding
-#     for child in frame.winfo_children(): child.grid_configure(padx=15, pady=15)
-#
-#     # Go!
-#     root.mainloop()
-#
-#
-#     delete_gifs(opt)
-#     redpy.plotting.remove_old_files(ftable, opt)
-#
-#     h5file.close()
