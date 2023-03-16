@@ -7,7 +7,7 @@ Manually remove one or more families using a GUI.
 Images are set up in a grid, and may be clicked to be chosen. Below each
 image is the family number and how many members are in that family. When
 clicked, a checkbox next to the image is checked and the background color
-turns from white to red. Below the images are two buttons. "Remove Checked"
+turns from white to red. Below the images are two buttons. "Remove Selected"
 removes the selected families, and "Cancel" exits without removing anything.
 These buttons may also be accessed by pressing <Enter> and <Esc>,
 respectively. Closing the window also exits without removing any families.
@@ -79,7 +79,7 @@ class RemoveFamilyGUI(tk.Tk):
 
     def build_frame(self):
         """Build container for GUI."""
-        self.wm_title(f'REDPy - {self.opt.groupName} - Check families to '
+        self.wm_title(f'REDPy - {self.opt.groupName} - Select families to '
                       'permanently remove')
         self.canvas = tk.Canvas(self, borderwidth=0, width=560*self.ncols,
                                 height=1500, background='#ececec')
@@ -95,8 +95,8 @@ class RemoveFamilyGUI(tk.Tk):
                 scrollregion=canvas.bbox('all')))
 
     def add_buttons(self):
-        """Add 'Remove Checked' and 'Cancel' buttons at bottom."""
-        tk.Button(self.frame, text='Remove Checked', background='#ececec',
+        """Add 'Remove Selected' and 'Cancel' buttons at bottom."""
+        tk.Button(self.frame, text='Remove Selected', background='#ececec',
                   command=self.remove).grid(column=1, row=self.row+1,
                                             columnspan=self.ncols, sticky='N')
         tk.Button(self.frame, text='Cancel', background='#ececec',
