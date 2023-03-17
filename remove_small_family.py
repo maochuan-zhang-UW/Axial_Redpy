@@ -5,9 +5,9 @@
 Remove "small" families with few members.
 
 Run this script to remove small families (i.e., families that have less than
-MINMEMBERS members and are more than MAXAGE days old). Reclusters and
-remakes images when done. Optionally, the list of families that meet those
-criteria may be printed to screen without removing them.
+MINMEMBERS members and are more than MAXAGE days old). Remakes images when
+done. Optionally, the list of families that meet those criteria may be
+printed to screen without removing them.
 
 Note: Removing families from large datasets may take a significant amount of
 time.
