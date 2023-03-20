@@ -101,7 +101,7 @@ def create_pdf_overview(
         minmembers = opt.minplot
     if not plotformat:
         plotformat = 'eqrate,fi,occurrence,longevity'
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Creating overview.pdf in main output directory...')
     rtimes, rtimes_mpl, _, ttimes, fi, _, _ = \
         redpy.plotting.get_plotting_columns(rtable, ttable, ctable, opt,

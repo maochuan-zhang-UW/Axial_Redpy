@@ -15,29 +15,29 @@ import redpy.correlation
 def catalog_family(ftable, rtimes, opt):
     """
     Prints simple catalog of family members to text file.
-    
+
     Columns of this catalog correspond to family number and event time, sorted
     chronologically within each family. Event time corresponds to the current
     best alignment, rather than when the event originally triggered.
-    
+
     ftable : Table object
         Handle to the Families table.
     rtimes : datetime ndarray
         Times of all repeaters as datetimes.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    
+
     outfile = os.path.join(opt.output_folder, 'catalog.txt')
-    
+
     with open(outfile, 'w') as f:
-        
+
         f.write('Family\tEvent Time (UTC)\n')
         for fnum in range(ftable.attrs.nClust):
-            
+
             fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
-            
+
             for i in np.argsort(rtimes[fam]):
                 format_time = UTCDateTime(rtimes[fam[i]]).isoformat()
                 f.write(f'{fnum}\t{format_time}\n')
@@ -46,22 +46,22 @@ def catalog_family(ftable, rtimes, opt):
 def catalog_triggers(ttimes, opt):
     """
     Prints simple catalog of all triggers to text file.
-    
+
     Event times in this file correspond to the original trigger times.
-    
+
     Parameters
     ----------
     ttimes : float ndarray
         Times of all triggers as matplotlib dates.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    
+
     outfile = os.path.join(opt.output_folder, 'triggers.txt')
-    
+
     with open(outfile, 'w') as f:
-        
+
         f.write('Trigger Time (UTC)\n')
         for ttime in np.sort(ttimes):
             format_time = UTCDateTime(mdates.num2date(ttime)).isoformat()
@@ -71,24 +71,24 @@ def catalog_triggers(ttimes, opt):
 def catalog_orphans(otable, opt):
     """
     Prints simple catalog of current orphans to text file.
-    
+
     Event times in this file correspond to the original trigger times.
-    
+
     Parameters
     ----------
     otable : Table object
         Handle to the Orphans table.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    
+
     outfile = os.path.join(opt.output_folder, 'orphancatalog.txt')
-    
+
     startTimes = otable.cols.startTime[:]
-    
+
     with open(outfile, 'w') as f:
-        
+
         f.write('Trigger Time (UTC)\n')
         for i in np.argsort(startTimes):
             format_time = (UTCDateTime(startTimes[i]) + \
@@ -113,7 +113,7 @@ def catalog_junk(jtable, opt):
 
     """
     outfile = os.path.join(opt.output_folder, 'junk.txt')
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print(f'Writing junk catalog to {outfile}...')
     startTimes = jtable.cols.startTime[:]
     jtype = jtable.cols.isjunk[:]
@@ -128,11 +128,11 @@ def catalog_junk(jtable, opt):
 def catalog_cores(ftable, rtimes, opt):
     """
     Prints simple catalog of current core events to text file.
-    
+
     Columns of this catalog correspond to family number and event time. Event
     time corresponds to the current best alignment, rather than when the
     event originally triggered.
-    
+
     Parameters
     ----------
     ftable : Table object
@@ -141,16 +141,16 @@ def catalog_cores(ftable, rtimes, opt):
         Times of all repeaters as datetimes.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    
+
     outfile = os.path.join(opt.output_folder, 'cores.txt')
-    
+
     with open(outfile, 'w') as f:
-        
+
         f.write('Family\tEvent Time (UTC)\n')
         for fnum in range(ftable.attrs.nClust):
-            
+
             core = ftable[fnum]['core']
             format_time = UTCDateTime(rtimes[core]).isoformat()
             f.write(f'{fnum}\t{format_time}\n')
@@ -160,14 +160,14 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                                                              ccc_sparse, opt):
     """
     Prints detailed catalog of family members to text file.
-    
+
     Like the simple catalog, events are sorted by event time within each
     family. Additional columns correspond to frequency index,
     cross-correlation coefficient with respect to the event with the highest
     sum (matching the family plots) and with the current core event, time
     since previous event (dt), and the amplitudes on all channels (grouped
     with [ square brackets ]).
-    
+
     Parameters
     ----------
     ftable : Table object
@@ -185,33 +185,33 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     ccc_sparse : float csr_matrix
         Sparse correlation matrix with id as rows/columns.
     opt: Options object describing station/run parameters
-    
+
     """
-    
+
     outfile = os.path.join(opt.output_folder, 'catalog.txt')
-    
+
     with open(outfile, 'w') as f:
-        
+
         f.write('Family\tEvent Time (UTC)\tFI\t')
         f.write('ccc_max\tccc_core\tdt (hr)\t[ Amplitudes ]\n')
         for fnum in range(ftable.attrs.nClust):
-            
+
             fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
             catalogind = np.argsort(rtimes_mpl[fam])
             fam = fam[catalogind]
             corenum = ftable[fnum]['core']
             catalog = rtimes_mpl[fam]
-            
+
             # Get dt
             spacing = np.diff(catalog)*24
-            
+
             # Get correlation values for maximum sum along row (to match
             # family plots) and with the current core event
             ccc_max = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
                 opt, return_type='maxrow')
             ccc_core = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
                 opt, return_type='indrow', ind=np.where(fam==corenum)[0][0])
-            
+
             for i, member in enumerate(fam):
                 evTime = UTCDateTime(rtimes[member])
                 amp = windowAmps[member,:]
@@ -229,10 +229,10 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
 
 
 def catalog_swarm(ftable, ttimes, rtimes, opt):
-    
+
     """
     Writes a .csv file for use in annotating events in Swarm v2.8.5+.
-    
+
     Format for Swarm is 'Date Time, STA CHA NET LOC, label'
     The SCNL defaults to whichever station was chosen for the preview,
     which can be changed by a global search/replace in a text editor.
@@ -244,7 +244,7 @@ def catalog_swarm(ftable, ttimes, rtimes, opt):
         default1, #ffff00
     to highlight family 1 from the 'default' run in yellow compared to other
     repeaters in red/orange.
-    
+
     Parameters
     ----------
     ftable : Table object
@@ -255,30 +255,30 @@ def catalog_swarm(ftable, ttimes, rtimes, opt):
         Times of all repeaters as datetimes.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    
+
     nets = opt.network.split(',')
     stas = opt.station.split(',')
     locs = opt.location.split(',')
     chas = opt.channel.split(',')
-    
+
     catalogfile = os.path.join(opt.output_folder, 'swarm.csv')
     triggerfile = os.path.join(opt.output_folder, 'triggerswarm.csv')
-    
+
     with open(catalogfile, 'w') as f:
-        
+
         for fnum in range(ftable.attrs.nClust):
             fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
             for i in np.argsort(rtimes[fam]):
-                
+
                 f.write("{}, {} {} {} {}, {}{}\n".format(UTCDateTime(
                     rtimes[fam][i]).isoformat(sep=' '), stas[opt.printsta],
                     chas[opt.printsta], nets[opt.printsta],
                     locs[opt.printsta], opt.groupName,fnum))
-                
+
     with open(triggerfile, 'w') as f:
-    
+
         for ttime in np.sort(ttimes):
             f.write("{}, {} {} {} {}, trigger\n".format((UTCDateTime(
                 mdates.num2date(ttime))).isoformat(sep=' '),

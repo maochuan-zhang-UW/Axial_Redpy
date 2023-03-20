@@ -53,20 +53,20 @@ def create_output_folders(opt):
         Describes the run parameters.
 
     """
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print(f'Creating folders to store outputs...\n{opt.output_folder}')
     try:
         os.mkdir(opt.output_folder)
     except OSError as exc:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print(exc)
     subfolder = os.path.join(opt.output_folder, 'clusters')
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print(subfolder)
     try:
         os.mkdir(subfolder)
     except OSError as exc:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print(exc)
 
 

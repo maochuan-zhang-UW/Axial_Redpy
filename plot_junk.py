@@ -51,15 +51,15 @@ def create_junk_folder(opt):
         Describes the run parameters.
 
     """
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Creating folder to store junk images...')
     subfolder = os.path.join(opt.output_folder, 'junk')
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print(subfolder)
     try:
         os.mkdir(subfolder)
     except OSError as exc:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print(exc)
 
 

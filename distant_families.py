@@ -182,7 +182,7 @@ def distant_families(configfile='settings.cfg', verbose=False, findphrase='',
     for fname in flist[np.argsort(fnums)]:
         counter = DistantCounter(fname, findphrase)
         if counter.count_total > 0:
-            if opt.verbose:
+            if getattr(opt, 'verbose'):
                 counter.print_stats()
             for key in fam_dict:
                 fam_dict[key] = counter.append_fam(fam_dict[key], percent, key)

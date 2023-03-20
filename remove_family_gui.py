@@ -160,7 +160,7 @@ class RemoveFamilyGUI(tk.Tk):
 
     def delete_gifs(self):
         """Delete family .gif files."""
-        if self.opt.verbose:
+        if self.getattr(opt, 'verbose'):
             print('Cleaning up .gif files...')
         gif_list = glob.glob(os.path.join(self.opt.output_folder,
                                           'clusters', '*.gif'))

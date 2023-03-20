@@ -310,7 +310,8 @@ def initialize_table(opt):
 
     """
 
-    if opt.verbose: print("Writing hdf5 table: {}".format(opt.filename))
+    if getattr(opt, 'verbose'):
+        print("Writing hdf5 table: {}".format(opt.filename))
 
     # Open file
     h5file = open_file(opt.filename, mode="w", title=opt.title)
@@ -437,7 +438,7 @@ def open_table(opt):
 
     """
 
-    if opt.verbose: print(f'Opening hdf5 table: {opt.filename}')
+    if getattr(opt, 'verbose'): print(f'Opening hdf5 table: {opt.filename}')
 
     h5file = open_file(opt.filename, "a")
 
@@ -476,7 +477,7 @@ def print_stats(rtable, otable, ftable, opt):
         Describes the run parameters.
 
     """
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print(f'Number of orphans   : {len(otable)}')
         print(f'Number of repeaters : {len(rtable)}')
         print(f'Number of families  : {ftable.attrs.nClust}')
@@ -929,7 +930,7 @@ def remove_all_junk(jtable, opt):
         Describes the run parameters.
 
     """
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Removing junk...')
     if len(jtable) > 1:
         # We have to leave at least one row
@@ -937,7 +938,7 @@ def remove_all_junk(jtable, opt):
             jtable.remove_row(i)
         jtable.flush()
     else:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print('No junk to remove!')
 
 
@@ -967,7 +968,7 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
 
     """
     # !!! This function needs to be refactored into multiple smaller functions
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Getting family members to remove...')
     fam_list = np.sort(fam_list)[::-1] # Process in reverse
     old_rrows = list(range(len(rtable)))
@@ -986,7 +987,7 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
 
     # !!! Provide option to not do this step for small families?
     # Populate cores in dtable before removing them from rtable
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Moving cores to deleted table...')
     cores = rtable[np.intersect1d(members, old_cores)]
     for core in cores:
@@ -1003,7 +1004,7 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
         drow.append()
 
     # !!! Functionalize finding rows in the Correlation table? !!!
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Updating correlation table...')
     ids = rtable.cols.id[:]
     ids = ids[members]
@@ -1012,14 +1013,14 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
     for c in idxc[::-1]:
         ctable.remove_row(c)
 
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Updating repeater table...')
     # Remove rows from table and list
     for m in members[::-1]:
         rtable.remove_row(m)
         old_rrows.remove(m)
 
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Updating family table...')
     # Update members of Families table with new row locations
     transform[old_rrows] = range(len(rtable))
@@ -1036,7 +1037,7 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
     rtable.flush()
     dtable.flush()
 
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Done removing families!')
 
 
@@ -1074,7 +1075,7 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
         List of family numbers that were (or were slated to be) removed.
 
     """
-    if opt.verbose or list_only:
+    if getattr(opt, 'verbose') or list_only:
         print('\n::: table.removeSmallFamilies()')
         print(f'::: - minmembers    : {minmembers}')
         print(f'::: - maxage (days) : {maxage}')
@@ -1095,9 +1096,9 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
             removed_families.append(i)
             fate = 'REMOVE'
             nremoved += nmembers
-        if opt.verbose or list_only:
+        if getattr(opt, 'verbose') or list_only:
             print(f'#{i:>12d} | {nmembers:12d} | {a:>12.2f} |  {fate:<12s}')
-    if opt.verbose or list_only:
+    if getattr(opt, 'verbose') or list_only:
         print(f'\nRemoved families    : {removed_families}')
         print(('# Families removed  : '
                f'{len(removed_families)}/{ftable.attrs.nClust}'))
@@ -1112,7 +1113,7 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
             remove_families(
                 rtable, ctable, dtable, ftable, removed_families, opt)
         else:
-            if opt.verbose:
+            if getattr(opt, 'verbose'):
                 print('No families to remove.')
     return removed_families
 
@@ -1307,11 +1308,11 @@ def set_ftable_columns(ftable, opt, plotall=False, resetlp=False, startfam=0,
 
     """
     if plotall:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print('Resetting plotting column...')
         ftable.cols.printme[:] = np.ones(ftable.attrs.nClust)
     if resetlp:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print('Resetting last print column...')
         ftable.cols.lastprint[:] = np.arange(ftable.attrs.nClust)
     if startfam or endfam:
@@ -1765,7 +1766,7 @@ def update_with_event_list(h5file, rtable, otable, ttable, ctable, jtable,
     if rtable.attrs.ptime:
         rtable.attrs.ptime = UTCDateTime(run_start_time)
     for event_time in event_list:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print(event_time)
         window_start_time = event_time - 4*opt.atrig
         window_end_time = event_time + 5*opt.atrig + opt.maxdt
@@ -1883,7 +1884,7 @@ def update_with_continuous(h5file, rtable, otable, ttable, ctable, jtable,
         i += 1
         redpy.table.clear_expired_orphans(otable, window_end_time, opt)
         redpy.table.print_stats(rtable, otable, ftable, opt)
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print('Time spent this iteration: '
                   f'{(time.time()-t_iter)/60:.3f} minutes')
     print(f'Caught up to: {window_end_time-opt.atrig}')

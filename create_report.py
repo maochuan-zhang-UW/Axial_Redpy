@@ -78,12 +78,12 @@ def create_report_folder(opt):
 
     """
     subfolder = os.path.join(opt.output_folder, 'reports')
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print(f'Creating folder to store reports...\n{subfolder}')
     try:
         os.mkdir(subfolder)
     except OSError as exc:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print(exc)
 
 

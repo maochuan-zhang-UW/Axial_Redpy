@@ -121,7 +121,7 @@ def remove_small_family(configfile='settings.cfg', minmembers=5, maxage=0,
                                             otable, opt)
         redpy.plotting.remove_old_files(ftable, opt)
     else:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print('No families removed. No plots to update...')
     h5file.close()
 

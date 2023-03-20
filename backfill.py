@@ -79,7 +79,7 @@ def backfill(configfile='settings.cfg', verbose=False, troubleshoot=False,
     redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
                                         otable, opt)
     h5file.close()
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print(f'Total time spent: {(time.time()-t_func)/60:.3f} minutes')
 
 

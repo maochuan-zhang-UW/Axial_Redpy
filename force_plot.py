@@ -74,7 +74,7 @@ def force_plot(configfile='settings.cfg', verbose=False, plotall=False,
         redpy.table.open_with_cfg(configfile, verbose)
     redpy.table.set_ftable_columns(ftable, opt, plotall, resetlp, startfam,
                                    endfam)
-    if opt.verbose:
+    if getattr(opt, 'verbose'):
         print('Creating requested plots...')
     if famplot or html:
         redpy.plotting.generate_subset_outputs(rtable, ftable, ttable, ctable,

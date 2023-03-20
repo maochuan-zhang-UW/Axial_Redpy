@@ -72,7 +72,7 @@ def create_pdf_family(fam_list, configfile='settings.cfg', verbose=False,
         tmax = 0
     _, _, bboxes = redpy.plotting.initialize_family_image(opt)
     for fnum in fam_list:
-        if opt.verbose:
+        if getattr(opt, 'verbose'):
             print(f'Creating fam{fnum}.pdf...')
         redpy.plotting.assemble_family_image(
             bboxes, rtable, ftable, rtimes, rtimes_mpl, windowAmp, ids,
