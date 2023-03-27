@@ -1,7 +1,7 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
-
+import glob
 import os
 
 import numpy as np
@@ -21,7 +21,7 @@ def get_event_times_from_csv(
         arrivals=False):
     """
     Reads event times from a catalog.
-    
+
     Parameters
     ----------
     csvfile : str
@@ -38,11 +38,11 @@ def get_event_times_from_csv(
         Events returned must have happened before this date.
     arrivals : bool, optional
         Use P-wave arrival time instead of origin time.
-    
+
     Returns
     -------
     event_list : ndarray of UTCDateTime objects
-    
+
     """
     catalog = pd.read_csv(csvfile, sep=sep)
     if arrivals:
@@ -72,24 +72,24 @@ def get_event_times_from_csv(
 def prepare_catalog(ttimes, opt):
     """
     Downloads and formats event catalog from external datacenter.
-    
+
     Data are queried from three regions (local, regional, teleseismic) based
     on the settings in opt. Times are taken from the first and last trigger
     times in ttable, so if there are large gaps in ttable, this function is
     agnostic to them. Updates the catalog if a file exists to reduce query
     overhead.
-    
+
     Parameters
     ----------
     ttimes : float ndarray
         Times of all triggers as matplotlib dates.
     opt : Options object
         Describes the run parameters.
-    
+
     Returns
     -------
     external_catalogs : list of DataFrame objects
-    
+
     """
     tmin = UTCDateTime(mdates.num2date(np.min(ttimes))) - 1800
     tmax = UTCDateTime(mdates.num2date(np.max(ttimes))) + 30
@@ -142,13 +142,13 @@ def save_external_catalog(csvfile, opt, arrivals=False, start_time=None,
     """
     if not end_time:
         end_time = UTCDateTime()
-        print(f'Defaulting to end time of "now" ({args.endtime})')
+        print(f'Defaulting to end time of "now" ({end_time})')
     if not start_time:
         start_time = end_time - opt.nsec
         if rtable:
             if rtable.attrs.ptime:
                 start_time = rtable.attrs.ptime
-        print(f'Defaulting to start time of {starttime}')
+        print(f'Defaulting to start time of {start_time}')
     catalog = query_external('local', UTCDateTime(start_time),
                              UTCDateTime(end_time), opt, arrivals)
     if len(catalog) == 0:
@@ -159,11 +159,11 @@ def save_external_catalog(csvfile, opt, arrivals=False, start_time=None,
 def query_external(region, tmin, tmax, opt, arrivals=True):
     """
     Handles querying and formatting the external event catalog.
-    
+
     Currently only supports querying the USGS FDSN (ComCat). Other datacenters
     could be used, so long as they support the default FDSN 'text' format,
     with columns separated by | instead of commas.
-    
+
     Parameters
     ----------
     region : str
@@ -174,12 +174,12 @@ def query_external(region, tmin, tmax, opt, arrivals=True):
         End time for catalog query.
     opt : Options object
         Describes the run parameters.
-    
+
     Returns
     -------
     catalog : pandas DataFrame
         Formatted event catalog.
-    
+
     """
     latitude_center = np.mean(np.array(opt.stalats.split(',')).astype(float))
     longitude_center = np.mean(np.array(opt.stalons.split(',')).astype(float))
@@ -211,9 +211,9 @@ def query_external(region, tmin, tmax, opt, arrivals=True):
     try:
         catalog = pd.read_csv(query_url, delimiter='|')
         # If the limit is returned
-        if (len(catalog) == 10000):
+        if len(catalog) == 10000:
             offset = 0
-            while not (len(catalog) % 10000):
+            while not len(catalog) % 10000:
                 offset += 10000
                 catalog2 = pd.read_csv(query_url+f'&offset={offset}',
                                        delimiter='|')
@@ -221,12 +221,13 @@ def query_external(region, tmin, tmax, opt, arrivals=True):
                     catalog = catalog.append(catalog2, ignore_index=True)
                 else: # Remainder will still be 0 so we'd be stuck in the loop
                     break
-    except:
+    except: # pylint: disable=bare-except
         # Pass an empty dataframe with the correct columns
         catalog = pd.DataFrame(
             columns=['EventID', 'Time', 'Latitude', 'Longitude', 'Depth/km',
                      'Magnitude','EventLocationName'])
-        print(f'Failed to download {region} event catalog from {datacenter}')
+        print((f'Failed to download {region} event catalog from '
+               f'{opt.datacenter}'))
     catalog.columns = catalog.columns.str.replace(' ','')
     catalog.columns = catalog.columns.str.replace('#','')
     catalog.drop(
@@ -244,10 +245,10 @@ def calculate_arrivals(
         time_column_name='Time'):
     """
     Calculates the arrivals of given phases from source to study area.
-    
+
     Traces rays through a very simple model (iasp91), then appends the times
     of arrivals to the end of the DataFrame.
-    
+
     Parameters
     ----------
     catalog : pandas DataFrame
@@ -260,12 +261,12 @@ def calculate_arrivals(
         List of seismic phase arrivals to trace.
     opt : Options object
         Describes the run parameters.
-    
+
     Returns
     -------
     catalog : pandas DataFrame
         Event catalog, with arrival times appended.
-    
+
     """
     for phase in phase_list:
         catalog[f'Arrival_{phase}'] = 'NaN'
@@ -296,20 +297,21 @@ def calculate_arrivals(
     return catalog
 
 
-def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
+def match_external(windowAmp, ftable, fnum, file, rtimes, external_catalogs,
+                   opt):
     """
     Checks repeater trigger times with arrival times from external catalog.
-    
+
     Currently only supports checking the ANSS Comprehensive Earthquake
     Catalog (USGS ComCat). It writes these to HTML and map image files.
-    
+
     windowAmp : float ndarray
         'windowAmp' column from rtable for single station.
     ftable : Table object
         Handle to the Families table.
     fnum : int
         Family number to check.
-    f : file handle
+    file : file
         HTML file to write to.
     rtimes : datetime ndarray
         Times of repeaters as datetimes.
@@ -317,17 +319,8 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
         External catalogs to check against, with 'Arrivals_' columns.
     opt : Options object
         Describes the run parameters.
-    
+
     """
-    pc = ['Potential', 'Conflicting']
-    model = TauPyModel(model="iasp91")
-    mc = 0
-    n = 0
-    l = 0
-    stalats = np.array(opt.stalats.split(',')).astype(float)
-    stalons = np.array(opt.stalons.split(',')).astype(float)
-    latitude_center = np.mean(stalats)
-    longitude_center = np.mean(stalons)
     members = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
     if opt.matchMax == 0 or opt.matchMax > len(members):
         order = np.argsort(rtimes[members])
@@ -337,11 +330,11 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
         nlargest = np.argsort(windowAmp[members])[::-1][:opt.matchMax]
         members = members[nlargest]
         order = np.argsort(rtimes[members])
-        matchstring = (f"""
+        matchstring = f"""
             </br><b>ComCat matches ({opt.matchMax} largest events):</b></br>
             <div style="overflow-y: auto; height:100px; width:1200px;">
-            """)
-    pc = ['Potential', 'Conflicting']
+            """
+    pc_string = ['Potential', 'Conflicting']
     region = ['local', 'regional', 'teleseismic']
     prestring = ['', '<div style="color:red">', '<div style="color:red">']
     poststring = ['</br>', '</div>', '</div>']
@@ -349,39 +342,39 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
     local_lats = np.array([])
     local_lons = np.array([])
     local_deps = np.array([])
-    for m in members[order]:
-        t = UTCDateTime(rtimes[m])
+    for i in members[order]:
+        ev_time = UTCDateTime(rtimes[i])
         cflag = 0
-        for r, cat in enumerate(external_catalogs):
+        for j, cat in enumerate(external_catalogs):
             # Get the arrival names only from Arrival_ column names
             anames = [cat.filter(like='Arrival').columns[i].split('_')[1] \
                       for i in range(len(cat.filter(like='Arrival').columns))]
             arrivals = cat.filter(like='Arrival').to_numpy().astype(str)
-            matched = np.any(((arrivals >= format(t-opt.serr)) & \
-                              (arrivals <= format(t+opt.serr))),axis=1)
+            matched = np.any(((arrivals >= format(ev_time-opt.serr)) & \
+                              (arrivals <= format(ev_time+opt.serr))),axis=1)
             found = arrivals[matched]
             if len(found) > 0:
                 # Convert from strings to time differences
-                vfunc = np.vectorize(lambda x,t:np.abs(UTCDateTime(x)-t))
+                vfunc = np.vectorize(
+                    lambda x, ev_time:np.abs(UTCDateTime(x)-ev_time))
                 found[found=='NaN'] = 'nan' # Just in case
-                found[found!='nan'] = vfunc(found[found!='nan'],t)
+                found[found!='nan'] = vfunc(found[found!='nan'],ev_time)
                 # Convert to float, otherwise numpy complains
                 found[found=='nan'] = np.nan
                 found = found.astype(float)
                 for i in range(len(found)):
                     bestmatch = np.argwhere(found == np.nanmin(found))[0]
                     catmatch = cat[matched].iloc[bestmatch[0]]
-                    matchstring += ('{}{} {} match: {} ({:5.6f}, {:6.6f}) '
-                            '{:3.1f}km M{:3.1f} - {} - ({}) '
-                            '{:4.2f} s{}').format(
-                            prestring[r], pc[cflag], region[r],
-                            catmatch['Time'],
-                            catmatch['Latitude'], catmatch['Longitude'],
-                            catmatch['Depth/km'], catmatch['Magnitude'],
-                            catmatch['EventLocationName'],
-                            anames[bestmatch[1]], np.nanmin(found),
-                            poststring[r])
-                    if r == 0: # Local catalog
+                    matchstring += (
+                        f'{prestring[j]}{pc_string[cflag]} {region[j]} match: '
+                        f'{catmatch["Time"]} ({catmatch["Latitude"]:5.6f}, '
+                        f'{catmatch["Longitude"]:6.6f}) '
+                        f'{catmatch["Depth/km"]:3.1f}km '
+                        f'M{catmatch["Magnitude"]:3.1f} - '
+                        f'{catmatch["EventLocationName"]} - '
+                        f'({anames[bestmatch[1]]}) '
+                        f'{np.nanmin(found):4.2f} s{poststring[j]}')
+                    if j == 0: # Local catalog
                         local_lats = np.append(local_lats,
                                                catmatch['Latitude'])
                         local_lons = np.append(local_lons,
@@ -401,7 +394,77 @@ def match_external(windowAmp, ftable, fnum, f, rtimes, external_catalogs, opt):
                 local_lats, local_lons, local_deps,
                 os.path.join(opt.output_folder, 'clusters', f'map{fnum}.png'),
                 opt)
-            f.write(f'<img src="map{fnum}.png"></br>')
+            file.write(f'<img src="map{fnum}.png"></br>')
     else:
         matchstring+='No matches found</br></div>'
-    f.write(matchstring)
+    file.write(matchstring)
+
+
+def get_median_locations(opt, regional=False, distant=False):
+    """
+    Parse .html output files for locations and create a DataFrame of medians.
+
+    Parameters
+    ----------
+    opt : Options object
+        Describes the run parameters.
+    regional : bool, optional
+        If True, include regional matches.
+    distant : bool, optional
+        If True, include regional and teleseismic matches.
+
+    Returns
+    -------
+    df : DataFrame object
+
+    """
+    flist = np.array(glob.glob(os.path.join(opt.output_folder, 'clusters',
+                                            '*.html')))
+    fnums = [int(os.path.basename(fname).split('.')[0]) for fname in flist]
+    df = pd.DataFrame(columns=['Latitude', 'Longitude', r'Depth/km'],
+                      index=range(max(fnums)))
+    for i in np.argsort(fnums):
+        with open(flist[i], 'r', encoding='utf-8') as famfile:
+            data = famfile.readlines()
+        famfile.close()
+        locs = {'lats': np.array([]),
+                'lons': np.array([]),
+                'deps': np.array([])}
+        lines = data[-1].split('>')
+        for line in lines:
+            line = line.strip()
+            if line.count('Potential local match:'):
+                locs = append_location(locs, line)
+            elif line.count('regional') and (distant or regional):
+                locs = append_location(locs, line)
+            elif line.count('teleseismic') and distant:
+                locs = append_location(locs, line)
+        if len(locs['lats']) > 0:
+            df.loc[fnums[i]] = [np.median(locs['lats']),
+                                np.median(locs['lons']),
+                                np.median(locs['deps'])]
+    return df
+
+
+def append_location(locs, line):
+    """
+    Append location contained in text line to location arrays.
+
+    Parameters
+    ----------
+    locs : dict
+        Dictionary containing float ndarrays for latitudes, longitudes, and
+        depths of matches.
+    line : str
+        String from .html file containing matched event locations.
+
+    Returns
+    -------
+    locs : dict
+        Modified dictionary of locations.
+
+    """
+    locs['lats'] = np.append(locs['lats'],float(line.split()[4].strip('(,')))
+    locs['lons'] = np.append(locs['lons'],float(line.split()[5].strip(')')))
+    locs['deps'] = np.append(locs['deps'],float(line.split()[6].strip('km')))
+    return locs
