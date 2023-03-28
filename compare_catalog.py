@@ -11,7 +11,7 @@ family or trigger type the best match corresponds to, and for repeaters,
 the frequency index and amplitudes. The combined catalog is saved
 separately, and by default in the current directory.
 
-usage: compare_catalog.py [-h] [-v] [-c CONFIGFILE] [-d DELIMITER]
+usage: compare_catalog.py [-h] [-v] [-a] [-c CONFIGFILE] [-d DELIMITER]
                           [-m MAXDTOFFSET] [-n NAME] [-o OUTFILE]
                           catfile
 
@@ -21,6 +21,9 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         increase written print statements
+  -a, --arrival         estimate and use the P-wave arrival time to the
+                        center of the network; requires a location to be
+                        included in the catalog
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
@@ -46,8 +49,9 @@ from obspy import UTCDateTime
 import redpy
 
 
-def compare_catalog(catfile, configfile='settings.cfg', delimiter=',',
-                    maxdtoffset=-1., name='Time', outfile='', verbose=False):
+def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
+                    delimiter=',', maxdtoffset=-1., name='Time', outfile='',
+                    verbose=False):
     """
     Compare an independent text catalog with a REDPy catalog.
 
@@ -77,19 +81,24 @@ def compare_catalog(catfile, configfile='settings.cfg', delimiter=',',
         Enable additional print statements.
 
     """
+    df, opt = build_event_dataframe(configfile, verbose)
+    if maxdtoffset < 0:
+        maxdtoffset = opt.mintrig
+    if not outfile:
+        outfile = f'matches_{getattr(opt, "groupName")}.csv'
     catalog = pd.read_csv(catfile, sep=delimiter)
-    catalog['Match Time'] = pd.to_datetime(catalog[name], utc=True)
+    if arrival:
+        catalog = redpy.catalog.handle_arrivals(catalog, name, opt,
+                                                write_to_column='Match Time')
+        catalog['Match Time'] = pd.to_datetime(catalog['Match Time'], utc=True)
+    else:
+        catalog['Match Time'] = pd.to_datetime(catalog[name], utc=True)
     catalog['Trigger Time'] = ''
     catalog['Trigger Time'] = pd.to_datetime(catalog['Trigger Time'], utc=True)
     catalog['dt (s)'] = ''
     catalog['Family'] = ''
     catalog['FI'] = ''
     catalog['Amplitudes'] = ''
-    df, opt = build_event_dataframe(configfile, verbose)
-    if maxdtoffset < 0:
-        maxdtoffset = opt.mintrig
-    if not outfile:
-        outfile = f'matches_{getattr(opt, "groupName")}.csv'
     if getattr(opt, 'verbose'):
         print('Matching...')
     for i in range(len(catalog)):
@@ -182,6 +191,10 @@ def parse():
     parser.add_argument('catfile', help='catalog file')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
+    parser.add_argument('-a', '--arrival', action='store_true', default=False,
+                        help=('estimate and use the P-wave arrival time to '
+                              'the center of the network; requires a location '
+                              'to be included in the catalog'))
     parser.add_argument('-c', '--configfile', default='settings.cfg',
                         help=('use configuration file named CONFIGFILE '
                               'instead of default settings.cfg'))
