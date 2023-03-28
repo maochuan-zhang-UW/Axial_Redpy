@@ -46,19 +46,7 @@ def get_event_times_from_csv(
     """
     catalog = pd.read_csv(csvfile, sep=sep)
     if arrivals:
-        # Check to make sure arrivals have been calculated
-        if 'Arrival_p' not in catalog.columns:
-            latitude_center = np.mean(
-                np.array(opt.stalats.split(',')).astype(float))
-            longitude_center = np.mean(
-                np.array(opt.stalons.split(',')).astype(float))
-            catalog = calculate_arrivals(
-                catalog, latitude_center, longitude_center, ['p','P'], opt,
-                time_column_name=time_column_name)
-        # Temporarily overwrite the time column
-        catalog[time_column_name] = catalog['Arrival_p'].replace(
-            to_replace='NaN', value=np.nan).fillna(
-                catalog['Arrival_P'])
+        handle_arrivals(catalog, time_column_name, opt)
     event_list = np.array(
         [UTCDateTime(event) for event in catalog[time_column_name]])
     event_list.sort()
@@ -67,6 +55,47 @@ def get_event_times_from_csv(
     if end_time:
         event_list = event_list[event_list <= end_time]
     return event_list
+
+
+def handle_arrivals(catalog, time_column_name, opt, write_to_column=None):
+    """
+    Handle getting the P-wave arrivals into a single column.
+
+    If arrival column doesn't exist in the catalog, it is calculated. By
+    default, the combined arrival column overwrites the 'Time' column, but
+    can be appended to the end by using the 'write_to_column' option.
+
+    Parameters
+    ----------
+    catalog : DataFrame object
+        Catalog with event times and locations.
+    time_column_name : str
+        Name of the event time column.
+    opt : Options object
+        Describes the run parameters.
+    write_to_column : str, optional
+        Column name to append to overwrite or append.
+
+    Returns
+    -------
+    catalog : DataFrame object
+        Modified catalog.
+
+    """
+    if 'Arrival_p' not in catalog.columns:
+        latitude_center = np.mean(
+            np.array(opt.stalats.split(',')).astype(float))
+        longitude_center = np.mean(
+            np.array(opt.stalons.split(',')).astype(float))
+        catalog = calculate_arrivals(
+            catalog, latitude_center, longitude_center, ['p','P'], opt,
+            time_column_name=time_column_name)
+    if write_to_column:
+        time_column_name = write_to_column
+    catalog[time_column_name] = catalog['Arrival_p'].replace(
+        to_replace='NaN', value=np.nan).fillna(
+            catalog['Arrival_P'])
+    return catalog
 
 
 def prepare_catalog(ttimes, opt):
