@@ -81,14 +81,14 @@ def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
         Enable additional print statements.
 
     """
-    df, opt = build_event_dataframe(configfile, verbose)
+    df, config = build_event_dataframe(configfile, verbose)
     if maxdtoffset < 0:
-        maxdtoffset = opt.mintrig
+        maxdtoffset = config.get('mintrig')
     if not outfile:
-        outfile = f'matches_{getattr(opt, "groupName")}.csv'
+        outfile = f'matches_{config.get("groupName")}.csv'
     catalog = pd.read_csv(catfile, sep=delimiter)
     if arrival:
-        catalog = redpy.catalog.handle_arrivals(catalog, name, opt,
+        catalog = redpy.catalog.handle_arrivals(catalog, name, config,
                                                 write_to_column='Match Time')
         catalog['Match Time'] = pd.to_datetime(catalog['Match Time'], utc=True)
     else:
@@ -99,10 +99,10 @@ def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
     catalog['Family'] = ''
     catalog['FI'] = ''
     catalog['Amplitudes'] = ''
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Matching...')
     for i in range(len(catalog)):
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             if i % 1000 == 0 and i > 0:
                 print(f'{100.0*i/len(catalog):3.2f}% complete')
         time_delta = df['Trigger Time'] - catalog['Match Time'][i]
@@ -113,7 +113,7 @@ def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
             catalog['Family'][i] = df['Family'][idx]
             catalog['FI'][i] = df['FI'][idx]
             catalog['Amplitudes'][i] = df['Amplitudes'][idx]
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print(f'Saving to {outfile}')
     catalog.to_csv(outfile, index=False, date_format='%Y-%m-%dT%H:%M:%S.%fZ')
 
@@ -138,13 +138,13 @@ def build_event_dataframe(configfile='settings.cfg', verbose=False):
     -------
     df : DataFrame object
         Tabular summary of all triggers and subset of metadata.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    h5file, rtable, otable, ttable, _, jtable, _, ftable, opt = \
+    h5file, rtable, otable, ttable, _, jtable, _, ftable, config = \
         redpy.table.open_with_cfg(configfile, verbose)
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Building event table...')
     jdates = [UTCDateTime(j).matplotlib_date for j in jtable.cols.startTime[:]]
     rtimes_mpl = rtable.cols.startTimeMPL[:]
@@ -157,9 +157,9 @@ def build_event_dataframe(configfile='settings.cfg', verbose=False):
     df['Family'][jdates] = 'junk'
     df['Family'][otable.cols.startTimeMPL[:]] = 'orphan'
     df['Trigger Time'] = mdates.num2date(
-        df.index + opt.ptrig/86400)
+        df.index + config.get('ptrig')/86400)
     df['Trigger Time'][rtimes_mpl] = mdates.num2date(
-        rtimes_mpl + rtable.cols.windowStart[:]/getattr(opt, 'samprate')/86400)
+        rtimes_mpl + rtable.cols.windowStart[:]/config.get('samprate')/86400)
     for fam in range(ftable.attrs.nClust):
         members = np.fromstring(ftable[fam]['members'], dtype=int, sep=' ')
         df['Family'][rtimes_mpl[members]] = fam
@@ -167,7 +167,7 @@ def build_event_dataframe(configfile='settings.cfg', verbose=False):
         df['Amplitudes'][rtimes_mpl[members]] = amps[members, :].tolist()
     df.reset_index(drop=True, inplace=True)
     h5file.close()
-    return df, opt
+    return df, config
 
 
 def main():

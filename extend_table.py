@@ -47,15 +47,15 @@ def extend_table(cfgfrom, cfgto, verbose=False, noplot=False):
 
     """
     do_plot = not noplot
-    optfrom = redpy.config.Options(cfgfrom[0], verbose)
-    optto = redpy.config.Options(cfgto[0], verbose)
-    h5filefrom, _, _, _, _, _, _, ftablefrom = redpy.table.open_table(optfrom)
-    h5fileto, rtableto, otableto, ttableto, ctableto, _, _, ftableto, optto = \
+    configfrom = redpy.Config(cfgfrom[0], verbose)
+    configto = redpy.Config(cfgto[0], verbose)
+    h5filefrom, _, _, _, _, _, _, ftablefrom = redpy.table.open_table(configfrom)
+    h5fileto, rtableto, otableto, ttableto, ctableto, _, _, ftableto, configto = \
         redpy.table.expand_table(
-            h5filefrom, ftablefrom, optfrom, optto=optto, do_plot=do_plot)
+            h5filefrom, ftablefrom, configfrom, configto=configto, do_plot=do_plot)
     if do_plot:
         redpy.plotting.generate_all_outputs(rtableto, ftableto, ttableto,
-                                            ctableto, otableto, optto)
+                                            ctableto, otableto, configto)
     h5fileto.close()
 
 

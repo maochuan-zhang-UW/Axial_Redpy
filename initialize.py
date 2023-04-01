@@ -38,35 +38,36 @@ def initialize(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    opt = redpy.config.Options(configfile, verbose)
-    create_output_folders(opt)
-    redpy.table.initialize_table(opt)
+    config = redpy.Config(configfile, verbose)
+    create_output_folders(config)
+    redpy.table.initialize_table(config)
 
 
-def create_output_folders(opt):
+def create_output_folders(config):
     """
     Create folder structure for outputs.
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    if getattr(opt, 'verbose'):
-        print(f'Creating folders to store outputs...\n{opt.output_folder}')
+    if config.get('verbose'):
+        print('Creating folders to store outputs...\n'
+              f'{config.get("output_folder")}')
     try:
-        os.mkdir(opt.output_folder)
+        os.mkdir(config.get('output_folder'))
     except OSError as exc:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print(exc)
-    subfolder = os.path.join(opt.output_folder, 'clusters')
-    if getattr(opt, 'verbose'):
+    subfolder = os.path.join(config.get('output_folder'), 'clusters')
+    if config.get('verbose'):
         print(subfolder)
     try:
         os.mkdir(subfolder)
     except OSError as exc:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print(exc)
 
 

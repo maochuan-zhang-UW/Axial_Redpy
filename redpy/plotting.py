@@ -38,7 +38,7 @@ matplotlib.rcParams['font.size'] = 8.0
 matplotlib.rcParams['pdf.fonttype'] = 42
 
 
-def get_plotting_columns(rtable, ttable, ctable, opt, load_ttimes=True,
+def get_plotting_columns(rtable, ttable, ctable, config, load_ttimes=True,
         load_fi=True, load_cmatrix=True):
     """
     Load several commonly used columns for plotting from tables into memory.
@@ -55,7 +55,7 @@ def get_plotting_columns(rtable, ttable, ctable, opt, load_ttimes=True,
         Handle to the Triggers table.
     ctable : Table object
         Handle to the Correlation table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     load_ttimes : bool, optional
         If True, return ttimes filled.
@@ -84,10 +84,10 @@ def get_plotting_columns(rtable, ttable, ctable, opt, load_ttimes=True,
     """
     windowStart = rtable.cols.windowStart[:]
     windowAmps = rtable.cols.windowAmp[:]
-    rtimes_mpl = rtable.cols.startTimeMPL[:] + windowStart/opt.samprate/86400
+    rtimes_mpl = rtable.cols.startTimeMPL[:] + windowStart/config.get('samprate')/86400
     rtimes = np.array([mdates.num2date(rtime) for rtime in rtimes_mpl])
     if load_ttimes:
-        ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
+        ttimes = ttable.cols.startTimeMPL[:] + config.get('ptrig')/config.get('samprate')/86400
     else:
         ttimes = []
     if load_fi:
@@ -95,14 +95,14 @@ def get_plotting_columns(rtable, ttable, ctable, opt, load_ttimes=True,
     else:
         fi = []
     if load_cmatrix:
-        ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
+        ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, config)
     else:
         ids = []
         ccc_sparse = []
     return rtimes, rtimes_mpl, windowAmps, ttimes, fi, ids, ccc_sparse
 
 
-def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
+def generate_all_outputs(rtable, ftable, ttable, ctable, otable, config):
     """
     Creates all output files.
 
@@ -118,57 +118,57 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         Handle to the Correlation table.
     otable : Table object
         Handle to the Orphans table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    if getattr(opt, 'verbose'): print('Updating plots...')
+    if config.get('verbose'): print('Updating plots...')
 
     # Call columns that are used multiple times into memory
     rtimes, rtimes_mpl, windowAmps, ttimes, _, _, _ = \
-        get_plotting_columns(rtable, ttable, ctable, opt, load_fi=False,
+        get_plotting_columns(rtable, ttable, ctable, config, load_fi=False,
                              load_cmatrix=False)
 
-    if opt.checkComCat==True:
-        external_catalogs = redpy.catalog.prepare_catalog(ttimes, opt)
+    if config.get('checkcomcat')==True:
+        external_catalogs = redpy.catalog.prepare_catalog(ttimes, config)
     else:
         external_catalogs = []
 
     # Write trigger and orphan catalogs
-    redpy.printing.catalog_triggers(ttimes, opt)
-    redpy.printing.catalog_orphans(otable, opt)
+    redpy.printing.catalog_triggers(ttimes, config)
+    redpy.printing.catalog_orphans(otable, config)
 
     # If there is at least one family
     if len(rtable) > 1:
 
         # Render Bokeh timelines
         fi = np.nanmean(rtable.cols.FI[:], axis=1)
-        create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt)
+        create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, config)
 
         # If there are changes to the catalog
         if np.sum(ftable.cols.printme[:]):
 
             # Get correlation matrix and ids
-            ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
+            ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, config)
 
             # Write repeater-related catalogs
-            if getattr(opt, 'verbosecatalog') == True:
+            if config.get('verbosecatalog') == True:
                 # !!! pass columns here
                 redpy.printing.catalog_verbose(ftable, rtimes, rtimes_mpl,
-                                         windowAmps, fi, ids, ccc_sparse, opt)
+                                         windowAmps, fi, ids, ccc_sparse, config)
             else:
-                redpy.printing.catalog_family(ftable, rtimes, opt)
-            redpy.printing.catalog_swarm(ftable, ttimes, rtimes, opt)
-            redpy.printing.catalog_cores(ftable, rtimes, opt)
+                redpy.printing.catalog_family(ftable, rtimes, config)
+            redpy.printing.catalog_swarm(ftable, ttimes, rtimes, config)
+            redpy.printing.catalog_cores(ftable, rtimes, config)
 
             # Make images
-            create_core_images(rtable, ftable, opt)
+            create_core_images(rtable, ftable, config)
             create_family_images(rtable, ftable, rtimes, rtimes_mpl,
-                                             windowAmps, ids, ccc_sparse, opt)
+                                             windowAmps, ids, ccc_sparse, config)
 
             # Make HTML files
             create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps,
-                                                   fi, external_catalogs, opt)
+                                                   fi, external_catalogs, config)
 
             # Reset printing columns
             ftable.cols.printme[:] = np.zeros((len(ftable),))
@@ -178,12 +178,12 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, opt):
         print('Nothing to plot!')
 
     # Rename any .tmp files created in create_core_images()
-    tmplist = glob.glob(os.path.join(opt.output_folder, 'clusters','*.tmp'))
+    tmplist = glob.glob(os.path.join(config.get('output_folder'), 'clusters','*.tmp'))
     for tmp in tmplist:
         os.rename(tmp,tmp[0:-4])
 
 
-def generate_subset_outputs(rtable, ftable, ttable, ctable, opt, famplot=True,
+def generate_subset_outputs(rtable, ftable, ttable, ctable, config, famplot=True,
                             html=True):
     """
     Generate family plot images and/or .html pages.
@@ -198,7 +198,7 @@ def generate_subset_outputs(rtable, ftable, ttable, ctable, opt, famplot=True,
         Handle to the Triggers table.
     ctable : Table object
         Handle to the Correlation table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     famplot : bool, optional
         If True, generates family plot images.
@@ -207,27 +207,27 @@ def generate_subset_outputs(rtable, ftable, ttable, ctable, opt, famplot=True,
 
     """
     rtimes, rtimes_mpl, windowAmps, _, _, _, _ = get_plotting_columns(
-        rtable, ttable, ctable, opt, load_ttimes=False, load_fi=False,
+        rtable, ttable, ctable, config, load_ttimes=False, load_fi=False,
         load_cmatrix=False)
     if famplot:
-        ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, opt)
+        ids, ccc_sparse = redpy.correlation.get_matrix(rtable, ctable, config)
         redpy.plotting.create_family_images(rtable, ftable, rtimes, rtimes_mpl,
-                                            windowAmps, ids, ccc_sparse, opt)
+                                            windowAmps, ids, ccc_sparse, config)
     if html:
-        if opt.checkComCat:
-            ttimes = ttable.cols.startTimeMPL[:] + opt.ptrig/opt.samprate/86400
-            external_catalogs = redpy.catalog.prepare_catalog(ttimes, opt)
+        if config.get('checkcomcat'):
+            ttimes = ttable.cols.startTimeMPL[:] + config.get('ptrig')/config.get('samprate')/86400
+            external_catalogs = redpy.catalog.prepare_catalog(ttimes, config)
         else:
             external_catalogs = []
         fi = np.nanmean(rtable.cols.FI[:], axis=1)
         redpy.plotting.create_family_html(
             rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
-            external_catalogs, opt)
+            external_catalogs, config)
     ftable.cols.printme[:] = np.zeros(ftable.attrs.nClust)
     ftable.cols.lastprint[:] = np.arange(ftable.attrs.nClust)
 
 
-def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
+def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, config):
     """
     Creates HTML bokeh timelines: overview, overview_recent, and meta_recent.
 
@@ -246,19 +246,19 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
         Times of all repeaters as datetimes.
     rtimes_mpl : float ndarray
         Times of all repeaters as matplotlib dates.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
     # Load table columns into memory to reduce I/O overhead
     # !!! This variable technically needs the windowStart added to it
-    # !!! Same for ttimes needing opt.ptrig...
+    # !!! Same for ttimes needing config.get('ptrig')...
 
     longevity = ftable.cols.longevity[:]
     famstarts = ftable.cols.startTime[:]
 
-    if opt.bokehendtime == 'now':
+    if config.get('bokehendtime') == 'now':
         maxtime = UTCDateTime().matplotlib_date
     else:
         maxtime = np.max(ttimes)
@@ -268,50 +268,50 @@ def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, opt):
         # Set parameters unique to each timeline type
         if i == 0: # overview.html
             # Give a little extra padding to mintime
-            mintime = np.min(ttimes)-opt.winlen/opt.samprate/86400
+            mintime = np.min(ttimes)-config.get('winlen')/config.get('samprate')/86400
             barpad = (maxtime-mintime)*0.01
-            plotformat = opt.plotformat
-            binsize_hist = opt.dybin
-            binsize_occur = opt.occurbin
-            minplot = opt.minplot
-            fixedheight = opt.fixedheight
-            htmltitle = f'{opt.title} Overview'
-            divtitle = f'<h1>{opt.title}</h1>'
+            plotformat = config.get('plotformat')
+            binsize_hist = config.get('dybin')
+            binsize_occur = config.get('occurbin')
+            minplot = config.get('minplot')
+            fixedheight = config.get('fixedheight')
+            htmltitle = f'{config.get("title")} Overview'
+            divtitle = f'<h1>{config.get("title")}</h1>'
         elif i == 1: # overview_recent.html
-            mintime = maxtime-opt.recplot
-            barpad = opt.recplot*0.01
-            plotformat = opt.plotformat
-            binsize_hist = opt.hrbin/24
-            binsize_occur = opt.recbin
+            mintime = maxtime-config.get('recplot')
+            barpad = config.get('recplot')*0.01
+            plotformat = config.get('plotformat')
+            binsize_hist = config.get('hrbin')/24
+            binsize_occur = config.get('recbin')
             minplot = 0
-            fixedheight = opt.fixedheight
-            htmltitle = f'{opt.title} Overview - Last {opt.recplot:.1f} Days'
-            divtitle = f'<h1>{opt.title} - Last {opt.recplot:.1f} Days</h1>'
+            fixedheight = config.get('fixedheight')
+            htmltitle = f'{config.get("title")} Overview - Last {config.get("recplot"):.1f} Days'
+            divtitle = f'<h1>{config.get("title")} - Last {config.get("recplot"):.1f} Days</h1>'
         else: # meta_recent.html
-            mintime = maxtime-opt.mrecplot
-            barpad = opt.mrecplot*0.01
-            plotformat = opt.plotformat.replace(',','+')
-            binsize_hist = opt.mhrbin/24
-            binsize_occur = opt.mrecbin
-            minplot = opt.mminplot
+            mintime = maxtime-config.get('mrecplot')
+            barpad = config.get('mrecplot')*0.01
+            plotformat = config.get('plotformat').replace(',','+')
+            binsize_hist = config.get('mhrbin')/24
+            binsize_occur = config.get('mrecbin')
+            minplot = config.get('mminplot')
             fixedheight = True
-            htmltitle = f'{opt.title} Overview - Last {opt.mrecplot:.1f} Days'
-            divtitle = f"""<h1>{opt.title} - Last {opt.mrecplot:.1f} Days |
+            htmltitle = f'{config.get("title")} Overview - Last {config.get("mrecplot"):.1f} Days'
+            divtitle = f"""<h1>{config.get('title')} - Last {config.get('mrecplot'):.1f} Days |
                           <a href='overview.html' style='color:red'
                           target='_blank'>Full Overview</a> |
                           <a href='overview_recent.html'
                           style='color:red' target='_blank'>Recent</a>
                           </h1>"""
 
-        filepath = os.path.join(opt.output_folder, f'{file}.html')
+        filepath = os.path.join(config.get('output_folder'), f'{file}.html')
 
         assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
             famstarts, ttimes, barpad, plotformat, binsize_hist,
             binsize_occur, mintime, maxtime, minplot, fixedheight, filepath,
-            htmltitle, divtitle, opt)
+            htmltitle, divtitle, config)
 
 
-def create_core_images(rtable, ftable, opt):
+def create_core_images(rtable, ftable, config):
     """
     Plots core waveforms as *.png files in the clusters folder.
 
@@ -321,12 +321,12 @@ def create_core_images(rtable, ftable, opt):
         Handle to the Repeaters table.
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    opath = os.path.join(opt.output_folder, 'clusters')
+    opath = os.path.join(config.get('output_folder'), 'clusters')
 
     # Deal with renaming files to reduce plotting time overhead
     for n in range(len(ftable))[::-1]:
@@ -343,12 +343,12 @@ def create_core_images(rtable, ftable, opt):
     for r in cores:
         n = n+1
         if ftable[n]['printme'] == 1:
-            data = prep_wiggle(r['waveform'], opt.printsta, r['windowStart'],
-                               r['windowAmp'][opt.printsta], opt)
-            wiggle_plot(data, (5, 1), os.path.join(opath, f'{n}.png'), opt)
+            data = prep_wiggle(r['waveform'], config.get('printsta'), r['windowStart'],
+                               r['windowAmp'][config.get('printsta')], config)
+            wiggle_plot(data, (5, 1), os.path.join(opath, f'{n}.png'), config)
 
 
-def create_junk_images(jtable, opt):
+def create_junk_images(jtable, config):
     """
     Create images of waveforms contained in the junk table.
 
@@ -359,28 +359,28 @@ def create_junk_images(jtable, opt):
     ----------
     jtable : Table object
         Handle to the Junk table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    redpy.printing.catalog_junk(jtable, opt)
-    if getattr(opt, 'verbose'):
+    redpy.printing.catalog_junk(jtable, config)
+    if config.get('verbose'):
         print('Creating junk plots...')
     for r in jtable:
         data = np.array([])
-        for s in range(opt.nsta):
+        for s in range(config.get('nsta')):
             # Concatenate all channels together
             data = np.append(data, prep_wiggle(r['waveform'], s,
-                      r['windowStart'] + int(opt.ptrig*opt.samprate), 0, opt))
-        jtime = (UTCDateTime(r['startTime']) + opt.ptrig).strftime(
+                      r['windowStart'] + int(config.get('ptrig')*config.get('samprate')), 0, config))
+        jtime = (UTCDateTime(r['startTime']) + config.get('ptrig')).strftime(
                 '%Y%m%d%H%M%S')
         jtype = r['isjunk']
-        wiggle_plot(data, (15, 0.5), os.path.join(opt.output_folder, 'junk',
-                                                  f'{jtime}-{jtype}.png'), opt)
+        wiggle_plot(data, (15, 0.5), os.path.join(config.get('output_folder'), 'junk',
+                                                  f'{jtime}-{jtype}.png'), config)
 
 
 def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
-                                                            ccc_sparse, opt):
+                                                            ccc_sparse, config):
     """
     Creates multi-paneled family plots for all families that need plotting.
 
@@ -403,24 +403,24 @@ def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
         'id' column from Repeaters table.
     ccc_sparse : float csr_matrix
         Sparse correlation matrix with id as rows/columns.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    fig, axes, bboxes = initialize_family_image(opt)
+    fig, axes, bboxes = initialize_family_image(config)
 
     for fnum in range(ftable.attrs.nClust):
 
         if ftable[fnum]['printme'] != 0:
 
             assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
-                windowAmps[:,opt.printsta], ids, ccc_sparse, 'png', 100, fnum,
-                0, 0, opt)
+                windowAmps[:,config.get('printsta')], ids, ccc_sparse, 'png', 100, fnum,
+                0, 0, config)
 
 
 def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
-                                                      external_catalogs, opt):
+                                                      external_catalogs, config):
     """
     Creates the HTML for the individual family pages.
 
@@ -441,14 +441,14 @@ def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
         Frequency index values for repeaters.
     external_catalogs : list of DataFrame objects
         External catalogs to check against, with 'Arrivals_' columns.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
     # Load into memory
-    if opt.checkComCat:
-        windowAmp = windowAmps[:,opt.printsta]
+    if config.get('checkcomcat'):
+        windowAmp = windowAmps[:,config.get('printsta')]
 
     printme = ftable.cols.printme[:]
     lastprint = ftable.cols.lastprint[:]
@@ -457,21 +457,21 @@ def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
 
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
 
-            with open(os.path.join(opt.output_folder, 'clusters',
+            with open(os.path.join(config.get('output_folder'), 'clusters',
                                    f'{fnum}.html'), 'w') as f:
 
-                write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt)
+                write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, config)
 
-                if opt.checkComCat:
+                if config.get('checkcomcat'):
                     redpy.catalog.match_external(
                         windowAmp, ftable, fnum, f, rtimes,
-                        external_catalogs, opt)
+                        external_catalogs, config)
 
                 f.write('</center></body></html>')
 
 
 def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
-    ccc_sparse, fnum, ordered, skip_recalculate_ccc, matrixtofile, opt):
+    ccc_sparse, fnum, ordered, skip_recalculate_ccc, matrixtofile, config):
     """
     Creates more detailed output plots for a single family in '/reports'.
 
@@ -499,12 +499,12 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
         1 if user wishes to skip recalculating the full correlation matrix.
     matrixtofile : int
         1 if correlation should be written to file.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    if getattr(opt, 'verbose'): print(f'Creating report for family {fnum}...')
-    rpath = os.path.join(opt.output_folder, 'reports')
+    if config.get('verbose'): print(f'Creating report for family {fnum}...')
+    rpath = os.path.join(config.get('output_folder'), 'reports')
 
     # Derive family-specific variables
     corenum = ftable[fnum]['core']
@@ -512,11 +512,11 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     fam = fam[np.argsort(rtimes_mpl[fam])]
     catalog = rtimes_mpl[fam]
     spacing = np.diff(catalog)*24
-    ccc_fam = redpy.correlation.subset_matrix(ids[fam], ccc_sparse, opt,
+    ccc_fam = redpy.correlation.subset_matrix(ids[fam], ccc_sparse, config,
                                                          return_type='matrix')
 
     # Copy static preview image in case cluster changes
-    shutil.copy(os.path.join(opt.output_folder, 'clusters', f'{fnum}.png'),
+    shutil.copy(os.path.join(config.get('output_folder'), 'clusters', f'{fnum}.png'),
                 os.path.join(rpath, f'{fnum}-report.png'))
 
     if not skip_recalculate_ccc:
@@ -528,7 +528,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
         # Fill in full correlation matrix
         print('Computing full correlation matrix; this will take time' + \
               ' if the family is large')
-        ccc_full = redpy.correlation.make_full(rtable[fam], ccc_fam, opt)
+        ccc_full = redpy.correlation.make_full(rtable[fam], ccc_fam, config)
     else:
         ccc_full = ccc_fam.copy()
 
@@ -536,9 +536,9 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     plotformat = 'amplitude,spacing,correlation' # Pass this as an option?
     core_idx = np.where(fam==corenum)[0]
     assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
-        plotformat, fnum, opt, windowAmps=windowAmps, ccc_full=ccc_full)
+        plotformat, fnum, config, windowAmps=windowAmps, ccc_full=ccc_full)
 
-    # Optional OPTICS ordering
+    # optional OPTICS ordering
     if ordered:
         # Order by OPTICS rather than by time
         D = 1-ccc_full
@@ -560,7 +560,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
         ccc_full = ccc_full[order,:]
         ccc_full = ccc_full[:,order]
 
-    # Optional save to file
+    # optional save to file
     if matrixtofile:
         np.save(os.path.join(rpath,f'{fnum}-ccc_full.npy'), ccc_full)
         np.save(os.path.join(rpath,f'{fnum}-evTimes.npy'), rtimes[fam])
@@ -568,16 +568,16 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
     # Plot correlation matrix
     correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
                             skip_recalculate_ccc, os.path.join(rpath,
-                            f'{fnum}-reportcmat.png'), opt)
+                            f'{fnum}-reportcmat.png'), config)
 
     # Waveform images
     wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, os.path.join(rpath,
-                    f'{fnum}-reportwaves.png'), opt)
+                    f'{fnum}-reportwaves.png'), config)
 
     # HTML page
     with open(os.path.join(rpath, f'{fnum}-report.html'), 'w') as f:
 
-        write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
+        write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, config,
                           report=True)
         f.write('</center></body></html>')
 
@@ -585,7 +585,7 @@ def create_report(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
 def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
         famstarts, ttimes, barpad, plotformat, binsize_hist, binsize_occur,
         mintime, maxtime, minplot, fixedheight, filepath, htmltitle, divtitle,
-        opt):
+        config):
     """
     Assembles an interactive HTML timeline with given parameters using Bokeh.
 
@@ -631,7 +631,7 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
         Title of html page.
     divtitle : str
         Title used in div container at top left of plots.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -646,33 +646,33 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
         if p == 'eqrate':
             # Plot EQ Rates (Repeaters and Orphans)
             plots.append(subplot_rate(ttimes, rtimes_mpl, binsize_hist,
-                                                       mintime, maxtime, opt))
+                                                       mintime, maxtime, config))
             tabtitles = tabtitles+['Event Rate']
 
         elif p == 'fi':
             # Plot Frequency Index
             plots.append(subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime,
-                                                                maxtime, opt))
+                                                                maxtime, config))
             tabtitles = tabtitles+['FI']
 
         elif p == 'longevity':
             # Plot Cluster Longevity
             plots.append(subplot_longevity(ttimes, famstarts, longevity,
-                                               mintime, maxtime, barpad, opt))
+                                               mintime, maxtime, barpad, config))
             tabtitles = tabtitles+['Longevity']
 
         elif p == 'occurrence':
             # Plot family occurrence
             plots.append(subplot_occurrence(ttimes, rtimes_mpl, famstarts,
                              longevity, fi, ftable, mintime, maxtime, minplot,
-                             binsize_occur, barpad, 'rate', fixedheight, opt))
+                             binsize_occur, barpad, 'rate', fixedheight, config))
             tabtitles = tabtitles+['Occurrence (Color by Rate)']
 
         elif p == 'occurrencefi':
             # Plot family occurrence with color by FI
             plots.append(subplot_occurrence(ttimes, rtimes_mpl, famstarts,
                              longevity, fi, ftable, mintime, maxtime, minplot,
-                             binsize_occur, barpad, 'fi', fixedheight, opt))
+                             binsize_occur, barpad, 'fi', fixedheight, config))
             tabtitles = tabtitles+['Occurrence (Color by FI)']
 
         else:
@@ -684,7 +684,7 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
 
     # Add annotations
     for p in plots:
-        p = add_bokeh_annotations(p, opt)
+        p = add_bokeh_annotations(p, config)
 
     # Create output and save
     gridplot_items = [[Div(text=divtitle, width=1000, margin=(-40,5,-10,5))]]
@@ -708,7 +708,7 @@ def assemble_bokeh_timeline(ftable, rtimes, rtimes_mpl, fi, longevity,
 
 
 def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
-    plotformat, fnum, opt, windowAmps=None, ccc_full=None):
+    plotformat, fnum, config, windowAmps=None, ccc_full=None):
     """
     Assembles an interactive HTML timeline with Bokeh for a family report.
 
@@ -727,7 +727,7 @@ def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
         ',' denotes a new row and '+' groups the plots in tabs.
     fnum : int
         Family to be inspected.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     windowAmps : float ndarray, optional
         'windowAmp' column from rtable for all stations.
@@ -747,19 +747,19 @@ def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
         if p == 'amplitude':
             # Plot EQ Rates (Repeaters and Orphans)
             plots.append(subplot_amplitude(rtimes, rtimes_mpl, windowAmps,
-                                           fam, core_idx, opt, useBokeh=True))
+                                           fam, core_idx, config, useBokeh=True))
             tabtitles = tabtitles+['Amplitude']
 
         elif p == 'spacing':
             # Plot Frequency Index
             plots.append(subplot_spacing(rtimes, rtimes_mpl, fam, core_idx,
-                                                          opt, useBokeh=True))
+                                                          config, useBokeh=True))
             tabtitles = tabtitles+['Spacing']
 
         elif p == 'correlation':
             # Plot Cluster Longevity
             plots.append(subplot_correlation(rtimes, rtimes_mpl, fam, [], [],
-                             core_idx, opt, ccc_full=ccc_full, useBokeh=True))
+                             core_idx, config, ccc_full=ccc_full, useBokeh=True))
             tabtitles = tabtitles+['Correlation']
 
         else:
@@ -771,7 +771,7 @@ def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
 
     # Add annotations
     for p in plots:
-        p = add_bokeh_annotations(p, opt)
+        p = add_bokeh_annotations(p, config)
 
     # Create output and save
     gridplot_items = []
@@ -791,15 +791,15 @@ def assemble_bokeh_timeline_report(rtimes, rtimes_mpl, fam, core_idx,
 
     o = gridplot(gridplot_items)
 
-    filepath = os.path.join(opt.output_folder, 'reports',
+    filepath = os.path.join(config.get('output_folder'), 'reports',
                             f'{fnum}-report-bokeh.html')
     output_file(filepath,
-                title=f'{opt.title} - Cluster {fnum} Detailed Report')
+                title=f'{config.get("title")} - Cluster {fnum} Detailed Report')
     save(o)
 
 
 def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
-    windowAmp, ids, ccc_sparse, oformat, dpi, fnum, tmin, tmax, opt):
+    windowAmp, ids, ccc_sparse, oformat, dpi, fnum, tmin, tmax, config):
     """
     Creates a multi-paneled family plot for the specified family 'fnum'.
 
@@ -845,12 +845,12 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
         Minimum time on timeline axes as matplotlib date (0 for default tmin).
     tmax : float
         Maximum time on timeline axes as matplotlib date (0 for default tmax).
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    fig, axes, bboxes = initialize_family_image(opt, bboxes=bboxes)
+    fig, axes, bboxes = initialize_family_image(config, bboxes=bboxes)
 
     # Extract family members
     fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
@@ -863,24 +863,24 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
 
 
     # Plot waveforms
-    subplot_waveforms(rtable[fam], core_idx, axes[0], opt)
+    subplot_waveforms(rtable[fam], core_idx, axes[0], config)
 
     # Plot FFTs
-    subplot_fft(rtable[fam], core_idx, axes[1], opt)
+    subplot_fft(rtable[fam], core_idx, axes[1], config)
 
     # Plot amplitude timeline
-    subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, opt,
+    subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, config,
                                                                    ax=axes[2])
 
     # Plot spacing timeline
-    subplot_spacing(rtimes, rtimes_mpl, fam, core_idx, opt, ax=axes[3])
+    subplot_spacing(rtimes, rtimes_mpl, fam, core_idx, config, ax=axes[3])
 
     # Plot correlation timeline
     subplot_correlation(rtimes, rtimes_mpl, fam, ids, ccc_sparse, core_idx,
-                                                              opt, ax=axes[4])
+                                                              config, ax=axes[4])
 
     # General formatting
-    axes = format_family_image(axes, opt)
+    axes = format_family_image(axes, config)
 
     # Enforce time limits for timeline plots
     if tmin and tmax:
@@ -893,12 +893,12 @@ def assemble_family_image(bboxes, rtable, ftable, rtimes, rtimes_mpl,
     axes[4].set_xlim(axes[2].get_xlim())
 
     # Save
-    plt.savefig(os.path.join(opt.output_folder, 'clusters',
+    plt.savefig(os.path.join(config.get('output_folder'), 'clusters',
                              f'fam{fnum}.{oformat}'), dpi=dpi)
 
 
 def assemble_pdf_overview(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi,
-                tmin, tmax, binsize, minmembers, occurheight, plotformat, opt):
+                tmin, tmax, binsize, minmembers, occurheight, plotformat, config):
     """
     Generate a static PDF version of the overview plot for publication.
 
@@ -933,7 +933,7 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi,
     plotformat : str
         Formatted list of plots to be rendered, separated by ',' or '+' where
         ',' denotes a new row and '+' groups the plots in tabs.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -972,7 +972,7 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi,
     figref = plt.figure(figsize=(9,1))
     axref = figref.add_subplot(1,1,1)
     axref = subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime,
-        opt, useBokeh=False, ax=axref)
+        config, useBokeh=False, ax=axref)
 
     fig = plt.figure(figsize=(9, figheight))
 
@@ -982,49 +982,49 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi,
         if p == 'eqrate':
             ### Rate ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = add_pdf_annotations(ax, mintime, maxtime, config)
             ax = subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime,
-                maxtime, opt, useBokeh=False, ax=ax)
+                maxtime, config, useBokeh=False, ax=ax)
             pnum = pnum + 1
 
         elif p == 'fi':
             ### FI ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = add_pdf_annotations(ax, mintime, maxtime, config)
             ax = subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime,
-                                                   opt, useBokeh=False, ax=ax)
+                                                   config, useBokeh=False, ax=ax)
             pnum = pnum + 1
 
         elif p == 'occurrence':
             ### Occurrence ###
             ax = fig.add_subplot(nsub, 1, (pnum+1, pnum+occurheight),
                 sharex=axref)
-            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = add_pdf_annotations(ax, mintime, maxtime, config)
             ax = subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity,
                 fi, ftable, mintime, maxtime, minmembers, binsize_occur,
-                barpad, 'rate', True, opt, useBokeh=False, ax=ax)
+                barpad, 'rate', True, config, useBokeh=False, ax=ax)
             add_pdf_colorbar(fig, figheight, pnum, nsub, 'rate',
-                binsize_occur, opt)
+                binsize_occur, config)
             pnum = pnum + occurheight
 
         elif p == 'occurrencefi':
             ### Occurrence ###
             ax = fig.add_subplot(nsub, 1, (pnum+1, pnum+occurheight),
                 sharex=axref)
-            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = add_pdf_annotations(ax, mintime, maxtime, config)
             ax = subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity,
                 fi, ftable, mintime, maxtime, minmembers, binsize_occur,
-                barpad, 'fi', True, opt, useBokeh=False, ax=ax)
+                barpad, 'fi', True, config, useBokeh=False, ax=ax)
             add_pdf_colorbar(fig, figheight, pnum, nsub, 'fi',
-                binsize_occur, opt)
+                binsize_occur, config)
             pnum = pnum + occurheight
 
         elif p == 'longevity':
             ### Longevity ###
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = add_pdf_annotations(ax, mintime, maxtime, opt)
+            ax = add_pdf_annotations(ax, mintime, maxtime, config)
             ax = subplot_longevity(ttimes, famstarts, longevity, mintime,
-                maxtime, barpad, opt, useBokeh=False, ax=ax)
+                maxtime, barpad, config, useBokeh=False, ax=ax)
             pnum = pnum + 1
 
         else:
@@ -1032,11 +1032,11 @@ def assemble_pdf_overview(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi,
 
     # Clean up and save
     plt.tight_layout()
-    plt.savefig(os.path.join(opt.output_folder, 'overview.pdf'))
+    plt.savefig(os.path.join(config.get('output_folder'), 'overview.pdf'))
     plt.close(fig)
 
 
-def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
+def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, config,
                                                       useBokeh=True, ax=None):
     """
     Creates subplot for rate of orphans and repeaters.
@@ -1053,7 +1053,7 @@ def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
         Minimum time to plot as matplotlib date.
     maxtime : float
         Maximum time to plot as matplotlib date.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     useBokeh : bool, optional
         True if to render Bokeh figure, or False for matplotlib figure.
@@ -1077,7 +1077,7 @@ def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
     hist_repeaters, bin_times = np.histogram(rtimes_mpl, bins=np.arange(mintime,
         maxtime+binsize_hist, binsize_hist))
 
-    if opt.timeline_vs == 'triggers':
+    if config.get('timeline_vs') == 'triggers':
         trigorph = 'Total Triggers'
         hist_trigorph = hist_trigs
     else:
@@ -1113,7 +1113,7 @@ def subplot_rate(ttimes, rtimes_mpl, binsize_hist, mintime, maxtime, opt,
         return ax
 
 
-def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt,
+def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, config,
                                                       useBokeh=True, ax=None):
     """
     Creates subplot for frequency index scatterplot.
@@ -1132,7 +1132,7 @@ def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt,
         Minimum time to plot as matplotlib date.
     maxtime : float
         Maximum time to plot as matplotlib date.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     useBokeh : bool, optional
         True if to render Bokeh figure, or False for matplotlib figure.
@@ -1173,7 +1173,7 @@ def subplot_fi(ttimes, rtimes, rtimes_mpl, fi, mintime, maxtime, opt,
 
 
 def subplot_longevity(ttimes, famstarts, longevity, mintime, maxtime,
-                                         barpad, opt, useBokeh=True, ax=None):
+                                         barpad, config, useBokeh=True, ax=None):
     """
     Creates subplot for longevity.
 
@@ -1191,7 +1191,7 @@ def subplot_longevity(ttimes, famstarts, longevity, mintime, maxtime,
         Maximum time to plot as matplotlib date.
     barpad : float
         Horizontal padding for hover and arrows (usually ~1% of window range).
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     useBokeh : bool, optional
         True if to render Bokeh figure, or False for matplotlib figure.
@@ -1274,7 +1274,7 @@ def subplot_longevity(ttimes, famstarts, longevity, mintime, maxtime,
 
 def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
     mintime, maxtime, minplot, binsize_occur, barpad, colorby, fixedheight,
-                                                 opt, useBokeh=True, ax=None):
+                                                 config, useBokeh=True, ax=None):
     """
     Creates subplot for family occurrence.
 
@@ -1309,7 +1309,7 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
     fixedheight : bool
         True if the occurrence plot height should be the same height as the
         other plots, or False for variable in height.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     useBokeh : bool, optional
         True if to render Bokeh figure, or False for matplotlib figure.
@@ -1397,8 +1397,8 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
                         fisum[i] = np.sum(fi[members[idxs]])
                     # Convert to mean fi
                     histfi = fisum/hist
-                    ind = [int(max(min(255,255*(i-opt.fispanlow)/(
-                        opt.fispanhigh - opt.fispanlow)), 0)) for i in histfi]
+                    ind = [int(max(min(255,255*(i-config.get('fispanlow'))/(
+                        config.get('fispanhigh') - config.get('fispanlow'))), 0)) for i in histfi]
 
                 colors = [bokehpalette[i] for i in ind]
 
@@ -1524,7 +1524,7 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
                     formatter=LogTickFormatter(min_exponent=4))
         elif colorby is 'fi':
                 color_bar = ColorBar(color_mapper=determine_color_mapper_fi(
-                    opt), border_line_color='#eeeeee', location=(7,cloc1),
+                    config), border_line_color='#eeeeee', location=(7,cloc1),
                     orientation='horizontal', width=150, height=15,
                     title='Mean Frequency Index', padding=15,
                     major_tick_line_alpha=0)
@@ -1537,7 +1537,7 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
         return ax
 
 
-def subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, opt,
+def subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, config,
                                                      useBokeh=False, ax=None):
     """
     Fills the amplitude timeline subplot.
@@ -1554,7 +1554,7 @@ def subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, opt,
         Indices of family members within the Repeaters table ordered by time.
     core_idx : int
         Index corresponding to position of core event within ordered family.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     useBokeh : bool, optional
         True if to render Bokeh figure, or False for matplotlib figure.
@@ -1571,7 +1571,7 @@ def subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, opt,
     """
 
     # Determine ylims
-    if opt.amplims == 'family':
+    if config.get('amplims') == 'family':
         windowAmpFam = windowAmp[fam][:]
         ymin = 0.25*np.amin(windowAmpFam[np.nonzero(windowAmpFam)])
         ymax = 4*np.amax(windowAmpFam)
@@ -1595,15 +1595,15 @@ def subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, opt,
             y_axis_type='log', y_range=[ymin,ymax])
         fig.yaxis.axis_label = 'Counts'
 
-        if opt.nsta <= 8:
+        if config.get('nsta') <= 8:
             palette = all_palettes['YlOrRd'][9]
         else:
-            palette = inferno(opt.nsta+1)
-        for sta, staname in enumerate(opt.station.split(',')):
+            palette = inferno(config.get('nsta')+1)
+        for sta, staname in enumerate(config.get('station').split(',')):
             fig.circle(rtimes[fam], windowAmp[fam][:,sta],
                 color=palette[sta], line_alpha=0, size=4, fill_alpha=0.5,
                 legend_label='{}.{}'.format(
-                    staname,opt.channel.split(',')[sta]))
+                    staname,config.get('channel').split(',')[sta]))
         fig.legend.location='bottom_left'
         fig.legend.orientation='horizontal'
         fig.legend.click_policy='hide'
@@ -1623,7 +1623,7 @@ def subplot_amplitude(rtimes, rtimes_mpl, windowAmp, fam, core_idx, opt,
         return ax
 
 
-def subplot_spacing(rtimes, rtimes_mpl, fam, core_idx, opt, useBokeh=False,
+def subplot_spacing(rtimes, rtimes_mpl, fam, core_idx, config, useBokeh=False,
                                                                      ax=None):
     """
     Fills the temporal spacing timeline subplot.
@@ -1638,7 +1638,7 @@ def subplot_spacing(rtimes, rtimes_mpl, fam, core_idx, opt, useBokeh=False,
         Indices of family members within the Repeaters table ordered by time.
     core_idx : int
         Index corresponding to position of core event within ordered family.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     useBokeh : bool, optional
         True if to render Bokeh figure, or False for matplotlib figure.
@@ -1680,7 +1680,7 @@ def subplot_spacing(rtimes, rtimes_mpl, fam, core_idx, opt, useBokeh=False,
 
 
 def subplot_correlation(rtimes, rtimes_mpl, fam, ids, ccc_sparse, core_idx,
-                                 opt, useBokeh=False, ax=None, ccc_full=None):
+                                 config, useBokeh=False, ax=None, ccc_full=None):
     """
     Fills the cross-correlation timeline subplot.
 
@@ -1688,7 +1688,7 @@ def subplot_correlation(rtimes, rtimes_mpl, fam, ids, ccc_sparse, core_idx,
     matrix corresponding to whichever row has the highest sum. If the value
     is stored in the Correlation table it will be plotted as a filled red
     circle, otherwise it will be plotted with an open red circle at the value
-    of opt.cmin. The core is denoted with a black symbol.
+    of config.get('cmin'). The core is denoted with a black symbol.
 
     If using Bokeh: Plots the row from the full cross-correlation matrix that
     corresponds to the current core. All are plotted as filled red circles.
@@ -1707,7 +1707,7 @@ def subplot_correlation(rtimes, rtimes_mpl, fam, ids, ccc_sparse, core_idx,
         Sparse correlation matrix with id as rows/columns.
     core_idx : int
         Index corresponding to position of core event within ordered family.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     useBokeh : bool, optional
         True if to render Bokeh figure, or False for matplotlib figure.
@@ -1738,32 +1738,32 @@ def subplot_correlation(rtimes, rtimes_mpl, fam, ids, ccc_sparse, core_idx,
     else:
 
         # Get correlation values for row with highest sum
-        Cprint = redpy.correlation.subset_matrix(ids[fam], ccc_sparse, opt)
+        Cprint = redpy.correlation.subset_matrix(ids[fam], ccc_sparse, config)
 
         # Create mask to only plot each point once
         cmask = np.zeros(len(Cprint), dtype=bool)
-        cmask[Cprint>=opt.cmin] = True
+        cmask[Cprint>=config.get('cmin')] = True
 
         catalog = rtimes_mpl[fam]
 
         # Plot closed circles for values that exist, open where undefined
         ax.plot_date(catalog[cmask], Cprint[cmask], 'ro',
             alpha=0.5, markeredgecolor='r', markeredgewidth=0.5, markersize=3)
-        ax.plot_date(catalog[~cmask], 0*Cprint[~cmask]+opt.cmin, 'wo',
+        ax.plot_date(catalog[~cmask], 0*Cprint[~cmask]+config.get('cmin'), 'wo',
             alpha=0.5, markeredgecolor='r', markeredgewidth=0.5)
 
         # Plot black dot for core event
-        if Cprint[core_idx] >= opt.cmin:
+        if Cprint[core_idx] >= config.get('cmin'):
             ax.plot_date(catalog[core_idx], Cprint[core_idx], 'ko',
                 markeredgecolor='k', markeredgewidth=0.5, markersize=3)
         else:
-            ax.plot_date(catalog[core_idx], opt.cmin, 'wo',
+            ax.plot_date(catalog[core_idx], config.get('cmin'), 'wo',
                 markeredgecolor='k', markeredgewidth=0.5, markersize=3)
 
         return ax
 
 
-def subplot_waveforms(rtable_fam, core_idx, ax, opt, plot_single=False, sta=0):
+def subplot_waveforms(rtable_fam, core_idx, ax, config, plot_single=False, sta=0):
     """
     Fills the waveform subplot.
 
@@ -1782,7 +1782,7 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt, plot_single=False, sta=0):
         Index corresponding to position of core event within ordered family.
     ax : Axis object
         Subplot axis to modify in place.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     plot_single : bool, optional
         Plots all events from a single station, False by default.
@@ -1796,17 +1796,17 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt, plot_single=False, sta=0):
     """
 
     # Define time vector
-    time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
-                      1.5*opt.winlen/opt.samprate, 1/opt.samprate)
+    time_vector = np.arange(-0.5*config.get('winlen')/config.get('samprate'),
+                      1.5*config.get('winlen')/config.get('samprate'), 1/config.get('samprate'))
 
     # If only one station, plot all aligned waveforms
-    if opt.nsta==1 or plot_single:
+    if config.get('nsta')==1 or plot_single:
 
         # Prepare data in matrix (row for each event)
-        data = np.zeros((len(rtable_fam), int(opt.winlen*2)))
+        data = np.zeros((len(rtable_fam), int(config.get('winlen')*2)))
         for n, r in enumerate(rtable_fam):
             data[n, :] = prep_wiggle(r['waveform'], sta, r['windowStart'],
-                                     r['windowAmp'][sta], opt)
+                                     r['windowAmp'][sta], config)
 
         # Plot
         if len(rtable_fam) > 12:
@@ -1822,13 +1822,13 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt, plot_single=False, sta=0):
     # Otherwise, plot cores and stacks from all stations
     else:
 
-        for s in range(opt.nsta):
+        for s in range(config.get('nsta')):
 
             # Prepare stack
-            data_stack = np.zeros((int(opt.winlen*2),))
+            data_stack = np.zeros((int(config.get('winlen')*2),))
             for r in rtable_fam:
                 data_stack += prep_wiggle(r['waveform'], s, r['windowStart'],
-                                          r['windowAmp'][s], opt)
+                                          r['windowAmp'][s], config)
             data_stack = data_stack/(np.max(np.abs(data_stack))+1e-12)
             data_stack[data_stack>1] = 1
             data_stack[data_stack<-1] = -1
@@ -1836,7 +1836,7 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt, plot_single=False, sta=0):
             # Prepare core
             data_core = prep_wiggle(rtable_fam['waveform'][core_idx], s,
                                     rtable_fam['windowStart'][core_idx],
-                                    rtable_fam['windowAmp'][core_idx, s], opt)
+                                    rtable_fam['windowAmp'][core_idx, s], config)
 
             # Plot
             ax.plot(time_vector, data_stack - 1.75*s, 'r', linewidth=1)
@@ -1845,7 +1845,7 @@ def subplot_waveforms(rtable_fam, core_idx, ax, opt, plot_single=False, sta=0):
     return ax
 
 
-def subplot_fft(rtable_fam, core_idx, ax, opt):
+def subplot_fft(rtable_fam, core_idx, ax, config):
     """
     Fills the FFT subplot.
 
@@ -1862,22 +1862,22 @@ def subplot_fft(rtable_fam, core_idx, ax, opt):
         Index corresponding to position of core event within ordered family.
     ax : Axis object
         Subplot axis to modify in place.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    freq = np.linspace(0,opt.samprate/2,int(opt.winlen/2))
-    fftc = np.zeros((int(opt.winlen/2),))
-    fftm = np.zeros((int(opt.winlen/2),))
+    freq = np.linspace(0,config.get('samprate')/2,int(config.get('winlen')/2))
+    fftc = np.zeros((int(config.get('winlen')/2),))
+    fftm = np.zeros((int(config.get('winlen')/2),))
 
-    for s in range(opt.nsta):
+    for s in range(config.get('nsta')):
         fft = np.abs(np.real(rtable_fam['windowFFT'][core_idx,int(
-            s*opt.winlen):int(s*opt.winlen+opt.winlen/2)]))
+            s*config.get('winlen')):int(s*config.get('winlen')+config.get('winlen')/2)]))
         fft = fft/(np.amax(fft)+1.0/1000)
         fftc = fftc+fft
         ffts = np.mean(np.abs(np.real(rtable_fam['windowFFT'][:,int(
-            s*opt.winlen):int(s*opt.winlen+opt.winlen/2)])),axis=0)
+            s*config.get('winlen')):int(s*config.get('winlen')+config.get('winlen')/2)])),axis=0)
         fftm = fftm + ffts/(np.amax(ffts)+1.0/1000)
 
     ax.plot(freq,fftm,'r', linewidth=1)
@@ -1979,13 +1979,13 @@ def determine_color_mapper(binsize_occur):
     return color_mapper
 
 
-def determine_color_mapper_fi(opt):
+def determine_color_mapper_fi(config):
     """
-    Determines color map for occurrencefi plot based on opt.fispan.
+    Determines color map for occurrencefi plot based on config.fispan.
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -1999,7 +1999,7 @@ def determine_color_mapper_fi(opt):
     bokehpalette = [matplotlib.colors.rgb2hex(m) for m in colormap(
         np.arange(colormap.N)[::-1])]
     color_mapper = LinearColorMapper(palette=bokehpalette,
-                                     low=opt.fispanlow, high=opt.fispanhigh)
+                                     low=config.get('fispanlow'), high=config.get('fispanhigh'))
 
     return color_mapper
 
@@ -2106,7 +2106,7 @@ def family_hover_tool():
     return hover
 
 
-def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize_occur, opt):
+def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize_occur, config):
     """
     Adds a colorbar to PDF occurrence plots.
 
@@ -2124,7 +2124,7 @@ def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize_occur, opt):
         Determines colormap to use ('rate' or 'fi')
     binsize_occur : float
         Width (in days) of time bins for occurrence plot histogram.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -2153,13 +2153,13 @@ def add_pdf_colorbar(fig, figheight, pnum, nsub, colorby, binsize_occur, opt):
         cax.imshow(gradient, aspect='auto', cmap='coolwarm_r',
             interpolation='bilinear')
         cax.set_xticks((0,500,1000))
-        cax.set_xticklabels((opt.fispanlow, np.mean((opt.fispanlow,
-            opt.fispanhigh)), opt.fispanhigh))
+        cax.set_xticklabels((config.get('fispanlow'), np.mean((config.get('fispanlow'),
+            config.get('fispanhigh'))), config.get('fispanhigh')))
     cax.set_frame_on(False)
     cax.tick_params(length=0)
 
 
-def add_pdf_annotations(ax, mintime, maxtime, opt):
+def add_pdf_annotations(ax, mintime, maxtime, config):
     """
     Plots annotations on PDF overview figure.
 
@@ -2171,7 +2171,7 @@ def add_pdf_annotations(ax, mintime, maxtime, opt):
         Minimum time to plot as matplotlib date.
     maxtime : float
         Maximum time to plot as matplotlib date.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -2180,9 +2180,9 @@ def add_pdf_annotations(ax, mintime, maxtime, opt):
 
     """
 
-    if opt.anotfile != '':
+    if config.get('anotfile') != '':
 
-        annotations = pd.read_csv(opt.anotfile)
+        annotations = pd.read_csv(config.get('anotfile'))
 
         for a in range(len(annotations)):
 
@@ -2199,7 +2199,7 @@ def add_pdf_annotations(ax, mintime, maxtime, opt):
     return ax
 
 
-def add_bokeh_annotations(fig, opt):
+def add_bokeh_annotations(fig, config):
     """
     Plots annotations on bokeh figure.
 
@@ -2207,7 +2207,7 @@ def add_bokeh_annotations(fig, opt):
     ----------
     fig : Figure object
         Handle to the bokeh figure.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -2216,9 +2216,9 @@ def add_bokeh_annotations(fig, opt):
 
     """
 
-    if opt.anotfile != '':
+    if config.get('anotfile') != '':
 
-        annotations = pd.read_csv(opt.anotfile)
+        annotations = pd.read_csv(config.get('anotfile'))
 
         for a in range(len(annotations)):
 
@@ -2237,7 +2237,7 @@ def add_bokeh_annotations(fig, opt):
     return fig
 
 
-def add_horizontal_annotations(ax, evtimes, opt):
+def add_horizontal_annotations(ax, evtimes, config):
     """
     Plots annotations horizontally across an image (e.g., waveforms, matrix).
 
@@ -2247,7 +2247,7 @@ def add_horizontal_annotations(ax, evtimes, opt):
         Handle to the matplotlib axis.
     evtimes : float ndarray
         Sorted array of event times plotted on each row of the image.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -2256,9 +2256,9 @@ def add_horizontal_annotations(ax, evtimes, opt):
 
     """
 
-    if opt.anotfile!='':
+    if config.get('anotfile')!='':
 
-        annotations = pd.read_csv(opt.anotfile)
+        annotations = pd.read_csv(config.get('anotfile'))
 
         for a in range(len(annotations)):
 
@@ -2276,11 +2276,11 @@ def add_horizontal_annotations(ax, evtimes, opt):
     return ax
 
 
-def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
+def prep_wiggle(waveform, sta, window_start, normalize_amplitude, config):
     """
     Cuts window around trigger time and normalizes the waveform for plotting.
 
-    The plotting window is always 2*opt.winlen samples, with half opt.winlen
+    The plotting window is always 2*config.get('winlen') samples, with half config.get('winlen')
     on either side of the correlation window. Data are clipped if they are
     above 'windowAmp' in amplitude.
 
@@ -2295,7 +2295,7 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
     normalize_amplitude : float
         Amplitude to normalize to. If passed 0, uses the maximum of the entire
         window instead with a small epsilon to prevent division by 0 if empty.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -2306,11 +2306,11 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
     """
 
     # Trim out data for that station/channel
-    window = waveform[sta*opt.wshape:(sta+1)*opt.wshape]
+    window = waveform[sta*config.get('wshape'):(sta+1)*config.get('wshape')]
 
     # Determine window
-    minsample = window_start - int(0.5*opt.winlen)
-    maxsample = window_start + int(1.5*opt.winlen)
+    minsample = window_start - int(0.5*config.get('winlen'))
+    maxsample = window_start + int(1.5*config.get('winlen'))
 
     # Determine if we need to pad with 0's if the window is outside the bounds
     # of what is saved in the table for each station
@@ -2319,9 +2319,9 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
         minsample = 0
     else:
         prepad = 0
-    if maxsample > opt.wshape:
-        postpad = maxsample - opt.wshape
-        maxsample = opt.wshape
+    if maxsample > config.get('wshape'):
+        postpad = maxsample - config.get('wshape')
+        maxsample = config.get('wshape')
     else:
         postpad = 0
 
@@ -2347,7 +2347,7 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, opt):
     return data
 
 
-def wiggle_plot(data, figsize, outfile, opt):
+def wiggle_plot(data, figsize, outfile, config):
     """
     Plots a waveform with no decorations (e.g., for a core image).
 
@@ -2359,7 +2359,7 @@ def wiggle_plot(data, figsize, outfile, opt):
         Output figure size as (width, height).
     outfile : str
         Path and filename for saving the figure.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     """
 
@@ -2374,7 +2374,7 @@ def wiggle_plot(data, figsize, outfile, opt):
     plt.close(fig)
 
 
-def wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, outfile, opt):
+def wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, outfile, config):
     """
     Creates a plot with all waveforms on all stations in separate subplots.
 
@@ -2390,25 +2390,25 @@ def wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, outfile, opt):
         1 if members should be ordered by OPTICS, 0 if by time.
     outfile : str
         Path and filename for saving the figure.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    fig = plt.figure(figsize=(10, 4*(np.ceil(opt.nsta/2))))
-    for sta in range(opt.nsta):
+    fig = plt.figure(figsize=(10, 4*(np.ceil(config.get('nsta')/2))))
+    for sta in range(config.get('nsta')):
 
-        ax = fig.add_subplot(int(np.ceil((opt.nsta)/2.)), 2, sta+1)
+        ax = fig.add_subplot(int(np.ceil((config.get('nsta'))/2.)), 2, sta+1)
 
-        title_text = '{}.{}'.format(opt.station.split(',')[sta],
-                                    opt.channel.split(',')[sta])
+        title_text = '{}.{}'.format(config.get('station').split(',')[sta],
+                                    config.get('channel').split(',')[sta])
         if ordered:
             title_text += ' (Ordered)'
         else:
-            ax = add_horizontal_annotations(ax, rtimes_mpl[fam], opt)
+            ax = add_horizontal_annotations(ax, rtimes_mpl[fam], config)
         plt.title(title_text, fontweight='bold')
 
-        subplot_waveforms(rtable[fam], 0, ax, opt, plot_single=True, sta=sta)
+        subplot_waveforms(rtable[fam], 0, ax, config, plot_single=True, sta=sta)
 
         ax.yaxis.set_visible(False)
         plt.xlabel('Time Relative to Trigger (seconds)', style='italic')
@@ -2419,7 +2419,7 @@ def wiggle_plot_all(rtable, rtimes_mpl, fam, ordered, outfile, opt):
 
 
 def correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
-                                          skip_recalculate_ccc, outfile, opt):
+                                          skip_recalculate_ccc, outfile, config):
     """
     Creates a plot of the stored (and optionally the full) correlation matrix.
 
@@ -2439,7 +2439,7 @@ def correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
         1 if user wishes to skip recalculating the full correlation matrix.
     outfile : str
         Path and filename for saving the figure.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -2450,29 +2450,29 @@ def correlation_matrix_plot(ccc_fam, ccc_full, rtimes_mpl, fam, ordered,
 
     fig = plt.figure(figsize=(14,5.4))
     ax1 = fig.add_subplot(1,2,1)
-    cax = ax1.imshow(ccc_fam, vmin=opt.cmin, vmax=1, cmap=cmap)
+    cax = ax1.imshow(ccc_fam, vmin=config.get('cmin'), vmax=1, cmap=cmap)
     cbar = plt.colorbar(cax, extend='min')
     if ordered:
         plt.title('Stored Correlation Matrix (Ordered)', fontweight='bold')
     else:
         plt.title('Stored Correlation Matrix', fontweight='bold')
         ax1 = add_horizontal_annotations(ax1, rtimes_mpl[fam],
-            opt)
+            config)
     if not skip_recalculate_ccc:
         ax2 = fig.add_subplot(1,2,2)
-        cax2 = ax2.imshow(ccc_full, vmin=opt.cmin, vmax=1, cmap=cmap)
+        cax2 = ax2.imshow(ccc_full, vmin=config.get('cmin'), vmax=1, cmap=cmap)
         cbar = plt.colorbar(cax, extend='min')
         if ordered:
             plt.title('Full Correlation Matrix (Ordered)', fontweight='bold')
         else:
             plt.title('Full Correlation Matrix', fontweight='bold')
-            ax2 = add_horizontal_annotations(ax2, rtimes_mpl[fam], opt)
+            ax2 = add_horizontal_annotations(ax2, rtimes_mpl[fam], config)
     plt.tight_layout()
     plt.savefig(outfile, dpi=100)
     plt.close(fig)
 
 
-def initialize_family_image(opt, bboxes=[]):
+def initialize_family_image(config, bboxes=[]):
     """
     Creates figure and axes with the proper layout for the family images.
 
@@ -2482,7 +2482,7 @@ def initialize_family_image(opt, bboxes=[]):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     bboxes : list of Bbox objects, optional
         List of bounding box positions for each axis.
@@ -2513,7 +2513,7 @@ def initialize_family_image(opt, bboxes=[]):
             axes[n].set_position(bboxes[n])
     else:
         # Set up format for axes positions
-        axes = format_family_image(axes, opt)
+        axes = format_family_image(axes, config)
         axes[2].set_xlim(0,1) # Ensure that dates near the edge fit
         plt.tight_layout()
         bboxes = [axes[n].get_position() for n in range(len(axes))]
@@ -2521,7 +2521,7 @@ def initialize_family_image(opt, bboxes=[]):
     return fig, axes, bboxes
 
 
-def format_family_image(axes, opt):
+def format_family_image(axes, config):
     """
     Handles formatting for each axis in the family image.
 
@@ -2529,7 +2529,7 @@ def format_family_image(axes, opt):
     ----------
     axes : list of Axis objects
         List of subplot axes to modify.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -2540,18 +2540,18 @@ def format_family_image(axes, opt):
 
     date_format = mdates.DateFormatter('%Y-%m-%d\n%H:%M')
 
-    time_vector = np.arange(-0.5*opt.winlen/opt.samprate,
-                      1.5*opt.winlen/opt.samprate, 1/opt.samprate)
+    time_vector = np.arange(-0.5*config.get('winlen')/config.get('samprate'),
+                      1.5*config.get('winlen')/config.get('samprate'), 1/config.get('samprate'))
 
     axes[0].get_yaxis().set_visible(False)
     axes[0].set_xlim((np.min(time_vector),np.max(time_vector)))
-    axes[0].axvline(x=-0.1*opt.winlen/opt.samprate, color='k', ls='dotted')
-    axes[0].axvline(x=0.9*opt.winlen/opt.samprate, color='k', ls='dotted')
-    if opt.nsta > 1:
-        axes[0].set_ylim((-1.75*(opt.nsta-1)-1,1))
+    axes[0].axvline(x=-0.1*config.get('winlen')/config.get('samprate'), color='k', ls='dotted')
+    axes[0].axvline(x=0.9*config.get('winlen')/config.get('samprate'), color='k', ls='dotted')
+    if config.get('nsta') > 1:
+        axes[0].set_ylim((-1.75*(config.get('nsta')-1)-1,1))
         # Add station labels
-        stas = opt.station.split(',')
-        chas = opt.channel.split(',')
+        stas = config.get('station').split(',')
+        chas = config.get('channel').split(',')
         for s in range(len(stas)):
             axes[0].text(np.min(time_vector)-0.1,-1.75*s,
                 f'{stas[s]}\n{chas[s]}', horizontalalignment='right',
@@ -2559,7 +2559,7 @@ def format_family_image(axes, opt):
     axes[0].set_xlabel('Time Relative to Trigger (seconds)', style='italic')
 
     axes[1].get_yaxis().set_visible(False)
-    axes[1].set_xlim(0,opt.fmax*1.5)
+    axes[1].set_xlim(0,config.get('fmax')*1.5)
     axes[1].legend(['Stack','Core'], loc='upper right', frameon=False)
     axes[1].set_xlabel('Frequency (Hz)', style='italic')
 
@@ -2577,14 +2577,14 @@ def format_family_image(axes, opt):
 
     axes[4].xaxis.set_major_formatter(date_format)
     axes[4].margins(0.05)
-    axes[4].set_ylim(opt.cmin-0.02, 1.02)
+    axes[4].set_ylim(config.get('cmin')-0.02, 1.02)
     axes[4].set_xlabel('Date', style='italic')
     axes[4].set_ylabel('Cross-correlation coefficient', style='italic')
 
     return axes
 
 
-def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
+def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, config,
                                                                  report=False):
     """
     f : file handle
@@ -2597,7 +2597,7 @@ def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
         Times of all repeaters as datetimes.
     fi : float ndarray
         Frequency index values for repeaters.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     report : bool, optional
         If true, use report-specific formatting.
@@ -2615,7 +2615,7 @@ def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
 
     if report:
 
-        htmltitle = f'{opt.title} - Cluster {fnum} Detailed Report'
+        htmltitle = f'{config.get("title")} - Cluster {fnum} Detailed Report'
         topline = f'<em>Last updated: {UTCDateTime.now()}</em>'
         header = f'Cluster {fnum} - Detailed Report'
         coreimg = f'{fnum}-report'
@@ -2627,7 +2627,7 @@ def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
 
     else:
 
-        htmltitle = f'{opt.title} - Cluster {fnum}'
+        htmltitle = f'{config.get("title")} - Cluster {fnum}'
         if fnum>0:
             prevlink = f"<a href='{fnum-1}.html'>&lt; Cluster {fnum-1}</a>"
         else:
@@ -2666,7 +2666,7 @@ def write_html_header(f, ftable, fnum, rtimes, rtimes_mpl, fi, opt,
             """)
 
 
-def create_local_map(local_lats, local_lons, local_deps, outfile, opt):
+def create_local_map(local_lats, local_lons, local_deps, outfile, config):
     """
     Makes map centered on local matches from external catalog.
 
@@ -2680,21 +2680,21 @@ def create_local_map(local_lats, local_lons, local_deps, outfile, opt):
         Depths of local events to be plotted.
     outfile : str
         Path and filename for saving the figure.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    stalats = np.array(opt.stalats.split(',')).astype(float)
-    stalons = np.array(opt.stalons.split(',')).astype(float)
+    stalats = np.array(config.get('stalats').split(',')).astype(float)
+    stalons = np.array(config.get('stalons').split(',')).astype(float)
 
     # Set basemap and projection
     stamen_terrain = cimgt.StamenTerrain()
 
-    extent = [np.median(local_lons) - opt.locdeg/2,
-              np.median(local_lons) + opt.locdeg/2,
-              np.median(local_lats) - opt.locdeg/4,
-              np.median(local_lats) + opt.locdeg/4]
+    extent = [np.median(local_lons) - config.get('locdeg')/2,
+              np.median(local_lons) + config.get('locdeg')/2,
+              np.median(local_lats) - config.get('locdeg')/4,
+              np.median(local_lats) + config.get('locdeg')/4]
 
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1, projection=stamen_terrain.crs)
@@ -2722,8 +2722,8 @@ def create_local_map(local_lats, local_lons, local_deps, outfile, opt):
                 facecolors='None', transform=ccrs.PlateCarree())
 
     # 10 km scale bar
-    scalebar_lat = 0.05*(opt.locdeg/2) + extent[2]
-    scalebar_lon_left = 0.05*(opt.locdeg) + extent[0]
+    scalebar_lat = 0.05*(config.get('locdeg')/2) + extent[2]
+    scalebar_lon_left = 0.05*(config.get('locdeg')) + extent[0]
     # Convert to degrees longitude at the latitude of the bar
     scalebar_len = kilometers2degrees(10) / np.cos(scalebar_lat * np.pi/180)
 
@@ -2743,7 +2743,7 @@ def create_local_map(local_lats, local_lons, local_deps, outfile, opt):
     plt.close()
 
 
-def remove_old_files(ftable, opt):
+def remove_old_files(ftable, config):
     """
     Removes .html and .png files from deleted/moved family pages.
 
@@ -2752,11 +2752,11 @@ def remove_old_files(ftable, opt):
 
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    flist = glob.glob(os.path.join(opt.output_folder, 'clusters', '*.html'))
+    flist = glob.glob(os.path.join(config.get('output_folder'), 'clusters', '*.html'))
     for file in flist:
         fnum = int(os.path.split(file)[1].split('.')[0])
         if fnum >= ftable.attrs.nClust:

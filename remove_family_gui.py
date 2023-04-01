@@ -66,7 +66,7 @@ class RemoveFamilyGUI(tk.Tk):
         self.minfam = minfam
         self.maxfam = 250*self.ncols - self.minfam
         (self.h5file, self.rtable, self.otable, self.ttable, self.ctable, _,
-            self.dtable, self.ftable, self.opt) = redpy.table.open_with_cfg(
+            self.dtable, self.ftable, self.config) = redpy.table.open_with_cfg(
             configfile, verbose)
         self.create_gifs()
         self.build_frame()
@@ -79,7 +79,7 @@ class RemoveFamilyGUI(tk.Tk):
 
     def build_frame(self):
         """Build container for GUI."""
-        self.wm_title(f'REDPy - {self.opt.groupName} - Select families to '
+        self.wm_title(f'REDPy - {self.config.get('groupname')} - Select families to '
                       'permanently remove')
         self.canvas = tk.Canvas(self, borderwidth=0, width=560*self.ncols,
                                 height=1500, background='#ececec')
@@ -117,9 +117,9 @@ class RemoveFamilyGUI(tk.Tk):
         for fam in range(self.minfam, min(self.ftable.attrs.nClust,
                                         self.maxfam)):
             self.imgobj.append(tk.PhotoImage(file=os.path.join(
-                self.opt.output_folder, 'clusters', f'{fam}.gif')))
+                self.config.get('output_folder'), 'clusters', f'{fam}.gif')))
             self.invimgobj.append(tk.PhotoImage(file=os.path.join(
-                self.opt.output_folder, 'clusters', f'{fam}_inv.gif')))
+                self.config.get('output_folder'), 'clusters', f'{fam}_inv.gif')))
             self.var.append(tk.IntVar())
             self.check.append(tk.Checkbutton(
                 self.frame,
@@ -146,9 +146,9 @@ class RemoveFamilyGUI(tk.Tk):
         for fam in range(self.minfam, min(self.ftable.attrs.nClust,
                                           250*self.ncols-self.minfam)):
             image = Image.open(
-                os.path.join( self.opt.output_folder, 'clusters', f'{fam}.png')
+                os.path.join( self.config.get('output_folder'), 'clusters', f'{fam}.png')
                 ).convert('RGB')
-            image.save(os.path.join(self.opt.output_folder,
+            image.save(os.path.join(self.config.get('output_folder'),
                                  'clusters', f'{fam}.gif'))
             source = image.split()
             black = source[1].point(lambda i: i*0)
@@ -156,13 +156,13 @@ class RemoveFamilyGUI(tk.Tk):
             source[2].paste(black)
             inverse_image = Image.merge('RGB', source)
             inverse_image.save(os.path.join(
-                self.opt.output_folder, 'clusters', f'{fam}_inv.gif'))
+                self.config.get('output_folder'), 'clusters', f'{fam}_inv.gif'))
 
     def delete_gifs(self):
         """Delete family .gif files."""
-        if getattr(self.opt, 'verbose'):
+        if getattr(self.config, 'verbose'):
             print('Cleaning up .gif files...')
-        gif_list = glob.glob(os.path.join(self.opt.output_folder,
+        gif_list = glob.glob(os.path.join(self.config.get('output_folder'),
                                           'clusters', '*.gif'))
         for gif in gif_list:
             os.remove(gif)
@@ -182,10 +182,10 @@ class RemoveFamilyGUI(tk.Tk):
             print(' '.join([str(fam) for fam in fam_list])+'\n')
             redpy.table.remove_families(
                 self.rtable, self.ctable, self.dtable, self.ftable, fam_list,
-                self.opt)
+                self.config)
             redpy.plotting.generate_all_outputs(
                 self.rtable, self.ftable, self.ttable, self.ctable,
-                self.otable, self.opt)
+                self.otable, self.config)
         else:
             print('\nNo families selected.\n')
         self.exit()

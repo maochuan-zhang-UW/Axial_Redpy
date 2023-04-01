@@ -4,10 +4,10 @@
 
 import redpy.catalog
 import redpy.cluster
-import redpy.config
 import redpy.correlation
 import redpy.optics
 import redpy.plotting
 import redpy.printing
 import redpy.table
 import redpy.trigger
+from redpy.config import Config

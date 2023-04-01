@@ -12,7 +12,7 @@ from obspy import UTCDateTime
 import redpy.correlation
 
 
-def catalog_family(ftable, rtimes, opt):
+def catalog_family(ftable, rtimes, config):
     """
     Prints simple catalog of family members to text file.
 
@@ -24,12 +24,12 @@ def catalog_family(ftable, rtimes, opt):
         Handle to the Families table.
     rtimes : datetime ndarray
         Times of all repeaters as datetimes.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    outfile = os.path.join(opt.output_folder, 'catalog.txt')
+    outfile = os.path.join(config.get('output_folder'), 'catalog.txt')
 
     with open(outfile, 'w') as f:
 
@@ -43,7 +43,7 @@ def catalog_family(ftable, rtimes, opt):
                 f.write(f'{fnum}\t{format_time}\n')
 
 
-def catalog_triggers(ttimes, opt):
+def catalog_triggers(ttimes, config):
     """
     Prints simple catalog of all triggers to text file.
 
@@ -53,12 +53,12 @@ def catalog_triggers(ttimes, opt):
     ----------
     ttimes : float ndarray
         Times of all triggers as matplotlib dates.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    outfile = os.path.join(opt.output_folder, 'triggers.txt')
+    outfile = os.path.join(config.get('output_folder'), 'triggers.txt')
 
     with open(outfile, 'w') as f:
 
@@ -68,7 +68,7 @@ def catalog_triggers(ttimes, opt):
             f.write(f'{format_time}\n')
 
 
-def catalog_orphans(otable, opt):
+def catalog_orphans(otable, config):
     """
     Prints simple catalog of current orphans to text file.
 
@@ -78,12 +78,12 @@ def catalog_orphans(otable, opt):
     ----------
     otable : Table object
         Handle to the Orphans table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    outfile = os.path.join(opt.output_folder, 'orphancatalog.txt')
+    outfile = os.path.join(config.get('output_folder'), 'orphancatalog.txt')
 
     startTimes = otable.cols.startTime[:]
 
@@ -92,11 +92,11 @@ def catalog_orphans(otable, opt):
         f.write('Trigger Time (UTC)\n')
         for i in np.argsort(startTimes):
             format_time = (UTCDateTime(startTimes[i]) + \
-                                           opt.ptrig/opt.samprate).isoformat()
+                                           config.get('ptrig')/config.get('samprate')).isoformat()
             f.write(f'{format_time}\n')
 
 
-def catalog_junk(jtable, opt):
+def catalog_junk(jtable, config):
     """
     Print simple catalog of junk table to text file for debugging.
 
@@ -108,12 +108,12 @@ def catalog_junk(jtable, opt):
     ----------
     jtable : Table object
         Handle to the Junk table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    outfile = os.path.join(opt.output_folder, 'junk.txt')
-    if getattr(opt, 'verbose'):
+    outfile = os.path.join(config.get('output_folder'), 'junk.txt')
+    if config.get('verbose'):
         print(f'Writing junk catalog to {outfile}...')
     startTimes = jtable.cols.startTime[:]
     jtype = jtable.cols.isjunk[:]
@@ -121,11 +121,11 @@ def catalog_junk(jtable, opt):
         f.write('Trigger Time (UTC)\tJunk Code\n')
         for i in np.argsort(startTimes):
             format_time = (UTCDateTime(startTimes[i])
-                           + opt.ptrig/opt.samprate).isoformat()
+                           + config.get('ptrig')/config.get('samprate')).isoformat()
             f.write(f'{format_time}\t{jtype[i]}\n')
 
 
-def catalog_cores(ftable, rtimes, opt):
+def catalog_cores(ftable, rtimes, config):
     """
     Prints simple catalog of current core events to text file.
 
@@ -139,12 +139,12 @@ def catalog_cores(ftable, rtimes, opt):
         Handle to the Families table.
     rtimes : datetime ndarray
         Times of all repeaters as datetimes.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    outfile = os.path.join(opt.output_folder, 'cores.txt')
+    outfile = os.path.join(config.get('output_folder'), 'cores.txt')
 
     with open(outfile, 'w') as f:
 
@@ -157,7 +157,7 @@ def catalog_cores(ftable, rtimes, opt):
 
 
 def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
-                                                             ccc_sparse, opt):
+                                                             ccc_sparse, config):
     """
     Prints detailed catalog of family members to text file.
 
@@ -184,11 +184,11 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
         'id' column from Repeaters table.
     ccc_sparse : float csr_matrix
         Sparse correlation matrix with id as rows/columns.
-    opt: Options object describing station/run parameters
+    config: Config object describing station/run parameters
 
     """
 
-    outfile = os.path.join(opt.output_folder, 'catalog.txt')
+    outfile = os.path.join(config.get('output_folder'), 'catalog.txt')
 
     with open(outfile, 'w') as f:
 
@@ -208,9 +208,9 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
             # Get correlation values for maximum sum along row (to match
             # family plots) and with the current core event
             ccc_max = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
-                opt, return_type='maxrow')
+                config, return_type='maxrow')
             ccc_core = redpy.correlation.subset_matrix(ids[fam], ccc_sparse,
-                opt, return_type='indrow', ind=np.where(fam==corenum)[0][0])
+                config, return_type='indrow', ind=np.where(fam==corenum)[0][0])
 
             for i, member in enumerate(fam):
                 evTime = UTCDateTime(rtimes[member])
@@ -228,7 +228,7 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
                 f.write(' ]\n')
 
 
-def catalog_swarm(ftable, ttimes, rtimes, opt):
+def catalog_swarm(ftable, ttimes, rtimes, config):
 
     """
     Writes a .csv file for use in annotating events in Swarm v2.8.5+.
@@ -253,18 +253,18 @@ def catalog_swarm(ftable, ttimes, rtimes, opt):
         Times of all triggers as matplotlib dates.
     rtimes : datetime ndarray
         Times of all repeaters as datetimes.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    nets = opt.network.split(',')
-    stas = opt.station.split(',')
-    locs = opt.location.split(',')
-    chas = opt.channel.split(',')
+    nets = config.get('network').split(',')
+    stas = config.get('station').split(',')
+    locs = config.get('location').split(',')
+    chas = config.get('channel').split(',')
 
-    catalogfile = os.path.join(opt.output_folder, 'swarm.csv')
-    triggerfile = os.path.join(opt.output_folder, 'triggerswarm.csv')
+    catalogfile = os.path.join(config.get('output_folder'), 'swarm.csv')
+    triggerfile = os.path.join(config.get('output_folder'), 'triggerswarm.csv')
 
     with open(catalogfile, 'w') as f:
 
@@ -273,14 +273,14 @@ def catalog_swarm(ftable, ttimes, rtimes, opt):
             for i in np.argsort(rtimes[fam]):
 
                 f.write("{}, {} {} {} {}, {}{}\n".format(UTCDateTime(
-                    rtimes[fam][i]).isoformat(sep=' '), stas[opt.printsta],
-                    chas[opt.printsta], nets[opt.printsta],
-                    locs[opt.printsta], opt.groupName,fnum))
+                    rtimes[fam][i]).isoformat(sep=' '), stas[config.get('printsta')],
+                    chas[config.get('printsta')], nets[config.get('printsta')],
+                    locs[config.get('printsta')], config.get('groupname'),fnum))
 
     with open(triggerfile, 'w') as f:
 
         for ttime in np.sort(ttimes):
             f.write("{}, {} {} {} {}, trigger\n".format((UTCDateTime(
                 mdates.num2date(ttime))).isoformat(sep=' '),
-                stas[opt.printsta],chas[opt.printsta],nets[opt.printsta],
-                    locs[opt.printsta]))
+                stas[config.get('printsta')],chas[config.get('printsta')],nets[config.get('printsta')],
+                    locs[config.get('printsta')]))

@@ -43,11 +43,11 @@ def write_family_locations(configfile='settings.cfg', outfile='famlocs.csv',
     things
 
     """
-    opt = redpy.config.Options(configfile, verbose)
-    outfile = os.path.join(opt.output_folder, outfile)
-    df = redpy.catalog.get_median_locations(opt, regional, distant)
+    config = redpy.Config(configfile, verbose)
+    outfile = os.path.join(config.get('output_folder'), outfile)
+    df = redpy.catalog.get_median_locations(config, regional, distant)
     df.to_csv(outfile, index_label='Family')
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print(f'Done writing to {outfile}')
 
 

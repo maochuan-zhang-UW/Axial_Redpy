@@ -32,7 +32,7 @@ optional arguments:
   -e ENDTIME, --endtime ENDTIME
                         optional end time to end filling (yyyy-mm-dd or
                         yyyy-mm-ddTHH:MM:SS)
-  -n NSEC, --nsec NSEC  overwrite opt.nsec from configuration file with NSEC
+  -n NSEC, --nsec NSEC  overwrite "nsec" from configuration file with NSEC
                         this run only
 """
 import argparse
@@ -62,24 +62,24 @@ def backfill(configfile='settings.cfg', verbose=False, troubleshoot=False,
         Escape try/except statements to diagnose problems.
     starttime : str, optional
         Starting time. If not provided, will default to either the end of
-        the previous run time or opt.nsec seconds prior to end_time.
+        the previous run time or "nsec" seconds prior to end_time.
     endtime : str, optional
         Ending time. If not provided, will default to now.
     nsec : int, optional
-        Temporarily overwrite opt.nsec with this value.
+        Temporarily overwrite "nsec" from config with this value.
 
     """
     t_func = time.time()
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
         redpy.table.open_with_cfg(configfile, verbose, troubleshoot)
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
         redpy.table.update_with_continuous(
             h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable,
-            opt, starttime, endtime, nsec)
+            config, starttime, endtime, nsec)
     redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
-                                        otable, opt)
+                                        otable, config)
     h5file.close()
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print(f'Total time spent: {(time.time()-t_func)/60:.3f} minutes')
 
 
@@ -116,7 +116,7 @@ def parse():
                         help=('optional end time to end filling '
                               '(yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS)'))
     parser.add_argument('-n', '--nsec', type=int,
-                        help=('overwrite opt.nsec from configuration file '
+                        help=('overwrite "nsec" from configuration file '
                               'with NSEC this run only'))
     args = parser.parse_args()
     return args

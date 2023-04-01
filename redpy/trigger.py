@@ -25,13 +25,13 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def get_client(opt):
+def get_client(config):
     """
     Decides which Client to use to query data.
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -41,18 +41,18 @@ def get_client(opt):
 
     """
 
-    if '://' not in opt.server:
+    if '://' not in config.get('server'):
         # Backward compatibility with previous setting files
-        if '.' not in opt.server:
-            client = FDSNClient(opt.server)
+        if '.' not in config.get('server'):
+            client = FDSNClient(config.get('server'))
         else:
-            client = EWClient(opt.server, opt.port)
+            client = EWClient(config.get('server'), config.get('port'))
     # New server syntax (more options and server and port on same variable)
-    elif 'fdsnws://' in opt.server:
-        server = opt.server.split('fdsnws://',1)[1]
+    elif 'fdsnws://' in config.get('server'):
+        server = config.get('server').split('fdsnws://',1)[1]
         client = FDSNClient(server)
-    elif 'waveserver://' in opt.server:
-        server_str = opt.server.split('waveserver://',1)[1]
+    elif 'waveserver://' in config.get('server'):
+        server_str = config.get('server').split('waveserver://',1)[1]
         try:
             server = server_str.split(':',1)[0]
             port = server_str.split(':',1)[1]
@@ -60,8 +60,8 @@ def get_client(opt):
             server = server_str
             port = '16017'
         client = EWClient(server, int(port))
-    elif 'seedlink://' in opt.server:
-        server_str = opt.server.split('seedlink://',1)[1]
+    elif 'seedlink://' in config.get('server'):
+        server_str = config.get('server').split('seedlink://',1)[1]
         try:
             server = server_str.split(':',1)[0]
             port = server_str.split(':',1)[1]
@@ -73,7 +73,7 @@ def get_client(opt):
     return client
 
 
-def filter_merge(stmp, opt):
+def filter_merge(stmp, config):
     """
     Bandpass filter then merge data so each channel is in one Trace.
 
@@ -88,7 +88,7 @@ def filter_merge(stmp, opt):
     ----------
     stmp : Stream object
         Stream containing Traces to be filtered/merged.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -102,19 +102,19 @@ def filter_merge(stmp, opt):
     for m in range(len(stmp)):
         stmp[m].data = np.where(stmp[m].data == -2**31, 0, stmp[m].data)
 
-    # Bandpass filter, controlled by opt
-    stmp = stmp.filter('bandpass', freqmin=opt.fmin, freqmax=opt.fmax,
+    # Bandpass filter, controlled by config
+    stmp = stmp.filter('bandpass', freqmin=config.get('fmin'), freqmax=config.get('fmax'),
                                                     corners=2, zerophase=True)
     # !!! Demean? Detrend?
 
     # Hann window taper, with window length not to exceed the spacing between
     # consecutive triggers
-    stmp = stmp.taper(0.05,type='hann',max_length=opt.mintrig)
+    stmp = stmp.taper(0.05,type='hann',max_length=config.get('mintrig'))
 
     # Check for correct sampling rate
     for m in range(len(stmp)):
-        if stmp[m].stats.sampling_rate != opt.samprate:
-            stmp[m] = stmp[m].resample(opt.samprate)
+        if stmp[m].stats.sampling_rate != config.get('samprate'):
+            stmp[m] = stmp[m].resample(config.get('samprate'))
 
     # Merge, filling gaps with zeroes
     stmp = stmp.merge(method=1, fill_value=0)
@@ -122,7 +122,7 @@ def filter_merge(stmp, opt):
     return stmp
 
 
-def append_empty(st, n, opt):
+def append_empty(st, n, config):
     """
     Appends a Trace to the end of a Stream with SCNL information but no data.
 
@@ -132,7 +132,7 @@ def append_empty(st, n, opt):
         Stream that will contain Traces for each channel.
     n : integer
         Index of channel within list.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -142,15 +142,15 @@ def append_empty(st, n, opt):
 
     """
 
-    nets = opt.network.split(',')
-    stas = opt.station.split(',')
-    locs = opt.location.split(',')
-    chas = opt.channel.split(',')
+    nets = config.get('network').split(',')
+    stas = config.get('station').split(',')
+    locs = config.get('location').split(',')
+    chas = config.get('channel').split(',')
 
     print(f'No data found for {nets[n]}.{stas[n]}.{chas[n]}.{locs[n]}')
 
     trtmp = Trace()
-    trtmp.stats.sampling_rate = opt.samprate
+    trtmp.stats.sampling_rate = config.get('samprate')
     trtmp.stats.station = stas[n]
     trtmp.stats.channel = chas[n]
     trtmp.stats.network = nets[n]
@@ -161,7 +161,7 @@ def append_empty(st, n, opt):
     return st
 
 
-def get_filekey(tstart, tend, opt):
+def get_filekey(tstart, tend, config):
     """
     Reads or generates a table that keys file names to a subset of metadata.
 
@@ -178,7 +178,7 @@ def get_filekey(tstart, tend, opt):
         Beginning time of query.
     tend : UTCDateTime object
         End time of query.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -188,21 +188,22 @@ def get_filekey(tstart, tend, opt):
 
     """
 
-    if opt.server == 'file':
-        flname = os.path.join(opt.output_folder, 'filelist.csv')
+    if config.get('server') == 'file':
+        flname = os.path.join(config.get('output_folder'), 'filelist.csv')
         if os.path.exists(flname):
             # If filelist.csv exists, open it
             filekey = pd.read_csv(flname)
         else:
             # If it doesn't exist, create it
-            print(f'Indexing {opt.filepattern} files in {opt.searchdir}')
+            print(f'Indexing {config.get("filepattern")} files in'
+                  f'{config.get("searchdir")}')
             flist = list(itertools.chain.from_iterable(glob.iglob(
-                os.path.join(root,opt.filepattern)) for root, dirs, files in \
-                                                      os.walk(opt.searchdir)))
+                os.path.join(root,config.get('filepattern'))) for root, dirs, files in \
+                                                      os.walk(config.get('searchdir'))))
             filekey = pd.DataFrame(columns=['filename', 'scnl', 'starttime',
                       'endtime'], index=range(len(flist)))
             for n, f in enumerate(flist):
-                if getattr(opt, 'verbose'): print(f)
+                if config.get('verbose'): print(f)
                 stmp = obspy.read(f, headonly=True)
                 filekey['filename'][n] = f
                 filekey['scnl'][n] = '{}.{}.{}.{}'.format(
@@ -213,7 +214,7 @@ def get_filekey(tstart, tend, opt):
             filekey.to_csv(path_or_buf=flname, index=False)
             print('Done indexing!')
             print(f'To force this index to update, remove {flname}')
-        buf = opt.maxdt + opt.atrig + opt.ptrig + 60
+        buf = config.get('maxdt') + config.get('atrig') + config.get('ptrig') + 60
         filekey = filekey.query(
                     f"starttime < '{tend+buf}' and endtime > '{tstart-buf}'")
     else:
@@ -222,7 +223,7 @@ def get_filekey(tstart, tend, opt):
     return filekey
 
 
-def preload_data(tstart, tend, filekey, opt):
+def preload_data(tstart, tend, filekey, config):
     """
     Loads waveform data from disk into memory.
 
@@ -234,7 +235,7 @@ def preload_data(tstart, tend, filekey, opt):
         End time of query.
     filekey : DataFrame object
         Keys file names of local waveform data to their metadata.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -244,10 +245,10 @@ def preload_data(tstart, tend, filekey, opt):
 
     """
     preload_waveforms = Stream()
-    nets = opt.network.split(',')
-    stas = opt.station.split(',')
-    locs = opt.location.split(',')
-    chas = opt.channel.split(',')
+    nets = config.get('network').split(',')
+    stas = config.get('station').split(',')
+    locs = config.get('location').split(',')
+    chas = config.get('channel').split(',')
     # Load up waveform data from tstart to tend into memory
     for n in range(len(stas)):
         # Format SCNL string
@@ -265,13 +266,13 @@ def preload_data(tstart, tend, filekey, opt):
 
 
 def preload_check(window_start_time, window_end_time, preload_end_time,
-                  run_end_time, filekey, opt, preload_waveforms=[],
+                  run_end_time, filekey, config, preload_waveforms=[],
                   event_list=[]):
     """
     Checks if new data need to be 'preloaded' into memory.
 
     Nominally this is to load data from local files into memory, however, by
-    passing an event_list, if more than one event occurs within opt.nsec
+    passing an event_list, if more than one event occurs within 'nsec'
     seconds of the window_start_time, data containing those events will be
     downloaded from a server. This prevents excessive calls to the server for
     many events in a short amount of time.
@@ -288,7 +289,7 @@ def preload_check(window_start_time, window_end_time, preload_end_time,
         End time of full span of interest.
     filekey : DataFrame object
         Keys file names of local waveform data to their metadata.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     preload_waveforms : Stream object, optional
         Stream containing waveforms 'preloaded' into memory.
@@ -303,23 +304,24 @@ def preload_check(window_start_time, window_end_time, preload_end_time,
         End time of preloaded waveforms.
 
     """
-    if (opt.preload > 0) and (len(filekey) > 0):
-        if window_end_time+opt.maxdt > preload_end_time:
-            if getattr(opt, 'verbose'):
+    if (config.get('preload') > 0) and (len(filekey) > 0):
+        if window_end_time+config.get('maxdt') > preload_end_time:
+            if config.get('verbose'):
                 print('Loading waveforms into memory...')
             preload_end_time = np.min(
-                (run_end_time, window_start_time + opt.preload*86400)
-                ) + opt.atrig + opt.maxdt
-            preload_waveforms = preload_data(window_start_time - opt.atrig,
-                                             preload_end_time, filekey, opt)
+                (run_end_time, window_start_time + config.get('preload')*86400)
+                ) + config.get('atrig') + config.get('maxdt')
+            preload_waveforms = preload_data(window_start_time - config.get('atrig'),
+                                             preload_end_time, filekey, config)
     elif (len(event_list) > 0) and (window_start_time >= preload_end_time):
         sub_list = event_list[(event_list > window_start_time) &
-                              (event_list < window_end_time + opt.nsec)]
+                              (event_list < window_end_time
+                               + config.get('nsec'))]
         if len(sub_list) > 1:
             preload_end_time = window_end_time + (sub_list[-1] - sub_list[0])
-            preload_waveforms = get_data(window_start_time - 4*opt.atrig,
-                                         preload_end_time + 5*opt.atrig,
-                                         filekey, [], opt,
+            preload_waveforms = get_data(window_start_time - 4*config.get('atrig'),
+                                         preload_end_time + 5*config.get('atrig'),
+                                         filekey, [], config,
                                          do_filter_merge=False)
         else:
             preload_end_time = window_end_time
@@ -327,7 +329,7 @@ def preload_check(window_start_time, window_end_time, preload_end_time,
     return preload_waveforms, preload_end_time
 
 
-def initial_data_preload(run_start_time, run_end_time, opt):
+def initial_data_preload(run_start_time, run_end_time, config):
     """
     Handles the first preload when starting a run.
 
@@ -337,7 +339,7 @@ def initial_data_preload(run_start_time, run_end_time, opt):
         Start time of full span of interest.
     run_end_time : UTCDateTime object
         End time of full span of interest.
-    opt : Options object
+    config : Config object
         Describes the run parameters
 
     Returns
@@ -350,14 +352,14 @@ def initial_data_preload(run_start_time, run_end_time, opt):
         End time of preloaded waveforms.
 
     """
-    filekey = get_filekey(run_start_time, run_end_time, opt)
+    filekey = get_filekey(run_start_time, run_end_time, config)
     preload_waveforms, preload_end_time = preload_check(
         run_start_time, run_end_time, run_start_time, run_end_time,
-        filekey, opt)
+        filekey, config)
     return filekey, preload_waveforms, preload_end_time
 
 
-def get_data(tstart, tend, filekey, preload_waveforms, opt,
+def get_data(tstart, tend, filekey, preload_waveforms, config,
              do_filter_merge=True):
     """
     Download data from web or read from file.
@@ -378,7 +380,7 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt,
     preload_waveforms : Stream object
         Preloaded waveform data from files on disk. Empty if querying from a
         server.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     do_filter_merge : bool, optional
         If True, runs filter_merge() on Streams.
@@ -390,19 +392,19 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt,
 
     """
 
-    nets = opt.network.split(',')
-    stas = opt.station.split(',')
-    locs = opt.location.split(',')
-    chas = opt.channel.split(',')
+    nets = config.get('network').split(',')
+    stas = config.get('station').split(',')
+    locs = config.get('location').split(',')
+    chas = config.get('channel').split(',')
 
     st = Stream()
 
-    # Only true if opt.server == file and opt.preload > 0
+    # Only true if config.get('server') == file and config.get('preload') > 0
     if len(preload_waveforms) > 0:
 
         # Slice and put in correct order
         preload_waveforms = preload_waveforms.slice(starttime=tstart,
-                                                    endtime=tend+opt.maxdt)
+                                                    endtime=tend+config.get('maxdt'))
 
         for n in range(len(stas)):
 
@@ -420,17 +422,17 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt,
 
             if len(stmp) > 0:
                 if do_filter_merge:
-                    stmp = filter_merge(stmp, opt)
+                    stmp = filter_merge(stmp, config)
                 st = st.extend(stmp.copy())
             else:
-                st = append_empty(st, n, opt)
+                st = append_empty(st, n, config)
 
-    # Only true if opt.server == file and opt.preload == 0
+    # Only true if config.get('server') == file and config.get('preload') == 0
     elif len(filekey) > 0:
 
         # Load directly from file in correct order
 
-        filekey_sub = filekey.query(f"starttime < '{tend+opt.maxdt}' \
+        filekey_sub = filekey.query(f"starttime < '{tend+config.get('maxdt')}' \
                                       and endtime > '{tstart}'")
 
         for n in range(len(stas)):
@@ -448,35 +450,35 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt,
                 stmp = Stream()
                 for f in flist_sub:
                     stmp = stmp.extend(obspy.read(f, starttime=tstart,
-                                                      endtime=tend+opt.maxdt))
+                                                      endtime=tend+config.get('maxdt')))
                 if do_filter_merge:
-                    stmp = filter_merge(stmp, opt)
+                    stmp = filter_merge(stmp, config)
                 st = st.extend(stmp.copy())
 
             # If no data found, append an empty trace
             else:
-                st = append_empty(st, n, opt)
+                st = append_empty(st, n, config)
 
-    # opt.server != file
+    # config.get('server') != file
     else:
 
-        client = get_client(opt)
+        client = get_client(config)
 
         for n in range(len(stas)):
             try:
                 stmp = client.get_waveforms(nets[n], stas[n], locs[n],
-                                      chas[n], tstart, tend+opt.maxdt)
+                                      chas[n], tstart, tend+config.get('maxdt'))
                 if do_filter_merge:
-                    stmp = filter_merge(stmp, opt)
+                    stmp = filter_merge(stmp, config)
             except (obspy.clients.fdsn.header.FDSNException):
                 # Try querying again in case timed out on accident
                 try:
                     stmp = client.get_waveforms(nets[n], stas[n], locs[n],
-                                          chas[n], tstart, tend+opt.maxdt)
+                                          chas[n], tstart, tend+config.get('maxdt'))
                     if do_filter_merge:
-                        stmp = filter_merge(stmp, opt)
+                        stmp = filter_merge(stmp, config)
                 except:
-                    stmp = append_empty(Stream(), n, opt)
+                    stmp = append_empty(Stream(), n, config)
 
             # Enforce location code
             for i in range(len(stmp)):
@@ -484,13 +486,13 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt,
 
             # Last check for length; catches problem with empty waveserver
             if len(stmp) < 1:
-                st = append_empty(st, n, opt)
+                st = append_empty(st, n, config)
             else:
                 st.extend(stmp.copy())
 
     # Edit 'start' time if using offset option
-    if opt.maxdt:
-        dts = np.fromstring(opt.offset, sep=',')
+    if config.get('maxdt'):
+        dts = np.fromstring(config.get('offset'), sep=',')
         for n, tr in enumerate(st):
             tr.stats.starttime = tr.stats.starttime-dts[n]
 
@@ -500,7 +502,7 @@ def get_data(tstart, tend, filekey, preload_waveforms, opt,
     return st
 
 
-def trigger(st, rtable, opt, event=None):
+def trigger(st, rtable, config, event=None):
     """
     Run triggering algorithm on a stream of data.
 
@@ -515,7 +517,7 @@ def trigger(st, rtable, opt, event=None):
         Stream containing continuous, filtered Traces for each channel.
     rtable : Table object
         Handle to the Repeaters table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     event : UTCDateTime object, optional
         Catalog event to add by force.
@@ -529,20 +531,20 @@ def trigger(st, rtable, opt, event=None):
 
     t = st[0].stats.starttime
 
-    cft = coincidence_trigger(opt.trigalg, opt.trigon, opt.trigoff, st.copy(),
-        opt.nstaC, sta=opt.swin, lta=opt.lwin, details=True)
+    cft = coincidence_trigger(config.get('trigalg'), config.get('trigon'), config.get('trigoff'), st.copy(),
+        config.get('nstac'), sta=config.get('swin'), lta=config.get('lwin'), details=True)
     if event:
         ttimes = [event]
         ratios = [0.0]
-        bestmatch = opt.mintrig
+        bestmatch = config.get('mintrig')
         for c in cft:
             if np.abs(c['time']-event) < bestmatch:
                 bestmatch = np.abs(c['time']-event)
-                ratios = [np.max(c['cft_peaks'])-opt.trigon]
+                ratios = [np.max(c['cft_peaks'])-config.get('trigoff')]
     else:
         ttimes = [cft[n]['time'] for n in range(len(cft))]
         ratios = [
-            np.max(cft[n]['cft_peaks'])-opt.trigon for n in range(len(cft))]
+            np.max(cft[n]['cft_peaks'])-config.get('trigoff') for n in range(len(cft))]
 
     if len(ttimes) > 0:
 
@@ -552,31 +554,31 @@ def trigger(st, rtable, opt, event=None):
         if rtable.attrs.ptime:
             ptime = (UTCDateTime(rtable.attrs.ptime) - t)
         else:
-            ptime = -opt.mintrig
+            ptime = -config.get('mintrig')
 
         # Loop over triggers
         for n, ttime in enumerate(ttimes):
 
             # Enforce minimum time between previous known trigger, edges of st
-            if (ttime >= t + opt.atrig) and (ttime >= t + ptime +
-                opt.mintrig) and (ttime < t + len(st[0].data)/opt.samprate -
-                2*opt.atrig):
+            if (ttime >= t + config.get('atrig')) and (ttime >= t + ptime +
+                config.get('mintrig')) and (ttime < t + len(st[0].data)/config.get('samprate') -
+                2*config.get('atrig')):
 
                 # Update ptime
                 ptime = ttime - t
 
                 # Cut out a copy from st with a few samples of padding
-                tr = st.slice(ttime - opt.ptrig, ttime + opt.atrig + \
-                                                        2/opt.samprate).copy()
+                tr = st.slice(ttime - config.get('ptrig'), ttime + config.get('atrig') + \
+                                                        2/config.get('samprate')).copy()
 
                 # Trim, pad with zeros
-                tr = tr.trim(ttime - opt.ptrig, ttime + opt.atrig + \
-                                       2/opt.samprate, pad=True, fill_value=0)
+                tr = tr.trim(ttime - config.get('ptrig'), ttime + config.get('atrig') + \
+                                       2/config.get('samprate'), pad=True, fill_value=0)
 
                 for s in range(len(tr)):
 
                     # Cut out exact number of samples
-                    tr[s].data = tr[s].data[0:opt.wshape]
+                    tr[s].data = tr[s].data[0:config.get('wshape')]
 
                     # Demean
                     tr[s].data -= np.mean(tr[s].data)
@@ -609,7 +611,7 @@ def trigger(st, rtable, opt, event=None):
 
 
 def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
-                     preload_waveforms, opt, event=None):
+                     preload_waveforms, config, event=None):
     """
     Combines getting data for a time window and triggering on that data.
 
@@ -625,7 +627,7 @@ def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
         Keys file names of local waveform data to their metadata.
     preload_waveforms : Stream object
         Preloaded waveform data from files on disk.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     event : UTCDateTime object, optional
         Catalog event to add by force.
@@ -636,15 +638,15 @@ def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
         Triggered events with data from each channel concatenated.
 
     """
-    if opt.troubleshoot:
-        st = get_data(window_start_time-opt.atrig, window_end_time,
-                                    filekey, preload_waveforms, opt)
-        alltrigs = trigger(st, rtable, opt, event=event)
+    if config.troubleshoot:
+        st = get_data(window_start_time-config.get('atrig'), window_end_time,
+                                    filekey, preload_waveforms, config)
+        alltrigs = trigger(st, rtable, config, event=event)
     else:
         try:
-            st = get_data(window_start_time-opt.atrig, window_end_time,
-                                        filekey, preload_waveforms, opt)
-            alltrigs = trigger(st, rtable, opt, event=event)
+            st = get_data(window_start_time-config.get('atrig'), window_end_time,
+                                        filekey, preload_waveforms, config)
+            alltrigs = trigger(st, rtable, config, event=event)
         except KeyboardInterrupt:
             print('\nManually interrupting!\n')
             raise KeyboardInterrupt
@@ -655,7 +657,7 @@ def load_and_trigger(rtable, window_start_time, window_end_time, filekey,
     return alltrigs
 
 
-def clean_triggers(alltrigs, opt, event=None):
+def clean_triggers(alltrigs, config, event=None):
     """
     Cleans triggers of data spikes, calibration pulses, and teleseisms.
 
@@ -669,7 +671,7 @@ def clean_triggers(alltrigs, opt, event=None):
     ----------
     alltrigs : Stream object
         Triggered events with data from each channel concatenated.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     event : UTCDateTime object, optional
         Catalog event to add by force.
@@ -703,22 +705,22 @@ def clean_triggers(alltrigs, opt, event=None):
 
         # Get FI
         windowCoeff, windowFFT, windowFI = calculate_window(
-            alltrigs[i].data, int(opt.ptrig*opt.samprate), opt)
+            alltrigs[i].data, int(config.get('ptrig')*config.get('samprate')), config)
 
         # Loop over channels
-        for n in range(opt.nsta):
+        for n in range(config.get('nsta')):
 
             # Check FI
             fi = windowFI[n]
-            if fi<opt.telefi:
+            if fi<config.get('telefi'):
                 ntele+=1
 
             # Get channel waveform
-            dat = alltrigs[i].data[n*opt.wshape:(n+1)*opt.wshape]
+            dat = alltrigs[i].data[n*config.get('wshape'):(n+1)*config.get('wshape')]
 
             # Cut out kurtosis window surrounding initial trigger
-            datcut = dat[range(int((opt.ptrig-opt.kurtwin/2)*opt.samprate),
-                               int((opt.ptrig+opt.kurtwin/2)*opt.samprate))]
+            datcut = dat[range(int((config.get('ptrig')-config.get('kurtwin')/2)*config.get('samprate')),
+                               int((config.get('ptrig')+config.get('kurtwin')/2)*config.get('samprate')))]
 
             # If not filled with zeros
             if np.sum(np.abs(dat))!=0.0:
@@ -737,12 +739,12 @@ def clean_triggers(alltrigs, opt, event=None):
                 # Outliers have z > 4.45
                 oratio = len(z[z>4.45])/np.array(len(z)).astype(float)
 
-                if (k >= opt.kurtmax) or (oratio >= opt.oratiomax) or (
-                        kf >= opt.kurtfmax):
+                if (k >= config.get('kurtmax')) or (oratio >= config.get('oratiomax')) or (
+                        kf >= config.get('kurtfmax')):
                     njunk+=1
 
         # Allow if there are enough good stations to correlate
-        if njunk <= (opt.nsta-opt.ncor) and ntele <= opt.teleok:
+        if njunk <= (config.get('nsta')-config.get('ncor')) and ntele <= config.get('teleok'):
             trigs.append(alltrigs[i])
         else:
             junk.append(alltrigs[i])

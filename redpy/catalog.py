@@ -17,7 +17,7 @@ import redpy
 
 
 def get_event_times_from_csv(
-        csvfile, time_column_name, sep, opt, start_time=None, end_time=None,
+        csvfile, time_column_name, sep, config, start_time=None, end_time=None,
         arrivals=False):
     """
     Reads event times from a catalog.
@@ -30,7 +30,7 @@ def get_event_times_from_csv(
         Name of the column that contains event times.
     sep : str
         Separator (or delimiter) between columns.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     start_time : UTCDateTime object, optional
         Events returned must have happened after this date.
@@ -46,7 +46,7 @@ def get_event_times_from_csv(
     """
     catalog = pd.read_csv(csvfile, sep=sep)
     if arrivals:
-        handle_arrivals(catalog, time_column_name, opt)
+        handle_arrivals(catalog, time_column_name, config)
     event_list = np.array(
         [UTCDateTime(event) for event in catalog[time_column_name]])
     event_list.sort()
@@ -57,7 +57,7 @@ def get_event_times_from_csv(
     return event_list
 
 
-def handle_arrivals(catalog, time_column_name, opt, write_to_column=None):
+def handle_arrivals(catalog, time_column_name, config, write_to_column=None):
     """
     Handle getting the P-wave arrivals into a single column.
 
@@ -71,7 +71,7 @@ def handle_arrivals(catalog, time_column_name, opt, write_to_column=None):
         Catalog with event times and locations.
     time_column_name : str
         Name of the event time column.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     write_to_column : str, optional
         Column name to append to overwrite or append.
@@ -84,11 +84,11 @@ def handle_arrivals(catalog, time_column_name, opt, write_to_column=None):
     """
     if 'Arrival_p' not in catalog.columns:
         latitude_center = np.mean(
-            np.array(opt.stalats.split(',')).astype(float))
+            np.array(config.get('stalats').split(',')).astype(float))
         longitude_center = np.mean(
-            np.array(opt.stalons.split(',')).astype(float))
+            np.array(config.get('stalons').split(',')).astype(float))
         catalog = calculate_arrivals(
-            catalog, latitude_center, longitude_center, ['p','P'], opt,
+            catalog, latitude_center, longitude_center, ['p','P'], config,
             time_column_name=time_column_name)
     if write_to_column:
         time_column_name = write_to_column
@@ -98,12 +98,12 @@ def handle_arrivals(catalog, time_column_name, opt, write_to_column=None):
     return catalog
 
 
-def prepare_catalog(ttimes, opt):
+def prepare_catalog(ttimes, config):
     """
     Downloads and formats event catalog from external datacenter.
 
     Data are queried from three regions (local, regional, teleseismic) based
-    on the settings in opt. Times are taken from the first and last trigger
+    on the settings in config. Times are taken from the first and last trigger
     times in ttable, so if there are large gaps in ttable, this function is
     agnostic to them. Updates the catalog if a file exists to reduce query
     overhead.
@@ -112,7 +112,7 @@ def prepare_catalog(ttimes, opt):
     ----------
     ttimes : float ndarray
         Times of all triggers as matplotlib dates.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -124,7 +124,7 @@ def prepare_catalog(ttimes, opt):
     tmax = UTCDateTime(mdates.num2date(np.max(ttimes))) + 30
     external_catalogs = []
     for region in ['local', 'regional', 'teleseismic']:
-        fname = os.path.join(opt.output_folder, f'external_{region}.txt')
+        fname = os.path.join(config.get('output_folder'), f'external_{region}.txt')
         if os.path.exists(fname):
             catalog = pd.read_csv(fname, delimiter='|')
             # Get missing events before and after currently saved events
@@ -132,21 +132,21 @@ def prepare_catalog(ttimes, opt):
                 tmin_catalog = UTCDateTime(np.min(catalog['Time']))-1
                 tmax_catalog = UTCDateTime(np.max(catalog['Time']))+1
                 catalog_before = query_external(
-                    region, tmin, tmin_catalog,opt)
+                    region, tmin, tmin_catalog,config)
                 catalog_after = query_external(
-                    region, tmax_catalog, tmax, opt)
+                    region, tmax_catalog, tmax, config)
                 catalog = pd.concat([catalog_before, catalog, catalog_after],
                                     axis=0, ignore_index=True)
             else:
-                catalog = query_external(region, tmin, tmax, opt)
+                catalog = query_external(region, tmin, tmax, config)
         else:
-            catalog = query_external(region, tmin, tmax, opt)
+            catalog = query_external(region, tmin, tmax, config)
         catalog.to_csv(fname, index=False, sep='|')
         external_catalogs.append(catalog)
     return external_catalogs
 
 
-def save_external_catalog(csvfile, opt, arrivals=False, start_time=None,
+def save_external_catalog(csvfile, config, arrivals=False, start_time=None,
                           end_time=None, rtable=None, delimiter=','):
     """
     Download and save catalog from external FDSN webservice to csvfile.
@@ -155,7 +155,7 @@ def save_external_catalog(csvfile, opt, arrivals=False, start_time=None,
     ----------
     csvfile : str
         File to save catalog to.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     arrivals : bool, optional
         If True, calculate P-wave arrival to center of network.
@@ -173,19 +173,19 @@ def save_external_catalog(csvfile, opt, arrivals=False, start_time=None,
         end_time = UTCDateTime()
         print(f'Defaulting to end time of "now" ({end_time})')
     if not start_time:
-        start_time = end_time - opt.nsec
+        start_time = end_time - config.get('nsec')
         if rtable:
             if rtable.attrs.ptime:
                 start_time = rtable.attrs.ptime
         print(f'Defaulting to start time of {start_time}')
     catalog = query_external('local', UTCDateTime(start_time),
-                             UTCDateTime(end_time), opt, arrivals)
+                             UTCDateTime(end_time), config, arrivals)
     if len(catalog) == 0:
         print('No events found!')
     catalog.to_csv(csvfile, index=False, sep=delimiter)
 
 
-def query_external(region, tmin, tmax, opt, arrivals=True):
+def query_external(region, tmin, tmax, config, arrivals=True):
     """
     Handles querying and formatting the external event catalog.
 
@@ -201,7 +201,7 @@ def query_external(region, tmin, tmax, opt, arrivals=True):
         Start time for catalog query.
     tmax : UTCDateTime object
         End time for catalog query.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -210,24 +210,24 @@ def query_external(region, tmin, tmax, opt, arrivals=True):
         Formatted event catalog.
 
     """
-    latitude_center = np.mean(np.array(opt.stalats.split(',')).astype(float))
-    longitude_center = np.mean(np.array(opt.stalons.split(',')).astype(float))
+    latitude_center = np.mean(np.array(config.get('stalats').split(',')).astype(float))
+    longitude_center = np.mean(np.array(config.get('stalons').split(',')).astype(float))
     if region in 'local':
         minrad = 0
-        maxrad = opt.locdeg
+        maxrad = config.get('locdeg')
         minmag = -10
         phase_list=['p','s','P','S']
     elif region in 'regional':
-        minrad = opt.locdeg
-        maxrad = opt.regdeg
-        minmag = opt.regmag
+        minrad = config.get('locdeg')
+        maxrad = config.get('regdeg')
+        minmag = config.get('regmag')
         phase_list = ['p','s','P','S','PP','SS']
     else:
-        minrad = opt.regdeg
+        minrad = config.get('regdeg')
         maxrad = 180
-        minmag = opt.telemag
+        minmag = config.get('telemag')
         phase_list = ['P','S','PP','SS','PcP','ScS','PKiKP','PKIKP']
-    base_url = Client(opt.datacenter).base_url
+    base_url = Client(config.get('datacenter')).base_url
     query_url = base_url + ('/fdsnws/event/1/query'
                 + f'?starttime={tmin}'
                 + f'&endtime={tmax}'
@@ -256,7 +256,7 @@ def query_external(region, tmin, tmax, opt, arrivals=True):
             columns=['EventID', 'Time', 'Latitude', 'Longitude', 'Depth/km',
                      'Magnitude','EventLocationName'])
         print((f'Failed to download {region} event catalog from '
-               f'{opt.datacenter}'))
+               f'{config.get("datacenter")}'))
     catalog.columns = catalog.columns.str.replace(' ','')
     catalog.columns = catalog.columns.str.replace('#','')
     catalog.drop(
@@ -265,12 +265,12 @@ def query_external(region, tmin, tmax, opt, arrivals=True):
         errors='ignore', inplace=True)
     if arrivals:
         catalog = calculate_arrivals(
-            catalog, latitude_center, longitude_center, phase_list, opt)
+            catalog, latitude_center, longitude_center, phase_list, config)
     return catalog
 
 
 def calculate_arrivals(
-        catalog, latitude_center, longitude_center, phase_list, opt,
+        catalog, latitude_center, longitude_center, phase_list, config,
         time_column_name='Time'):
     """
     Calculates the arrivals of given phases from source to study area.
@@ -288,7 +288,7 @@ def calculate_arrivals(
         Longitude of study area centroid.
     phase_list : list
         List of seismic phase arrivals to trace.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -327,7 +327,7 @@ def calculate_arrivals(
 
 
 def match_external(windowAmp, ftable, fnum, file, rtimes, external_catalogs,
-                   opt):
+                   config):
     """
     Checks repeater trigger times with arrival times from external catalog.
 
@@ -346,21 +346,21 @@ def match_external(windowAmp, ftable, fnum, file, rtimes, external_catalogs,
         Times of repeaters as datetimes.
     external_catalogs : list of DataFrame objects
         External catalogs to check against, with 'Arrivals_' columns.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
     members = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
-    if opt.matchMax == 0 or opt.matchMax > len(members):
+    if config.get('matchmax') == 0 or config.get('matchmax') > len(members):
         order = np.argsort(rtimes[members])
         matchstring = ('</br><b>ComCat matches (all events):</b></br>'
             '<div style="overflow-y: auto; height:100px; width:1200px;">')
     else:
-        nlargest = np.argsort(windowAmp[members])[::-1][:opt.matchMax]
+        nlargest = np.argsort(windowAmp[members])[::-1][:config.get('matchmax')]
         members = members[nlargest]
         order = np.argsort(rtimes[members])
         matchstring = f"""
-            </br><b>ComCat matches ({opt.matchMax} largest events):</b></br>
+            </br><b>ComCat matches ({config.get('matchmax')} largest events):</b></br>
             <div style="overflow-y: auto; height:100px; width:1200px;">
             """
     pc_string = ['Potential', 'Conflicting']
@@ -379,8 +379,8 @@ def match_external(windowAmp, ftable, fnum, file, rtimes, external_catalogs,
             anames = [cat.filter(like='Arrival').columns[i].split('_')[1] \
                       for i in range(len(cat.filter(like='Arrival').columns))]
             arrivals = cat.filter(like='Arrival').to_numpy().astype(str)
-            matched = np.any(((arrivals >= format(ev_time-opt.serr)) & \
-                              (arrivals <= format(ev_time+opt.serr))),axis=1)
+            matched = np.any(((arrivals >= format(ev_time-config.get('serr'))) & \
+                              (arrivals <= format(ev_time+config.get('serr')))),axis=1)
             found = arrivals[matched]
             if len(found) > 0:
                 # Convert from strings to time differences
@@ -421,21 +421,21 @@ def match_external(windowAmp, ftable, fnum, file, rtimes, external_catalogs,
         if len(local_deps) > 0:
             redpy.plotting.create_local_map(
                 local_lats, local_lons, local_deps,
-                os.path.join(opt.output_folder, 'clusters', f'map{fnum}.png'),
-                opt)
+                os.path.join(config.get('output_folder'), 'clusters', f'map{fnum}.png'),
+                config)
             file.write(f'<img src="map{fnum}.png"></br>')
     else:
         matchstring+='No matches found</br></div>'
     file.write(matchstring)
 
 
-def get_median_locations(opt, regional=False, distant=False):
+def get_median_locations(config, regional=False, distant=False):
     """
     Parse .html output files for locations and create a DataFrame of medians.
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     regional : bool, optional
         If True, include regional matches.
@@ -447,7 +447,7 @@ def get_median_locations(opt, regional=False, distant=False):
     df : DataFrame object
 
     """
-    flist = np.array(glob.glob(os.path.join(opt.output_folder, 'clusters',
+    flist = np.array(glob.glob(os.path.join(config.get('output_folder'), 'clusters',
                                             '*.html')))
     fnums = [int(os.path.basename(fname).split('.')[0]) for fname in flist]
     df = pd.DataFrame(columns=['Latitude', 'Longitude', r'Depth/km'],

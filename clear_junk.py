@@ -32,9 +32,9 @@ def clear_junk(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    h5file, _, _, _, _, jtable, _, _, opt = redpy.table.open_with_cfg(
+    h5file, _, _, _, _, jtable, _, _, config = redpy.table.open_with_cfg(
         configfile, verbose)
-    redpy.table.remove_all_junk(jtable, opt)
+    redpy.table.remove_all_junk(jtable, config)
     h5file.close()
 
 

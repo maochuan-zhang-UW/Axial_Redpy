@@ -66,23 +66,23 @@ def create_pdf_overview(
     usehrs : bool, optional
         Use hours (instead of days) to define binsize.
     binsize : float, optional
-        Histogram bin size; defaults to opt.dybin days.
+        Histogram bin size; defaults to 'dybin' days from config.
     starttime : str, optional
         Earliest time to plot; defaults to first trigger.
     endtime : str, optional
         Latest time to plot; defaults to last trigger.
     minmembers : int, optional
         Minimum number of members required to include family in occurrence
-        plot; defaults to opt.minplot.
+        plot; defaults to config.get('minplot').
     occurheight : int, optional
         Integer multiplier for how much taller the occurrence plot(s) should
         be compared to other plots; defaults to 3.
     plotformat : str, optional
         Comma separated list of subplots to use with same format as
-        opt.plotformat; defaults to 'eqrate,fi,occurrence,longevity'.
+        'plotformat' in config; defaults to 'eqrate,fi,occurrence,longevity'.
 
     """
-    h5file, rtable, _, ttable, ctable, _, _, ftable, opt = \
+    h5file, rtable, _, ttable, ctable, _, _, ftable, config = \
         redpy.table.open_with_cfg(configfile, verbose)
     if starttime:
         tmin = UTCDateTime(starttime).matplotlib_date
@@ -96,20 +96,20 @@ def create_pdf_overview(
         if usehrs:
             binsize = binsize/24
     else:
-        binsize = opt.dybin
+        binsize = config.get('dybin')
     if not minmembers:
-        minmembers = opt.minplot
+        minmembers = config.get('minplot')
     if not plotformat:
         plotformat = 'eqrate,fi,occurrence,longevity'
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Creating overview.pdf in main output directory...')
     rtimes, rtimes_mpl, _, ttimes, fi, _, _ = \
-        redpy.plotting.get_plotting_columns(rtable, ttable, ctable, opt,
+        redpy.plotting.get_plotting_columns(rtable, ttable, ctable, config,
                                             load_cmatrix=False)
     fi = np.nanmean(fi, axis=1)
     redpy.plotting.assemble_pdf_overview(
         rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, tmin, tmax, binsize,
-        minmembers, occurheight, plotformat, opt)
+        minmembers, occurheight, plotformat, config)
     h5file.close()
 
 

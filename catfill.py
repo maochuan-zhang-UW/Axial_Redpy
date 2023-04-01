@@ -99,26 +99,26 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
 
     """
     t_func = time.time()
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
         redpy.table.open_with_cfg(configfile, verbose, troubleshoot)
     if query:
         redpy.catalog.save_external_catalog(
-            csvfile, opt, arrival, starttime, endtime, rtable, delimiter)
+            csvfile, config, arrival, starttime, endtime, rtable, delimiter)
     try:
         event_list = redpy.catalog.get_event_times_from_csv(
-            csvfile, name, delimiter, opt, starttime, endtime, arrival)
+            csvfile, name, delimiter, config, starttime, endtime, arrival)
     except KeyError as exc:
         raise KeyError(
             f'Could not find "{name}" column in {csvfile}. Check file, column '
             'name, and delimiter! Use -h for help.') from exc
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
         redpy.table.update_with_event_list(
             h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable,
-            event_list, opt, force, expire)
+            event_list, config, force, expire)
     redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
-                                        otable, opt)
+                                        otable, config)
     h5file.close()
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print(f'Total time spent: {(time.time()-t_func)/60:.3f} minutes')
 
 

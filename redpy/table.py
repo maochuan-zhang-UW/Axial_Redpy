@@ -15,7 +15,7 @@ from tables import *
 import redpy.correlation
 
 
-def Repeaters(opt):
+def Repeaters(config):
     """
     Creates a dictionary defining the columns in the Repeaters table.
 
@@ -37,7 +37,7 @@ def Repeaters(opt):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -51,19 +51,19 @@ def Repeaters(opt):
         "id"           : Int32Col(shape=(), pos=0),
         "startTime"    : StringCol(itemsize=32, pos=1),
         "startTimeMPL" : Float64Col(shape=(), pos=2),
-        "waveform"     : Float32Col(shape=(opt.wshape*opt.nsta,), pos=3),
+        "waveform"     : Float32Col(shape=(config.get('wshape')*config.get('nsta'),), pos=3),
         "windowStart"  : Int32Col(shape=(), pos=4),
-        "windowCoeff"  : Float64Col(shape=(opt.nsta,), pos=5),
-        "windowFFT"    : ComplexCol(shape=(opt.winlen*opt.nsta,),
+        "windowCoeff"  : Float64Col(shape=(config.get('nsta'),), pos=5),
+        "windowFFT"    : ComplexCol(shape=(config.get('winlen')*config.get('nsta'),),
                                     itemsize=16, pos=6),
-        "windowAmp"    : Float64Col(shape=(opt.nsta,), pos=7),
-        "FI"           : Float64Col(shape=(opt.nsta,), pos=8)
+        "windowAmp"    : Float64Col(shape=(config.get('nsta'),), pos=7),
+        "FI"           : Float64Col(shape=(config.get('nsta'),), pos=8)
         }
 
     return repeaters_dictionary
 
 
-def Orphans(opt):
+def Orphans(config):
     """
     Creates a dictionary defining the columns in the Orphans table.
 
@@ -86,7 +86,7 @@ def Orphans(opt):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -100,20 +100,20 @@ def Orphans(opt):
         "id"           : Int32Col(shape=(), pos=0),
         "startTime"    : StringCol(itemsize=32, pos=1),
         "startTimeMPL" : Float64Col(shape=(), pos=2),
-        "waveform"     : Float32Col(shape=(opt.wshape*opt.nsta,), pos=3),
+        "waveform"     : Float32Col(shape=(config.get('wshape')*config.get('nsta'),), pos=3),
         "windowStart"  : Int32Col(shape=(), pos=4),
-        "windowCoeff"  : Float64Col(shape=(opt.nsta,), pos=5),
-        "windowFFT"    : ComplexCol(shape=(opt.winlen*opt.nsta,),
+        "windowCoeff"  : Float64Col(shape=(config.get('nsta'),), pos=5),
+        "windowFFT"    : ComplexCol(shape=(config.get('winlen')*config.get('nsta'),),
                                     itemsize=16, pos=6),
-        "windowAmp"    : Float64Col(shape=(opt.nsta,), pos=7),
-        "FI"           : Float64Col(shape=(opt.nsta,), pos=8),
+        "windowAmp"    : Float64Col(shape=(config.get('nsta'),), pos=7),
+        "FI"           : Float64Col(shape=(config.get('nsta'),), pos=8),
         "expires"      : StringCol(itemsize=32, pos=9)
         }
 
     return orphans_dictionary
 
 
-def Triggers(opt):
+def Triggers(config):
     """
     Creates a dictionary defining the columns in the Triggers table.
 
@@ -122,7 +122,7 @@ def Triggers(opt):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -139,7 +139,7 @@ def Triggers(opt):
     return triggers_dictionary
 
 
-def Deleted(opt):
+def Deleted(config):
     """
     Creates a dictionary defining the columns in the Deleted table.
 
@@ -161,7 +161,7 @@ def Deleted(opt):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -175,19 +175,19 @@ def Deleted(opt):
         "id"           : Int32Col(shape=(), pos=0),
         "startTime"    : StringCol(itemsize=32, pos=1),
         "startTimeMPL" : Float64Col(shape=(), pos=2),
-        "waveform"     : Float32Col(shape=(opt.wshape*opt.nsta,), pos=3),
+        "waveform"     : Float32Col(shape=(config.get('wshape')*config.get('nsta'),), pos=3),
         "windowStart"  : Int32Col(shape=(), pos=4),
-        "windowCoeff"  : Float64Col(shape=(opt.nsta,), pos=5),
-        "windowFFT"    : ComplexCol(shape=(opt.winlen*opt.nsta,),
+        "windowCoeff"  : Float64Col(shape=(config.get('nsta'),), pos=5),
+        "windowFFT"    : ComplexCol(shape=(config.get('winlen')*config.get('nsta'),),
                                     itemsize=16, pos=6),
-        "windowAmp"    : Float64Col(shape=(opt.nsta,), pos=7),
-        "FI"           : Float64Col(shape=(opt.nsta,), pos=8)
+        "windowAmp"    : Float64Col(shape=(config.get('nsta'),), pos=7),
+        "FI"           : Float64Col(shape=(config.get('nsta'),), pos=8)
         }
 
     return deleted_dictionary
 
 
-def Junk(opt):
+def Junk(config):
     """
     Creates a dictionary defining the columns in the Junk table.
 
@@ -203,7 +203,7 @@ def Junk(opt):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -216,14 +216,14 @@ def Junk(opt):
     junk_dictionary = {
         "isjunk"      : Int32Col(shape=(), pos=0),
         "startTime"   : StringCol(itemsize=32, pos=1),
-        "waveform"    : Float32Col(shape=(opt.wshape*opt.nsta,), pos=2),
+        "waveform"    : Float32Col(shape=(config.get('wshape')*config.get('nsta'),), pos=2),
         "windowStart" : Int32Col(shape=(), pos=3)
         }
 
     return junk_dictionary
 
 
-def Correlation(opt):
+def Correlation(config):
     """
     Creates a dictionary defining the columns in the Correlation table.
 
@@ -235,7 +235,7 @@ def Correlation(opt):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -254,7 +254,7 @@ def Correlation(opt):
     return correlation_dictionary
 
 
-def Families(opt):
+def Families(config):
     """
     Creates a dictionary defining the columns in the Families table.
 
@@ -275,7 +275,7 @@ def Families(opt):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -286,7 +286,7 @@ def Families(opt):
     """
 
     families_dictionary = {
-        "members"   : StringCol(itemsize=opt.max_famlen, shape=(), pos=0),
+        "members"   : StringCol(itemsize=config.get('max_famlen'), shape=(), pos=0),
         "core"      : Int32Col(shape=(), pos=1),
         "startTime" : Float64Col(shape=(), pos=2),
         "longevity" : Float64Col(shape=(), pos=3),
@@ -297,7 +297,7 @@ def Families(opt):
     return families_dictionary
 
 
-def initialize_table(opt):
+def initialize_table(config):
     """
     Initializes and creates the hdf5 table file on disk.
 
@@ -305,59 +305,59 @@ def initialize_table(opt):
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    if getattr(opt, 'verbose'):
-        print("Writing hdf5 table: {}".format(opt.filename))
+    if config.get('verbose'):
+        print("Writing hdf5 table: {}".format(config.get('filename')))
 
     # Open file
-    h5file = open_file(opt.filename, mode="w", title=opt.title)
-    group = h5file.create_group("/", opt.groupName, opt.title)
+    h5file = open_file(config.get('filename'), mode="w", title=config.get('title'))
+    group = h5file.create_group("/", config.get('groupname'), config.get('title'))
 
-    # Create repeaters table, populate attributes based on settings in opt
+    # Create repeaters table, populate attributes based on settings in config
     # that can be checked to ensure compatibility with current configuration
-    rtable = h5file.create_table(group, "repeaters", Repeaters(opt),
+    rtable = h5file.create_table(group, "repeaters", Repeaters(config),
                                  "Repeater Catalog")
-    rtable.attrs.scnl = [opt.station, opt.channel, opt.network, opt.location]
-    rtable.attrs.samprate = opt.samprate
-    rtable.attrs.windowLength = opt.winlen
-    rtable.attrs.ptrig = opt.ptrig
-    rtable.attrs.atrig = opt.atrig
-    rtable.attrs.fmin = opt.fmin
-    rtable.attrs.fmax = opt.fmax
+    rtable.attrs.scnl = [config.get('station'), config.get('channel'), config.get('network'), config.get('location')]
+    rtable.attrs.samprate = config.get('samprate')
+    rtable.attrs.windowLength = config.get('winlen')
+    rtable.attrs.ptrig = config.get('ptrig')
+    rtable.attrs.atrig = config.get('atrig')
+    rtable.attrs.fmin = config.get('fmin')
+    rtable.attrs.fmax = config.get('fmax')
     # previd keeps track of the most recently used unique id number
     rtable.attrs.previd = 0
     # ptime keeps track of the most recently added trigger
     rtable.attrs.ptime = 0
     rtable.flush()
 
-    otable = h5file.create_table(group, "orphans", Orphans(opt),
+    otable = h5file.create_table(group, "orphans", Orphans(config),
                                  "Orphan Catalog")
     otable.flush()
 
-    ttable = h5file.create_table(group, "triggers", Triggers(opt),
+    ttable = h5file.create_table(group, "triggers", Triggers(config),
                                  "Trigger Catalog")
     ttable.flush()
 
-    jtable = h5file.create_table(group, "junk", Junk(opt),
+    jtable = h5file.create_table(group, "junk", Junk(config),
                                  "Junk Catalog")
     jtable.flush()
 
-    dtable = h5file.create_table(group, "deleted", Deleted(opt),
+    dtable = h5file.create_table(group, "deleted", Deleted(config),
                                  "Manually Deleted Events")
     dtable.flush()
 
-    ctable = h5file.create_table(group, "correlation", Correlation(opt),
+    ctable = h5file.create_table(group, "correlation", Correlation(config),
                                  "Correlation Matrix")
     ctable.flush()
 
-    ftable = h5file.create_table(group, "families", Families(opt),
+    ftable = h5file.create_table(group, "families", Families(config),
                                  "Families Table")
     ftable.attrs.nClust = 0 # Number of clusters
-    ftable.attrs.allowed_max_famlen = opt.max_famlen
+    ftable.attrs.allowed_max_famlen = config.get('max_famlen')
     ftable.attrs.current_max_famlen = 0
     ftable.flush()
 
@@ -366,7 +366,7 @@ def initialize_table(opt):
 
 def open_with_cfg(configfile, verbose=False, troubleshoot=False):
     """
-    Convenience function to open the hdf5 file and opt with a config file.
+    Convenience function to open the hdf5 file and config with a config file.
 
     Parameters
     ----------
@@ -395,26 +395,26 @@ def open_with_cfg(configfile, verbose=False, troubleshoot=False):
         Handle to the Deleted table.
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    opt = redpy.config.Options(configfile, verbose, troubleshoot)
+    config = redpy.Config(configfile, verbose, troubleshoot)
 
     h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable = \
-        redpy.table.open_table(opt)
+        redpy.table.open_table(config)
 
-    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
+    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config
 
 
-def open_table(opt):
+def open_table(config):
     """
     Convenience function to open the hdf5 file and access the tables in it.
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -438,30 +438,31 @@ def open_table(opt):
 
     """
 
-    if getattr(opt, 'verbose'): print(f'Opening hdf5 table: {opt.filename}')
+    if config.get('verbose'):
+        print(f'Opening hdf5 table: {config.get("filename")}')
 
-    h5file = open_file(opt.filename, "a")
+    h5file = open_file(config.get('filename'), "a")
 
-    rtable = eval('h5file.root.' + opt.groupName + '.repeaters')
-    otable = eval('h5file.root.' + opt.groupName + '.orphans')
-    ctable = eval('h5file.root.' + opt.groupName + '.correlation')
-    ttable = eval('h5file.root.' + opt.groupName + '.triggers')
-    jtable = eval('h5file.root.' + opt.groupName + '.junk')
-    dtable = eval('h5file.root.' + opt.groupName + '.deleted')
-    ftable = eval('h5file.root.' + opt.groupName + '.families')
+    rtable = eval('h5file.root.' + config.get('groupname') + '.repeaters')
+    otable = eval('h5file.root.' + config.get('groupname') + '.orphans')
+    ctable = eval('h5file.root.' + config.get('groupname') + '.correlation')
+    ttable = eval('h5file.root.' + config.get('groupname') + '.triggers')
+    jtable = eval('h5file.root.' + config.get('groupname') + '.junk')
+    dtable = eval('h5file.root.' + config.get('groupname') + '.deleted')
+    ftable = eval('h5file.root.' + config.get('groupname') + '.families')
 
     # Check for MPL version mismatch
-    check_epoch_date(rtable, ftable, ttable, otable, dtable, opt)
+    check_epoch_date(rtable, ftable, ttable, otable, dtable, config)
 
     # Check attributes in ftable, fill if missing
-    ftable_compatibility_check(ftable, opt)
+    ftable_compatibility_check(ftable, config)
 
-    print_stats(rtable, otable, ftable, opt)
+    print_stats(rtable, otable, ftable, config)
 
     return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable
 
 
-def print_stats(rtable, otable, ftable, opt):
+def print_stats(rtable, otable, ftable, config):
     """
     Prints the current number of orphans, repeaters, and families.
 
@@ -473,17 +474,17 @@ def print_stats(rtable, otable, ftable, opt):
         Handle to the Orphans table.
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print(f'Number of orphans   : {len(otable)}')
         print(f'Number of repeaters : {len(rtable)}')
         print(f'Number of families  : {ftable.attrs.nClust}')
 
 
-def calculate_window_amplitude(data, trigger_sample, opt):
+def calculate_window_amplitude(data, trigger_sample, config):
     """
     Calculates the maximum waveform amplitudes for 'windowAmp'.
 
@@ -495,7 +496,7 @@ def calculate_window_amplitude(data, trigger_sample, opt):
         Waveform data for all stations, appended together.
     trigger_sample : int
         Trigger time in samples.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -506,19 +507,19 @@ def calculate_window_amplitude(data, trigger_sample, opt):
     """
 
     # !!! Enable shift by 10% later
-    window_start = trigger_sample #- opt.winlen/10
+    window_start = trigger_sample #- config.get('winlen')/10
 
-    amps = np.zeros(opt.nsta)
-    for n in range(opt.nsta):
-        amps[n] = np.max(np.abs(data[int((n*opt.wshape) + window_start):int(
-            (n*opt.wshape) + window_start + opt.winlen/2)]))
+    amps = np.zeros(config.get('nsta'))
+    for n in range(config.get('nsta')):
+        amps[n] = np.max(np.abs(data[int((n*config.get('wshape')) + window_start):int(
+            (n*config.get('wshape')) + window_start + config.get('winlen')/2)]))
 
     # !!! Also use the whole window instead of first half
 
     return amps
 
 
-def populate_triggers(ttable, trigs, ttimes, opt):
+def populate_triggers(ttable, trigs, ttimes, config):
     """
     Populates new rows in the Triggers table from a list of triggers.
 
@@ -530,7 +531,7 @@ def populate_triggers(ttable, trigs, ttimes, opt):
         Output from triggering function, with data from all stations appended.
     ttimes : float ndarray
         Times of all triggers as matplotlib dates.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -545,8 +546,8 @@ def populate_triggers(ttable, trigs, ttimes, opt):
 
         trigtime = t.stats.starttime.matplotlib_date
         if not len(np.intersect1d(
-                   np.where(ttimes > trigtime - opt.mintrig/86400),
-                   np.where(ttimes < trigtime + opt.mintrig/86400))):
+                   np.where(ttimes > trigtime - config.get('mintrig')/86400),
+                   np.where(ttimes < trigtime + config.get('mintrig')/86400))):
 
             trigger = ttable.row
             trigger['startTimeMPL'] = trigtime
@@ -559,7 +560,7 @@ def populate_triggers(ttable, trigs, ttimes, opt):
     return trigs
 
 
-def populate_junk(jtable, trig, isjunk, opt):
+def populate_junk(jtable, trig, isjunk, config):
     """
     Populates a new row in the 'Junk' table from trigger.
 
@@ -573,7 +574,7 @@ def populate_junk(jtable, trig, isjunk, opt):
         Output from triggering function, with data from all stations appended.
     isjunk : int
         Flag corresponding to the type of junk.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -582,13 +583,13 @@ def populate_junk(jtable, trig, isjunk, opt):
 
     jrow['startTime'] = trig.stats.starttime.isoformat()
     jrow['waveform'] = trig.data
-    jrow['windowStart'] = int(opt.ptrig*opt.samprate)
+    jrow['windowStart'] = int(config.get('ptrig')*config.get('samprate'))
     jrow['isjunk'] = isjunk
     jrow.append()
     jtable.flush()
 
 
-def populate_orphan(otable, idnum, trig, opt):
+def populate_orphan(otable, idnum, trig, config):
     """
     Populates a new row in the 'Orphans' table from trigger.
 
@@ -603,14 +604,14 @@ def populate_orphan(otable, idnum, trig, opt):
         Unique ID number given to this event.
     trig : Trace object
         Output from triggering function, with data from all stations appended.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
     orow = otable.row
 
-    windowStart = int(opt.ptrig*opt.samprate)
+    windowStart = int(config.get('ptrig')*config.get('samprate'))
 
     orow['id'] = idnum
     orow['startTime'] = trig.stats.starttime.isoformat()
@@ -618,20 +619,20 @@ def populate_orphan(otable, idnum, trig, opt):
     orow['waveform'] = trig.data
     orow['windowStart'] = windowStart
     orow['windowCoeff'], orow['windowFFT'], orow['FI'] = \
-        redpy.correlation.calculate_window(trig.data, windowStart, opt)
+        redpy.correlation.calculate_window(trig.data, windowStart, config)
     orow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart,
-        opt)
+        config)
 
     # Determine expiration date based on STA/LTA amplitude
-    add_days = np.min([opt.maxorph,((opt.maxorph-opt.minorph)/opt.maxorph)*(
-        trig.stats.maxratio)+opt.minorph])
+    add_days = np.min([config.get('maxorph'),((config.get('maxorph')-config.get('minorph'))/config.get('maxorph'))*(
+        trig.stats.maxratio)+config.get('minorph')])
     orow['expires'] = (trig.stats.starttime+add_days*86400).isoformat()
 
     orow.append()
     otable.flush()
 
 
-def clear_expired_orphans(otable, end_time, opt):
+def clear_expired_orphans(otable, end_time, config):
     """
     Deletes orphans that have passed their expiration date.
 
@@ -641,7 +642,7 @@ def clear_expired_orphans(otable, end_time, opt):
         Handle to the Orphans table.
     end_time : UTCDateTime object
         Time to remove orphans older than.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -668,7 +669,7 @@ def clear_expired_orphans(otable, end_time, opt):
         otable.flush()
 
 
-def move_orphan(rtable, otable, oindex, opt):
+def move_orphan(rtable, otable, oindex, config):
     """
     Moves a row from the 'Orphans' table to the 'Repeater' table.
 
@@ -680,7 +681,7 @@ def move_orphan(rtable, otable, oindex, opt):
         Handle to the Orphans table.
     oindex : int
         Row in otable to move
-    opt :
+    config :
         Describes the run parameters.
 
     """
@@ -703,7 +704,7 @@ def move_orphan(rtable, otable, oindex, opt):
         # 0 so it will never correlate, and set it to expire as soon as a new
         # orphan is found.
         coeff, fft, fi = redpy.correlation.calculate_window(orow['waveform'],
-                                                    orow['windowStart'], opt)
+                                                    orow['windowStart'], config)
         rrow['windowCoeff'] = coeff
         rrow['windowFFT'] = fft
         rrow['FI'] = fi
@@ -721,7 +722,7 @@ def move_orphan(rtable, otable, oindex, opt):
     otable.flush()
 
 
-def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
+def populate_repeater(rtable, idnum, trig, config, windowStart=-1):
     """
     Populates a new row in the 'Repeater' table from trigger.
 
@@ -733,11 +734,11 @@ def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
         Unique ID number given to this event.
     trig : Trace object
         Output from triggering function, with data from all stations appended.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     windowStart : int, optional
         Trigger time in samples from start of waveform, defaults to
-        opt.ptrig seconds.
+        config.get('ptrig') seconds.
 
     """
 
@@ -745,7 +746,7 @@ def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
     rrow = rtable.row
 
     if windowStart == -1:
-        windowStart = int(opt.ptrig*opt.samprate)
+        windowStart = int(config.get('ptrig')*config.get('samprate'))
 
     rrow['id'] = idnum
     rrow['startTime'] = trig.stats.starttime.isoformat()
@@ -753,15 +754,15 @@ def populate_repeater(rtable, idnum, trig, opt, windowStart=-1):
     rrow['waveform'] = trig.data
     rrow['windowStart'] = windowStart
     rrow['windowCoeff'], rrow['windowFFT'], rrow['FI'] = \
-        redpy.correlation.calculate_window(trig.data, windowStart, opt)
+        redpy.correlation.calculate_window(trig.data, windowStart, config)
     rrow['windowAmp'] = calculate_window_amplitude(trig.data, windowStart,
-        opt)
+        config)
 
     rrow.append()
     rtable.flush()
 
 
-def populate_correlation(ctable, id1, id2, ccc, opt):
+def populate_correlation(ctable, id1, id2, ccc, config):
     """
     Populates a new row in the 'Correlation' table.
 
@@ -778,12 +779,12 @@ def populate_correlation(ctable, id1, id2, ccc, opt):
         Unique id number of second trigger.
     ccc : float
         Cross-correlation coefficients between the two triggers.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
 
-    if (ccc >= opt.cmin) and (id1!=id2):
+    if (ccc >= config.get('cmin')) and (id1!=id2):
         crow = ctable.row
         crow['id1'] = min(id1, id2)
         crow['id2'] = max(id1, id2)
@@ -792,7 +793,7 @@ def populate_correlation(ctable, id1, id2, ccc, opt):
         ctable.flush()
 
 
-def populate_new_family(rtable, ftable, members, core, opt):
+def populate_new_family(rtable, ftable, members, core, config):
     """
     Populates a new family from two or more events.
 
@@ -806,7 +807,7 @@ def populate_new_family(rtable, ftable, members, core, opt):
         Array of row indices in rtable that are family members.
     core : int
         Row index of core event in rtable.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -824,10 +825,10 @@ def populate_new_family(rtable, ftable, members, core, opt):
     ftable.flush()
 
     if len(ftable)>1:
-        reorder_families(ftable, opt)
+        reorder_families(ftable, config)
 
 
-def reorder_families(ftable, opt):
+def reorder_families(ftable, config):
     """
     Ensures families are ordered by start time.
 
@@ -835,7 +836,7 @@ def reorder_families(ftable, opt):
     ----------
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -863,7 +864,7 @@ def reorder_families(ftable, opt):
         ftable.flush()
 
 
-def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
+def merge_families(rtable, ctable, ftable, famlist, laglist, config):
     """
     Combines families that have been merged by adding a new event.
 
@@ -879,7 +880,7 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
         List of families to merge.
     laglist : int list
         List of lags between families and new event.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -898,7 +899,7 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
             members = np.fromstring(ftable[famlist[n]]['members'], dtype=int,
                                     sep=' ')
             for m in members:
-                redpy.correlation.update_window(rtable, m, -laglist[n], opt)
+                redpy.correlation.update_window(rtable, m, -laglist[n], config)
             rtable.flush()
 
     # Perform merge, run clustering to find best new core
@@ -914,11 +915,11 @@ def merge_families(rtable, ctable, ftable, famlist, laglist, opt):
             ftable.attrs.nClust -= 1
     ftable.cols.lastprint[f1] = -1
     merge = maxmem/(ftable.cols.members[f1].decode('utf-8').count(' ')+1)
-    redpy.cluster.update_family(rtable, ctable, ftable, f1, opt, merge=merge)
-    reorder_families(ftable, opt)
+    redpy.cluster.update_family(rtable, ctable, ftable, f1, config, merge=merge)
+    reorder_families(ftable, config)
 
 
-def remove_all_junk(jtable, opt):
+def remove_all_junk(jtable, config):
     """
     Remove all but the last row of the junk table.
 
@@ -926,11 +927,11 @@ def remove_all_junk(jtable, opt):
     ----------
     jtable : Table object
         Handle to the Junk table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Removing junk...')
     if len(jtable) > 1:
         # We have to leave at least one row
@@ -938,11 +939,11 @@ def remove_all_junk(jtable, opt):
             jtable.remove_row(i)
         jtable.flush()
     else:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print('No junk to remove!')
 
 
-def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
+def remove_families(rtable, ctable, dtable, ftable, fam_list, config):
     """
     Removes families from catalog.
 
@@ -963,12 +964,12 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
         Handle to the Families table.
     fam_list : int list
         List of families to remove from the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
     # !!! This function needs to be refactored into multiple smaller functions
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Getting family members to remove...')
     fam_list = np.sort(fam_list)[::-1] # Process in reverse
     old_rrows = list(range(len(rtable)))
@@ -987,7 +988,7 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
 
     # !!! Provide option to not do this step for small families?
     # Populate cores in dtable before removing them from rtable
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Moving cores to deleted table...')
     cores = rtable[np.intersect1d(members, old_cores)]
     for core in cores:
@@ -1004,7 +1005,7 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
         drow.append()
 
     # !!! Functionalize finding rows in the Correlation table? !!!
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Updating correlation table...')
     ids = rtable.cols.id[:]
     ids = ids[members]
@@ -1013,14 +1014,14 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
     for c in idxc[::-1]:
         ctable.remove_row(c)
 
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Updating repeater table...')
     # Remove rows from table and list
     for m in members[::-1]:
         rtable.remove_row(m)
         old_rrows.remove(m)
 
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Updating family table...')
     # Update members of Families table with new row locations
     transform[old_rrows] = range(len(rtable))
@@ -1037,12 +1038,12 @@ def remove_families(rtable, ctable, dtable, ftable, fam_list, opt):
     rtable.flush()
     dtable.flush()
 
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Done removing families!')
 
 
 def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
-    maxage, seedtime, opt, list_only=False):
+    maxage, seedtime, config, list_only=False):
     """
     Searches for old, small families and removes them.
 
@@ -1064,7 +1065,7 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
         Maximum age relative to seedtime (days).
     seedtime : str
         Date from which to measure maxage.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     list_only : bool, optional
         Skip deletion step and print only the list.
@@ -1075,7 +1076,7 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
         List of family numbers that were (or were slated to be) removed.
 
     """
-    if getattr(opt, 'verbose') or list_only:
+    if config.get('verbose') or list_only:
         print('\n::: table.removeSmallFamilies()')
         print(f'::: - minmembers    : {minmembers}')
         print(f'::: - maxage (days) : {maxage}')
@@ -1096,9 +1097,9 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
             removed_families.append(i)
             fate = 'REMOVE'
             nremoved += nmembers
-        if getattr(opt, 'verbose') or list_only:
+        if config.get('verbose') or list_only:
             print(f'#{i:>12d} | {nmembers:12d} | {a:>12.2f} |  {fate:<12s}')
-    if getattr(opt, 'verbose') or list_only:
+    if config.get('verbose') or list_only:
         print(f'\nRemoved families    : {removed_families}')
         print(('# Families removed  : '
                f'{len(removed_families)}/{ftable.attrs.nClust}'))
@@ -1111,14 +1112,14 @@ def remove_small_families(rtable, ctable, dtable, ftable, ttable, minmembers,
     else:
         if removed_families:
             remove_families(
-                rtable, ctable, dtable, ftable, removed_families, opt)
+                rtable, ctable, dtable, ftable, removed_families, config)
         else:
-            if getattr(opt, 'verbose'):
+            if config.get('verbose'):
                 print('No families to remove.')
     return removed_families
 
 
-def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
+def check_epoch_date(rtable, ftable, ttable, otable, dtable, config):
     """
     Checks for mismatch in reference epoch with current matplotlib version.
 
@@ -1140,7 +1141,7 @@ def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
         Handle to the Orphans table.
     dtable : Table object
         Handle to the Deleted table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -1194,7 +1195,7 @@ def check_epoch_date(rtable, ftable, ttable, otable, dtable, opt):
                         ftable.cols.startTime[i] + epoch
 
 
-def ftable_compatibility_check(ftable, opt):
+def ftable_compatibility_check(ftable, config):
     """
     Compatibility check to fill ftable.attrs.*_max_famlen on an old table.
 
@@ -1202,7 +1203,7 @@ def ftable_compatibility_check(ftable, opt):
     ----------
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
@@ -1214,7 +1215,7 @@ def ftable_compatibility_check(ftable, opt):
 
 
 def check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
-                                                                 ftable, opt):
+                                                                 ftable, config):
     """
     Checks if the string holding family members is too long and expands table.
 
@@ -1247,7 +1248,7 @@ def check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
         Handle to the Deleted table.
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     Returns
@@ -1268,7 +1269,7 @@ def check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
         Updated handle to the Deleted table.
     ftable : Table object
         Updated handle to the Families table.
-    opt : Options object
+    config : Config object
         Updated description of the run parameters.
 
     """
@@ -1277,14 +1278,14 @@ def check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
         print('Approaching maximum family length Families table can hold!')
         print('Automatically expanding hdf5 file to compensate...')
 
-        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
-            expand_table(h5file, ftable, opt,
+        h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
+            expand_table(h5file, ftable, config,
                          max_famlen=3*ftable.attrs.allowed_max_famlen)
 
-    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
+    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config
 
 
-def set_ftable_columns(ftable, opt, plotall=False, resetlp=False, startfam=0,
+def set_ftable_columns(ftable, config, plotall=False, resetlp=False, startfam=0,
                        endfam=0):
     """
     Reset 'printme' and 'lastprint' columns of Families table.
@@ -1293,7 +1294,7 @@ def set_ftable_columns(ftable, opt, plotall=False, resetlp=False, startfam=0,
     ----------
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     plotall : bool, optional
         If True, completely resets 'printme' column so all families are output.
@@ -1308,11 +1309,11 @@ def set_ftable_columns(ftable, opt, plotall=False, resetlp=False, startfam=0,
 
     """
     if plotall:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print('Resetting plotting column...')
         ftable.cols.printme[:] = np.ones(ftable.attrs.nClust)
     if resetlp:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print('Resetting last print column...')
         ftable.cols.lastprint[:] = np.arange(ftable.attrs.nClust)
     if startfam or endfam:
@@ -1343,7 +1344,7 @@ def set_ftable_columns(ftable, opt, plotall=False, resetlp=False, startfam=0,
             ftable.cols.printme[startfam:endfam] = np.ones(endfam - startfam)
 
 
-def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
+def expand_table(h5file, ftable, configfrom, configto=None, max_famlen=None,
                                                               do_plot=False):
     """
     Expands an existing table to make more room by copying data to a new one.
@@ -1358,9 +1359,9 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
         Handle to the h5 file.
     ftable : Table object
         Handle to the Families table.
-    optfrom : Options object
+    configfrom : Config object
         Describes the current run parameters.
-    optto : Options object, optional
+    configto : Config object, optional
         Describes the transformed run parameters.
     max_famlen : int, optional
         New maximum family string length.
@@ -1385,44 +1386,44 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
         Updated handle to the Deleted table.
     ftableto : Table object
         Updated handle to the Families table.
-    optto : Options object
+    configto : Config object
         Updated description of the run parameters.
 
     """
 
     if max_famlen:
-        optto = optfrom.copy()
-        optto.max_famlen = max_famlen
+        configto = configfrom.copy()
+        configto.max_famlen = max_famlen
     else:
-        max_famlen = optto.max_famlen
+        max_famlen = configto.max_famlen
 
-    # Check to ensure optto.max_famlen is long enough to hold longest string
+    # Check to ensure configto.max_famlen is long enough to hold longest string
     while max_famlen < 3*ftable.attrs.current_max_famlen:
         max_famlen *= 3
 
     # Check if additional channels need to be appended
-    dsta = optto.nsta - optfrom.nsta
+    dsta = configto.nsta - configfrom.nsta
     # Complain if there are fewer, as this isn't supported
     if dsta < 0:
-        raise ValueError(f'New config file must have nsta >= {optfrom.nsta}')
+        raise ValueError(f'New config file must have nsta >= {configfrom.nsta}')
 
     # Close currently open table
     h5file.close()
 
-    # Rename and change filename in optfrom to point to the .old version
-    os.rename(optfrom.filename,'{}.old'.format(optfrom.filename))
+    # Rename and change filename in configfrom to point to the .old version
+    os.rename(configfrom.filename,'{}.old'.format(configfrom.filename))
 
-    # Change filename in optfrom to point to the .old version
-    optfrom.filename = '{}.old'.format(optfrom.filename)
+    # Change filename in configfrom to point to the .old version
+    configfrom.filename = '{}.old'.format(configfrom.filename)
 
     # Initialize new table
-    redpy.table.initialize_table(optto)
+    redpy.table.initialize_table(configto)
 
     # Open tables
     h5filefrom, rtablefrom, otablefrom, ttablefrom, ctablefrom, jtablefrom, \
-        dtablefrom, ftablefrom = redpy.table.open_table(optfrom)
+        dtablefrom, ftablefrom = redpy.table.open_table(configfrom)
     h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, \
-        dtableto, ftableto = redpy.table.open_table(optto)
+        dtableto, ftableto = redpy.table.open_table(configto)
 
     # Do all the copying!
     print('Copying data into new table... please wait...')
@@ -1439,9 +1440,9 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
         rto['windowCoeff'] = np.append(rfrom['windowCoeff'], np.zeros(dsta))
         rto['FI'] = np.append(rfrom['FI'], np.empty(dsta)*np.nan)
         rto['waveform'] = np.append(rfrom['waveform'],
-                                    np.zeros(dsta*optto.wshape))
+                                    np.zeros(dsta*configto.wshape))
         rto['windowFFT'] = np.append(rfrom['windowFFT'],
-                                    np.zeros(dsta*optto.winlen))
+                                    np.zeros(dsta*configto.winlen))
         rto.append()
     rtableto.attrs.ptime = rtablefrom.attrs.ptime
     rtableto.attrs.previd = rtablefrom.attrs.previd
@@ -1460,9 +1461,9 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
         oto['windowCoeff'] = np.append(ofrom['windowCoeff'], np.zeros(dsta))
         oto['FI'] = np.append(ofrom['FI'], np.empty(dsta)*np.nan)
         oto['waveform'] = np.append(ofrom['waveform'],
-                                    np.zeros(dsta*optto.wshape))
+                                    np.zeros(dsta*configto.wshape))
         oto['windowFFT'] = np.append(ofrom['windowFFT'],
-                                    np.zeros(dsta*optto.winlen))
+                                    np.zeros(dsta*configto.winlen))
         oto.append()
     otableto.flush()
 
@@ -1485,9 +1486,9 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
         dto['windowCoeff'] = np.append(dfrom['windowCoeff'], np.zeros(dsta))
         dto['FI'] = np.append(dfrom['FI'], np.empty(dsta)*np.nan)
         dto['waveform'] = np.append(dfrom['waveform'],
-                                    np.zeros(dsta*optto.wshape))
+                                    np.zeros(dsta*configto.wshape))
         dto['windowFFT'] = np.append(dfrom['windowFFT'],
-                                    np.zeros(dsta*optto.winlen))
+                                    np.zeros(dsta*configto.winlen))
         dto.append()
     dtableto.flush()
 
@@ -1499,7 +1500,7 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
         jto['isjunk'] = jfrom['isjunk']
         # This can be extended
         jto['waveform'] = np.append(jfrom['waveform'],
-                                    np.zeros(dsta*optto.wshape))
+                                    np.zeros(dsta*configto.wshape))
         jto.append()
     jtableto.flush()
 
@@ -1532,15 +1533,15 @@ def expand_table(h5file, ftable, optfrom, optto=None, max_famlen=None,
 
     # Clean up old table
     h5filefrom.close()
-    os.remove(optfrom.filename)
+    os.remove(configfrom.filename)
 
     return h5fileto, rtableto, otableto, ttableto, ctableto, jtableto, \
-        dtableto, ftableto, optto
+        dtableto, ftableto, configto
 
 
 def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
                   ftable, ttimes, filekey, preload_waveforms, preload_end_time,
-                  run_end_time, window_start_time, window_end_time, opt,
+                  run_end_time, window_start_time, window_end_time, config,
                   event_list=[], event=None):
     """
     Primary processing loop to update the tables with data in a time window.
@@ -1580,7 +1581,7 @@ def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
         Start time of window to process.
     window_end_time : UTCDateTime object
         End time of window to process.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     event_list : ndarray of UTCDateTime objects, optional
         List of catalog events to add.
@@ -1609,32 +1610,32 @@ def update_tables(h5file, rtable, otable, ttable, ctable, jtable, dtable,
         Stream containing waveforms 'preloaded' into memory.
     preload_end_time : UTCDateTime object
         End time of preloaded waveforms.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
     # Check to make sure we have space
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt = \
+    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
         check_famlen(h5file, rtable, otable, ttable, ctable, jtable, dtable,
-                     ftable, opt)
+                     ftable, config)
     # Check if we need to preload more data
     preload_waveforms, preload_end_time = redpy.trigger.preload_check(
         window_start_time, window_end_time, preload_end_time, run_end_time,
-        filekey, opt, preload_waveforms=preload_waveforms,
+        filekey, config, preload_waveforms=preload_waveforms,
         event_list=event_list)
     # Download and trigger
     alltrigs = redpy.trigger.load_and_trigger(
         rtable, window_start_time, window_end_time, filekey,
-        preload_waveforms, opt, event=event)
+        preload_waveforms, config, event=event)
     # Populate tables with triggers as appropriate
     populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
-                    ttimes, alltrigs, opt, event=event)
+                    ttimes, alltrigs, config, event=event)
     return (h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable,
-            preload_waveforms, preload_end_time, opt)
+            preload_waveforms, preload_end_time, config)
 
 
 def populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
-                    ttimes, alltrigs, opt, event=None):
+                    ttimes, alltrigs, config, event=None):
     """
     Populates tables with new triggers as appropriate.
 
@@ -1658,54 +1659,54 @@ def populate_tables(rtable, otable, ttable, ctable, jtable, dtable, ftable,
         Times of all triggers as matplotlib dates.
     alltrigs : Stream object
         Stream of new triggers to process.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     event : UTCDateTime object, optional
         Catalog event to add by force.
 
     """
-    trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, opt,
+    trigs, junk, jtype = redpy.trigger.clean_triggers(alltrigs, config,
                                                       event=event)
     # !!! This step already goes through and calculates the window, can I
     # !!! pass that down the line to save some duplicate calculations?
     # Save junk triggers in separate table for quality checking purposes
     for i in range(len(junk)):
-        populate_junk(jtable, junk[i], jtype[i], opt)
+        populate_junk(jtable, junk[i], jtype[i], config)
     # Append times of triggers to ttable to compare total seismicity later
-    trigs = populate_triggers(ttable, trigs, ttimes, opt)
+    trigs = populate_triggers(ttable, trigs, ttimes, config)
     # Check triggers against deleted events
     if len(dtable) > 0:
-        trigs = redpy.correlation.compare_deleted(trigs, dtable, opt)
+        trigs = redpy.correlation.compare_deleted(trigs, dtable, config)
     if len(trigs) > 0:
         idnum = rtable.attrs.previd
         if len(trigs) == 1:
             ostart = 0
             if len(otable) == 0:
                 # First trigger goes to orphans table
-                populate_orphan(otable, 0, trigs[0], opt)
+                populate_orphan(otable, 0, trigs[0], config)
                 ostart = 1
             else:
                 idnum += 1
                 redpy.correlation.correlate_new_triggers(
                     rtable, otable, ctable, ftable, ttimes,
-                    trigs[0], idnum, opt)
+                    trigs[0], idnum, config)
         else:
             ostart = 0
             if len(otable) == 0:
                 # First trigger goes to orphans table
-                populate_orphan(otable, 0, trigs[0], opt)
+                populate_orphan(otable, 0, trigs[0], config)
                 ostart = 1
             # Loop through remaining triggers
             for i in range(ostart,len(trigs)):
                 idnum += 1
                 redpy.correlation.correlate_new_triggers(
                     rtable, otable, ctable, ftable, ttimes,
-                    trigs[i], idnum, opt)
+                    trigs[i], idnum, config)
         rtable.attrs.previd = idnum
 
 
 def update_with_event_list(h5file, rtable, otable, ttable, ctable, jtable,
-                         dtable, ftable, event_list, opt, force=False,
+                         dtable, ftable, event_list, config, force=False,
                          expire=False):
     """
     Update tables based on catalog events provided in a list.
@@ -1730,7 +1731,7 @@ def update_with_event_list(h5file, rtable, otable, ttable, ctable, jtable,
         Handle to the Families table.
     event_list : ndarray of UTCDateTime objects
         List of catalog events to add.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     force : bool, optional
         Force trigger at times specified in event_list.
@@ -1755,40 +1756,40 @@ def update_with_event_list(h5file, rtable, otable, ttable, ctable, jtable,
         Handle to the Deleted table.
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    run_start_time = event_list[0] - 4*opt.atrig
-    run_end_time = event_list[-1] +  5*opt.atrig + opt.maxdt
+    run_start_time = event_list[0] - 4*config.get('atrig')
+    run_end_time = event_list[-1] +  5*config.get('atrig') + config.get('maxdt')
     filekey, preload_waveforms, preload_end_time = \
-        redpy.trigger.initial_data_preload(run_start_time, run_end_time, opt)
+        redpy.trigger.initial_data_preload(run_start_time, run_end_time, config)
     if rtable.attrs.ptime:
         rtable.attrs.ptime = UTCDateTime(run_start_time)
     for event_time in event_list:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print(event_time)
-        window_start_time = event_time - 4*opt.atrig
-        window_end_time = event_time + 5*opt.atrig + opt.maxdt
+        window_start_time = event_time - 4*config.get('atrig')
+        window_end_time = event_time + 5*config.get('atrig') + config.get('maxdt')
         if len(ttable) > 0:
             ttimes = ttable.cols.startTimeMPL[:]
         else:
             ttimes = 0
         event = event_time if force else None
         h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
-            preload_waveforms, preload_end_time, opt = update_tables(
+            preload_waveforms, preload_end_time, config = update_tables(
                 h5file, rtable, otable, ttable, ctable, jtable, dtable,
                 ftable, ttimes, filekey, preload_waveforms, preload_end_time,
-                run_end_time, window_start_time, window_end_time, opt,
+                run_end_time, window_start_time, window_end_time, config,
                 event_list=event_list, event=event)
         if expire:
-            clear_expired_orphans(otable, window_end_time, opt)
-        print_stats(rtable, otable, ftable, opt)
-    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
+            clear_expired_orphans(otable, window_end_time, config)
+        print_stats(rtable, otable, ftable, config)
+    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config
 
 
 def update_with_continuous(h5file, rtable, otable, ttable, ctable, jtable,
-        dtable, ftable, opt, start_time=None, end_time=None, nsec=None):
+        dtable, ftable, config, start_time=None, end_time=None, nsec=None):
     """
     Update tables with continuous data for a fixed time period.
 
@@ -1810,15 +1811,15 @@ def update_with_continuous(h5file, rtable, otable, ttable, ctable, jtable,
         Handle to the Deleted table.
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
     start_time : str, optional
         Starting time. If not provided, will default to either the end of the
-        previous run time or opt.nsec seconds prior to end_time.
+        previous run time or "nsec" seconds prior to end_time.
     end_time : str, optional
         Ending time. If not provided, will default to now.
     nsec : int, optional
-        Temporarily override opt.nsec with this value.
+        Temporarily override "nsec" from config with this value.
 
     Returns
     -------
@@ -1838,12 +1839,12 @@ def update_with_continuous(h5file, rtable, otable, ttable, ctable, jtable,
         Handle to the Deleted table.
     ftable : Table object
         Handle to the Families table.
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
     if nsec:
-        opt.nsec = nsec
+        config.set_config('nsec', nsec)
     if end_time:
         run_end_time = UTCDateTime(end_time)
     else:
@@ -1856,7 +1857,7 @@ def update_with_continuous(h5file, rtable, otable, ttable, ctable, jtable,
         if rtable.attrs.ptime:
             run_start_time = UTCDateTime(rtable.attrs.ptime)
         else:
-            run_start_time = run_end_time-opt.nsec
+            run_start_time = run_end_time-config.get('nsec')
     if run_start_time > run_end_time:
         raise ValueError(
             f'Start {run_start_time} is after end {run_end_time}!')
@@ -1866,26 +1867,26 @@ def update_with_continuous(h5file, rtable, otable, ttable, ctable, jtable,
         ttimes = 0
     # Load data from file
     filekey, preload_waveforms, preload_end_time = \
-        redpy.trigger.initial_data_preload(run_start_time, run_end_time, opt)
+        redpy.trigger.initial_data_preload(run_start_time, run_end_time, config)
     i = 0
-    while run_start_time + i*opt.nsec < run_end_time:
+    while run_start_time + i*config.get('nsec') < run_end_time:
         t_iter = time.time()
-        window_start_time = run_start_time + i*opt.nsec
-        window_end_time = min(run_start_time+(i+1)*opt.nsec,
-                              run_end_time) + opt.atrig + opt.maxdt
+        window_start_time = run_start_time + i*config.get('nsec')
+        window_end_time = min(run_start_time+(i+1)*config.get('nsec'),
+                              run_end_time) + config.get('atrig') + config.get('maxdt')
         print(window_start_time)
         h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, \
-            preload_waveforms, preload_end_time, opt = \
+            preload_waveforms, preload_end_time, config = \
             redpy.table.update_tables(
                 h5file, rtable, otable, ttable, ctable, jtable, dtable,
                 ftable, ttimes, filekey, preload_waveforms,
                 preload_end_time, run_end_time, window_start_time,
-                window_end_time, opt)
+                window_end_time, config)
         i += 1
-        redpy.table.clear_expired_orphans(otable, window_end_time, opt)
-        redpy.table.print_stats(rtable, otable, ftable, opt)
-        if getattr(opt, 'verbose'):
+        redpy.table.clear_expired_orphans(otable, window_end_time, config)
+        redpy.table.print_stats(rtable, otable, ftable, config)
+        if config.get('verbose'):
             print('Time spent this iteration: '
                   f'{(time.time()-t_iter)/60:.3f} minutes')
-    print(f'Caught up to: {window_end_time-opt.atrig}')
-    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, opt
+    print(f'Caught up to: {window_end_time-config.get("atrig")}')
+    return h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config

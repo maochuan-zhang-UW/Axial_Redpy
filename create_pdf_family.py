@@ -56,12 +56,12 @@ def create_pdf_family(fam_list, configfile='settings.cfg', verbose=False,
         Latest time to plot; defaults to last event.
 
     """
-    h5file, rtable, _, ttable, ctable, _, _, ftable, opt = \
+    h5file, rtable, _, ttable, ctable, _, _, ftable, config = \
         redpy.table.open_with_cfg(configfile, verbose)
     rtimes, rtimes_mpl, windowAmps, _, _, ids, ccc_sparse = \
-        redpy.plotting.get_plotting_columns(rtable, ttable, ctable, opt,
+        redpy.plotting.get_plotting_columns(rtable, ttable, ctable, config,
                                             load_ttimes=False,load_fi=False)
-    windowAmp = windowAmps[:,opt.printsta]
+    windowAmp = windowAmps[:,config.get('printsta')]
     if starttime:
         tmin = UTCDateTime(starttime).matplotlib_date
     else:
@@ -70,13 +70,13 @@ def create_pdf_family(fam_list, configfile='settings.cfg', verbose=False,
         tmax = UTCDateTime(endtime).matplotlib_date
     else:
         tmax = 0
-    _, _, bboxes = redpy.plotting.initialize_family_image(opt)
+    _, _, bboxes = redpy.plotting.initialize_family_image(config)
     for fnum in fam_list:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print(f'Creating fam{fnum}.pdf...')
         redpy.plotting.assemble_family_image(
             bboxes, rtable, ftable, rtimes, rtimes_mpl, windowAmp, ids,
-            ccc_sparse, 'pdf', 100, fnum, tmin, tmax, opt)
+            ccc_sparse, 'pdf', 100, fnum, tmin, tmax, config)
     h5file.close()
 
 

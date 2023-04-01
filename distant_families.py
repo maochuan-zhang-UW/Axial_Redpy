@@ -72,7 +72,7 @@ class DistantCounter():
         ----------
         kind : str, optional
             Phrase corresponding to the 'kind' of earthquake.
-            Options are:
+            options are:
                 'distant' - Regional and teleseismic matches; default.
                 'regional' - Only regional matches.
                 'regional_notele' - Regional matches but teleseisms
@@ -127,7 +127,7 @@ class DistantCounter():
             Percentage that must be met/exceeded to append.
         kind : str, optional
             Phrase corresponding to the 'kind' of earthquake.
-            Options are:
+            options are:
                 'distant' - Regional and teleseismic matches; default.
                 'regional' - Only regional matches.
                 'regional_notele' - Regional matches but teleseisms
@@ -169,20 +169,20 @@ def distant_families(configfile='settings.cfg', verbose=False, findphrase='',
         90% by default.
 
     """
-    opt = redpy.config.Options(configfile, verbose)
+    config = redpy.Config(configfile, verbose)
     fam_dict = {'distant': '',
                 'regional': '',
                 'regional_notele': '',
                 'tele': '',
                 'findphrase': '',
                 'regional3': ''}
-    flist = np.array(glob.glob(os.path.join(opt.output_folder, 'clusters',
+    flist = np.array(glob.glob(os.path.join(config.get('output_folder'), 'clusters',
                                             '*.html')))
     fnums = [int(os.path.basename(fname).split('.')[0]) for fname in flist]
     for fname in flist[np.argsort(fnums)]:
         counter = DistantCounter(fname, findphrase)
         if counter.count_total > 0:
-            if getattr(opt, 'verbose'):
+            if config.get('verbose'):
                 counter.print_stats()
             for key in fam_dict:
                 fam_dict[key] = counter.append_fam(fam_dict[key], percent, key)

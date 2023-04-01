@@ -6,7 +6,7 @@ Remove "small" families with few members.
 
 Run this script to remove small families (i.e., families that have less than
 MINMEMBERS members and are more than MAXAGE days old). Remakes images when
-done. Optionally, the list of families that meet those criteria may be
+done. optionally, the list of families that meet those criteria may be
 printed to screen without removing them.
 
 Note: Removing families from large datasets may take a significant amount of
@@ -107,7 +107,7 @@ def remove_small_family(configfile='settings.cfg', minmembers=5, maxage=0,
         Enable additional print statements.
 
     """
-    h5file, rtable, otable, ttable, ctable, _, dtable, ftable, opt = \
+    h5file, rtable, otable, ttable, ctable, _, dtable, ftable, config = \
         redpy.table.open_with_cfg(configfile, verbose)
     if seedtime:
         seedtime = UTCDateTime(seedtime)
@@ -115,13 +115,13 @@ def remove_small_family(configfile='settings.cfg', minmembers=5, maxage=0,
         seedtime = UTCDateTime(mdates.num2date(ttable[-1]['startTimeMPL']))
     removed_families = redpy.table.remove_small_families(
         rtable, ctable, dtable, ftable, ttable, minmembers, maxage, seedtime,
-        opt, list_only=listonly)
+        config, list_only=listonly)
     if removed_families and not listonly:
         redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
-                                            otable, opt)
-        redpy.plotting.remove_old_files(ftable, opt)
+                                            otable, config)
+        redpy.plotting.remove_old_files(ftable, config)
     else:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print('No families removed. No plots to update...')
     h5file.close()
 

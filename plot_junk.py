@@ -34,32 +34,32 @@ def plot_junk(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    h5file, _, _, _, _, jtable, _, _, opt = redpy.table.open_with_cfg(
+    h5file, _, _, _, _, jtable, _, _, config = redpy.table.open_with_cfg(
         configfile, verbose)
-    create_junk_folder(opt)
-    redpy.plotting.create_junk_images(jtable, opt)
+    create_junk_folder(config)
+    redpy.plotting.create_junk_images(jtable, config)
     h5file.close()
 
 
-def create_junk_folder(opt):
+def create_junk_folder(config):
     """
     Create folder structure for outputs.
 
     Parameters
     ----------
-    opt : Options object
+    config : Config object
         Describes the run parameters.
 
     """
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Creating folder to store junk images...')
-    subfolder = os.path.join(opt.output_folder, 'junk')
-    if getattr(opt, 'verbose'):
+    subfolder = os.path.join(config.get('output_folder'), 'junk')
+    if config.get('verbose'):
         print(subfolder)
     try:
         os.mkdir(subfolder)
     except OSError as exc:
-        if getattr(opt, 'verbose'):
+        if config.get('verbose'):
             print(exc)
 
 

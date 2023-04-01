@@ -70,18 +70,18 @@ def force_plot(configfile='settings.cfg', verbose=False, plotall=False,
         backward from last family.
 
     """
-    h5file, rtable, otable, ttable, ctable, _, _, ftable, opt = \
+    h5file, rtable, otable, ttable, ctable, _, _, ftable, config = \
         redpy.table.open_with_cfg(configfile, verbose)
-    redpy.table.set_ftable_columns(ftable, opt, plotall, resetlp, startfam,
+    redpy.table.set_ftable_columns(ftable, config, plotall, resetlp, startfam,
                                    endfam)
-    if getattr(opt, 'verbose'):
+    if config.get('verbose'):
         print('Creating requested plots...')
     if famplot or html:
         redpy.plotting.generate_subset_outputs(rtable, ftable, ttable, ctable,
-                                               opt, famplot, html)
+                                               config, famplot, html)
     else:
         redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
-                                            otable, opt)
+                                            otable, config)
     h5file.close()
 
 
