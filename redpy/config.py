@@ -16,20 +16,21 @@ import numpy as np
 
 class Config():
     """
-    Container for all configuration parameters.
+    Container for all configuration parameters describing a single run.
 
-    Accessible attributes are:
-        configfile : str
-            Name of read configuration file.
-        verbose : bool
-            Enable additional print statements.
-        troubleshoot : bool
-            Escape try/except statements to diagnose problems.
-        settings : dict
-            Dictionary of all settings, populated either from defaults or
-            the configuration file.
-        custom_settings : list
-            List of keys in settings that are different from the default.
+    Attributes
+    ----------
+    configfile : str
+        Name of read configuration file.
+    custom_settings : list
+        List of keys in settings that are different from the default.
+    settings : dict
+        Dictionary of all settings, populated either from defaults or
+        the configuration file.
+    troubleshoot : bool
+        Escape try/except statements to diagnose problems.
+    verbose : bool
+        Enable additional print statements.
     """
 
     def __init__(self, configfile='settings.cfg', verbose=False,
@@ -149,7 +150,7 @@ class Config():
 
     def __str__(self):
         """Format print string."""
-        return f'Using config file: {self.configfile}'
+        return self.append_custom(f'Using config file: "{self.configfile}"')
 
     def append_custom(self, string):
         """
@@ -196,35 +197,18 @@ class Config():
         else:
             self.settings[key] = value
 
-    def _update_from_cfg(self):
-        """Assign values from configuration file, enforcing type."""
-        parser = configparser.ConfigParser()
-        parser.read(self.configfile)
-        for item in list(parser.items('Settings')):
-            key = item[0]
-            if isinstance(self.get(key), bool):
-                value = parser.getboolean('Settings', key)
-            elif isinstance(self.get(key), float):
-                value = parser.getfloat('Settings', key)
-            elif isinstance(self.get(key), int):
-                value = parser.getint('Settings', key)
-            else:
-                value = parser.get('Settings', key)
-            if value != self.get(key):
-                self.set(key, value)
-                self.custom_settings.append(key)
-            if key == 'always_verbose' and value:
-                setattr(self, 'verbose', True)
-            if key == 'always_troubleshoot' and value:
-                setattr(self, 'troubleshoot', True)
-        self._enforce()
+    def _convert_to_days(self):
+        """Convert keys given in hours to decimal days."""
+        for key in ['occurbin', 'recbin', 'mrecbin']:
+            self.set(key, self.get(key)/24)
 
     def _enforce(self):
         """Enforce parameters to make sense."""
         for key in ['station', 'channel', 'network', 'location']:
-            if len(self.get(key).split(',')) != self.get('nsta'):
+            self.set(key, self.get(key).split(','))
+            if len(self.get(key)) != self.get('nsta'):
                 raise ValueError(
-                    f'{key} length and nsta mismatch, check {self.configfile}')
+                    f'{key} and nsta mismatch, check {self.configfile}')
         for key in ['nstac', 'ncor', 'teleok']:
             if self.get(key) > self.get('nsta'):
                 raise ValueError(
@@ -248,11 +232,6 @@ class Config():
                 f'Use either global or family for amplims, check '
                 f'{self.configfile}')
 
-    def _convert_to_days(self):
-        """Convert keys given in hours to decimal days."""
-        for key in ['occurbin', 'recbin', 'mrecbin']:
-            self.set(key, self.get(key)/24)
-
     def _populate_derived(self):
         """Populate derived settings."""
         samprate = self.get('samprate')
@@ -265,3 +244,33 @@ class Config():
             'maxdt', np.max(np.fromstring(self.get('offset'), sep=',')))
         self.set('output_folder', (f"{self.get('outputpath')}"
                                           f"{self.get('groupname')}"))
+        self.set('stalats', np.array(
+            self.get('stalats').split(',')).astype(float))
+        self.set('stalons', np.array(
+            self.get('stalons').split(',')).astype(float))
+        self.set('latitude_center', np.mean(self.get('stalats')))
+        self.set('longitude_center', np.mean(self.get('stalats')))
+
+    def _update_from_cfg(self):
+        """Assign values from configuration file, enforcing type."""
+        parser = configparser.ConfigParser()
+        parser.read(self.configfile)
+        for item in list(parser.items('Settings')):
+            if item[0] in self.settings:
+                key = item[0]
+                if isinstance(self.get(key), bool):
+                    value = parser.getboolean('Settings', key)
+                elif isinstance(self.get(key), float):
+                    value = parser.getfloat('Settings', key)
+                elif isinstance(self.get(key), int):
+                    value = parser.getint('Settings', key)
+                else:
+                    value = parser.get('Settings', key)
+                if value != self.get(key):
+                    self.set(key, value)
+                    self.custom_settings.append(key)
+                if key == 'always_verbose' and value:
+                    setattr(self, 'verbose', True)
+                if key == 'always_troubleshoot' and value:
+                    setattr(self, 'troubleshoot', True)
+        self._enforce()

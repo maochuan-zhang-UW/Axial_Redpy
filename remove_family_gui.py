@@ -33,9 +33,8 @@ import argparse
 import glob
 import os
 import tkinter as tk
+from collections import defaultdict
 from PIL import Image
-
-import numpy as np
 
 import redpy
 
@@ -62,26 +61,66 @@ class RemoveFamilyGUI(tk.Tk):
 
         """
         tk.Tk.__init__(self)
-        self.ncols = ncols
-        self.minfam = minfam
-        self.maxfam = 250*self.ncols - self.minfam
-        (self.h5file, self.rtable, self.otable, self.ttable, self.ctable, _,
-            self.dtable, self.ftable, self.config) = redpy.table.open_with_cfg(
-            configfile, verbose)
-        self.create_gifs()
-        self.build_frame()
-        self.build_grid()
-        self.add_buttons()
+        self.detector = redpy.Detector(configfile, verbose, opened=True)
+        self.params = {'ncols': ncols, 'minfam': minfam,
+                       'maxfam': 250*ncols-minfam}
+        self.objdict = defaultdict(list)  # Will hold images, check, and var
+        self._create_gifs()
+        self._build_frame()
+        self._build_grid()
+        self._add_buttons()
+        self._pad()
         self.bind_all('<MouseWheel>', self.mouse_wheel)
         self.bind('<Return>', self.remove)
         self.bind('<Escape>', self.close)
-        self.pad()
 
-    def build_frame(self):
+    def close(self, *_):
+        """Close window without selecting any families."""
+        print('\nNo families selected.\n')
+        self.exit()
+
+    def exit(self):
+        """Clean up and then exit."""
+        self._delete_gifs()
+        self.detector.close()
+        self.destroy()
+
+    def mouse_wheel(self, event):
+        """Handle vertical scroll with mouse wheel."""
+        self.canvas.yview_scroll(-1*(event.delta), 'units')
+
+    def remove(self, *_):
+        """Remove selected families then exit."""
+        fam_list = []
+        for fam, var in enumerate(self.objdict['var']):
+            if var.get() > 0:
+                fam_list.append(fam+self.params['minfam'])
+        if len(fam_list) > 0:
+            print('\nYou have selected the following families to remove:')
+            print(' '.join([str(fam) for fam in fam_list])+'\n')
+            self.detector.remove('family', fam_list)
+            self.detector.output()
+        else:
+            print('\nNo families selected.\n')
+        self.exit()
+
+    def _add_buttons(self):
+        """Add 'Remove Selected' and 'Cancel' buttons at bottom."""
+        tk.Button(self.frame, text='Remove Selected', background='#ececec',
+                  command=self.remove).grid(column=1, row=self.row+1,
+                                            columnspan=self.params['ncols'],
+                                            sticky='N')
+        tk.Button(self.frame, text='Cancel', background='#ececec',
+                  command=self.close).grid(column=1, row=self.row+2,
+                                           columnspan=self.params['ncols'],
+                                           sticky='S')
+
+    def _build_frame(self):
         """Build container for GUI."""
-        self.wm_title(f'REDPy - {self.config.get('groupname')} - Select families to '
-                      'permanently remove')
-        self.canvas = tk.Canvas(self, borderwidth=0, width=560*self.ncols,
+        self.wm_title(f'REDPy - {self.detector.get("groupname")} - Select '
+                      'families to permanently remove')
+        self.canvas = tk.Canvas(self, borderwidth=0,
+                                width=560*self.params['ncols'],
                                 height=1500, background='#ececec')
         self.frame = tk.Frame(self.canvas, background='#ececec')
         self.vsb = tk.Scrollbar(self, orient='vertical',
@@ -94,112 +133,69 @@ class RemoveFamilyGUI(tk.Tk):
             '<Configure>', lambda event, canvas=self.canvas: canvas.configure(
                 scrollregion=canvas.bbox('all')))
 
-    def add_buttons(self):
-        """Add 'Remove Selected' and 'Cancel' buttons at bottom."""
-        tk.Button(self.frame, text='Remove Selected', background='#ececec',
-                  command=self.remove).grid(column=1, row=self.row+1,
-                                            columnspan=self.ncols, sticky='N')
-        tk.Button(self.frame, text='Cancel', background='#ececec',
-                  command=self.close).grid(column=1, row=self.row+2,
-                                           columnspan=self.ncols, sticky='S')
-
-    def build_grid(self):
+    def _build_grid(self):
         """Build grid of checkboxes with families."""
         self.row = 1
         column = 1
-        number_of_members = [len(np.fromstring(
-            self.ftable[fnum]['members'], dtype=int, sep=' ')
-            ) for fnum in range(self.ftable.attrs.nClust)]
-        self.imgobj = []
-        self.invimgobj = []
-        self.check = []
-        self.var = []
-        for fam in range(self.minfam, min(self.ftable.attrs.nClust,
-                                        self.maxfam)):
-            self.imgobj.append(tk.PhotoImage(file=os.path.join(
-                self.config.get('output_folder'), 'clusters', f'{fam}.gif')))
-            self.invimgobj.append(tk.PhotoImage(file=os.path.join(
-                self.config.get('output_folder'), 'clusters', f'{fam}_inv.gif')))
-            self.var.append(tk.IntVar())
-            self.check.append(tk.Checkbutton(
+        number_of_members = [
+            len(self.detector.get_members(fnum)) for fnum in range(
+                len(self.detector.get('ftable')))]
+        for fam in range(self.params['minfam'],
+                         min(len(self.detector.get('ftable')),
+                             self.params['maxfam'])):
+            self.objdict['imgobj'].append(tk.PhotoImage(
+                file=os.path.join(self.detector.get(
+                    'output_folder'), 'clusters', f'{fam}.gif')))
+            self.objdict['invimgobj'].append(
+                tk.PhotoImage(file=os.path.join(self.detector.get(
+                    'output_folder'), 'clusters', f'{fam}_inv.gif')))
+            self.objdict['var'].append(tk.IntVar())
+            self.objdict['check'].append(tk.Checkbutton(
                 self.frame,
                 text=f'Family {fam}: {number_of_members[fam]} Members',
-                image=self.imgobj[fam-self.minfam],
+                image=self.objdict['imgobj'][fam-self.params['minfam']],
                 compound='top',
-                variable=self.var[fam-self.minfam],
-                selectimage=self.invimgobj[fam-self.minfam]
+                variable=self.objdict['var'][fam-self.params['minfam']],
+                selectimage=self.objdict['invimgobj'][
+                    fam-self.params['minfam']]
                 ).grid(column=column, row=self.row, sticky='N'))
             column += 1
-            if column > self.ncols:
+            if column > self.params['ncols']:
                 column = 1
                 self.row += 1
-        if self.ftable.attrs.nClust > self.maxfam:
+        if len(self.detector.get('ftable')) > self.params['maxfam']:
             print('Ran out of rows. Use -n or -m flags to view more...')
 
-    def pad(self):
-        """Add padding around grid items."""
-        for child in self.frame.winfo_children():
-            child.grid_configure(padx=15, pady=15)
-
-    def create_gifs(self):
+    def _create_gifs(self):
         """Create family .gif files."""
-        for fam in range(self.minfam, min(self.ftable.attrs.nClust,
-                                          250*self.ncols-self.minfam)):
-            image = Image.open(
-                os.path.join( self.config.get('output_folder'), 'clusters', f'{fam}.png')
-                ).convert('RGB')
-            image.save(os.path.join(self.config.get('output_folder'),
-                                 'clusters', f'{fam}.gif'))
+        for fam in range(self.params['minfam'],
+                         min(len(self.detector.get('ftable')),
+                         250*self.params['ncols']-self.params['minfam'])):
+            image = Image.open(os.path.join(self.detector.get(
+                'output_folder'), 'clusters', f'{fam}.png')).convert('RGB')
+            image.save(os.path.join(
+                self.detector.get('output_folder'), 'clusters', f'{fam}.gif'))
             source = image.split()
             black = source[1].point(lambda i: i*0)
             source[1].paste(black)
             source[2].paste(black)
             inverse_image = Image.merge('RGB', source)
-            inverse_image.save(os.path.join(
-                self.config.get('output_folder'), 'clusters', f'{fam}_inv.gif'))
+            inverse_image.save(os.path.join(self.detector.get(
+                'output_folder'), 'clusters', f'{fam}_inv.gif'))
 
-    def delete_gifs(self):
+    def _delete_gifs(self):
         """Delete family .gif files."""
-        if getattr(self.config, 'verbose'):
+        if self.detector.get('verbose'):
             print('Cleaning up .gif files...')
-        gif_list = glob.glob(os.path.join(self.config.get('output_folder'),
+        gif_list = glob.glob(os.path.join(self.detector.get('output_folder'),
                                           'clusters', '*.gif'))
         for gif in gif_list:
             os.remove(gif)
 
-    def mouse_wheel(self, event):
-        """Handle vertical scroll with mouse wheel."""
-        self.canvas.yview_scroll(-1*(event.delta), 'units')
-
-    def remove(self, *_):
-        """Remove selected families then exit."""
-        fam_list = []
-        for fam, var in enumerate(self.var):
-            if var.get() > 0:
-                fam_list.append(fam+self.minfam)
-        if len(fam_list) > 0:
-            print('\nYou have selected the following families to remove:')
-            print(' '.join([str(fam) for fam in fam_list])+'\n')
-            redpy.table.remove_families(
-                self.rtable, self.ctable, self.dtable, self.ftable, fam_list,
-                self.config)
-            redpy.plotting.generate_all_outputs(
-                self.rtable, self.ftable, self.ttable, self.ctable,
-                self.otable, self.config)
-        else:
-            print('\nNo families selected.\n')
-        self.exit()
-
-    def close(self, *_):
-        """Close window without selecting any families."""
-        print('\nNo families selected.\n')
-        self.exit()
-
-    def exit(self):
-        """Clean up and then exit."""
-        self.delete_gifs()
-        self.h5file.close()
-        self.destroy()
+    def _pad(self):
+        """Add padding around grid items."""
+        for child in self.frame.winfo_children():
+            child.grid_configure(padx=15, pady=15)
 
 
 def remove_family_gui(configfile='settings.cfg', ncols=3, minfam=0,

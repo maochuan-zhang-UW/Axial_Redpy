@@ -182,6 +182,9 @@ def generate_all_outputs(rtable, ftable, ttable, ctable, otable, config):
     for tmp in tmplist:
         os.rename(tmp,tmp[0:-4])
 
+    # Clean up?
+    remove_old_files(ftable, config)
+
 
 def generate_subset_outputs(rtable, ftable, ttable, ctable, config, famplot=True,
                             html=True):
@@ -223,8 +226,9 @@ def generate_subset_outputs(rtable, ftable, ttable, ctable, config, famplot=True
         redpy.plotting.create_family_html(
             rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
             external_catalogs, config)
-    ftable.cols.printme[:] = np.zeros(ftable.attrs.nClust)
-    ftable.cols.lastprint[:] = np.arange(ftable.attrs.nClust)
+    ftable.cols.printme[:] = np.zeros(len(ftable))
+    ftable.cols.lastprint[:] = np.arange(len(ftable))
+    remove_old_files(ftable, config)
 
 
 def create_timelines(rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, config):
@@ -410,7 +414,7 @@ def create_family_images(rtable, ftable, rtimes, rtimes_mpl, windowAmps, ids,
 
     fig, axes, bboxes = initialize_family_image(config)
 
-    for fnum in range(ftable.attrs.nClust):
+    for fnum in range(len(ftable)):
 
         if ftable[fnum]['printme'] != 0:
 
@@ -453,7 +457,7 @@ def create_family_html(rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi,
     printme = ftable.cols.printme[:]
     lastprint = ftable.cols.lastprint[:]
 
-    for fnum in range(ftable.attrs.nClust):
+    for fnum in range(len(ftable)):
 
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
 
@@ -1357,9 +1361,9 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
     xs = []
     ys = []
     famnum = []
-    for clustNum in range(ftable.attrs.nClust):
+    for fnum in range(len(ftable)):
 
-        members = np.fromstring(ftable[clustNum]['members'], dtype=int,
+        members = np.fromstring(ftable[fnum]['members'], dtype=int,
             sep=' ')
 
         if len(rtimes_mpl[members]) >= minplot:
@@ -1403,8 +1407,8 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
                 colors = [bokehpalette[i] for i in ind]
 
                 add_line, add_larrow, add_rarrow, x1, x2 = determine_lines(
-                    mintime, maxtime, barpad, famstarts[clustNum],
-                    longevity[clustNum])
+                    mintime, maxtime, barpad, famstarts[fnum],
+                    longevity[fnum])
 
                 if add_line:
                     if useBokeh:
@@ -1426,7 +1430,7 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
                                 fill_color='black', line_color='black'),
                                 line_alpha=0,
                                 x_start=mdates.num2date(
-                                famstarts[clustNum]+longevity[clustNum]),
+                                famstarts[fnum]+longevity[fnum]),
                                 x_end=mdates.num2date(mintime - \
                                 barpad), y_start=n, y_end=n))
                         else:
@@ -1476,7 +1480,6 @@ def subplot_occurrence(ttimes, rtimes_mpl, famstarts, longevity, fi, ftable,
 
                 if useBokeh:
                     # Build source for hover patches
-                    fnum = clustNum
                     xs.append([mdates.num2date(max(min(
                                    rtimes_mpl[members]), mintime) - barpad),
                                mdates.num2date(max(min(
@@ -2759,7 +2762,7 @@ def remove_old_files(ftable, config):
     flist = glob.glob(os.path.join(config.get('output_folder'), 'clusters', '*.html'))
     for file in flist:
         fnum = int(os.path.split(file)[1].split('.')[0])
-        if fnum >= ftable.attrs.nClust:
+        if fnum >= len(ftable):
             os.remove(file)
             for itype in [f'{fnum}.png', f'fam{fnum}.png', f'map{fnum}.png']:
                 img = os.path.join(os.path.split(file)[0], itype)

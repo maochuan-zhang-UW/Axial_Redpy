@@ -9,11 +9,11 @@ The input catalog is appended with the best matching event, with columns for
 times, time difference (negative being that REDPy triggered early), which
 family or trigger type the best match corresponds to, and for repeaters,
 the frequency index and amplitudes. The combined catalog is saved
-separately, and by default in the current directory.
+separately, and by default in the current directory as 'matches.csv'.
 
-usage: compare_catalog.py [-h] [-v] [-a] [-c CONFIGFILE] [-d DELIMITER]
-                          [-m MAXDTOFFSET] [-n NAME] [-o OUTFILE]
-                          catfile
+usage: compare_catalog.py [-h] [-v] [-a] [-i] [-j] [-c CONFIGFILE]
+                          [-d DELIMITER] [-m MAXDTOFFSET] [-n NAME]
+                          [-o OUTFILE] catfile
 
 positional arguments:
   catfile               catalog file
@@ -24,6 +24,8 @@ optional arguments:
   -a, --arrival         estimate and use the P-wave arrival time to the
                         center of the network; requires a location to be
                         included in the catalog
+  -i, --include_missing include REDPy detections without a match
+  -j, --junk            include matches with triggers considered junk
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
@@ -41,16 +43,12 @@ optional arguments:
 """
 import argparse
 
-import numpy as np
-import pandas as pd
-import matplotlib.dates as mdates
-from obspy import UTCDateTime
-
 import redpy
 
 
 def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
-                    delimiter=',', maxdtoffset=-1., name='Time', outfile='',
+                    delimiter=',', include_missing=False, junk=False,
+                    maxdtoffset=-1., name='Time', outfile='matches.csv',
                     verbose=False):
     """
     Compare an independent text catalog with a REDPy catalog.
@@ -65,10 +63,16 @@ def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
     ----------
     catfile : str
         File name of catalog to compare with.
+    arrival : bool, optional
+        If True,
     configfile : str, optional
         Name of configuration file to read.
     delimiter : str, optional
         Delimiter between columns of the catalog.
+    include_missing : bool, optional
+        Include REDPy detections without a match.
+    junk : bool, optional
+        Include matches with triggers considered junk.
     maxdtoffset : float, optional
         Maximum time offset in seconds to be considered a match. If
         negative, reverts to the default of 75% of the correlation window
@@ -81,93 +85,11 @@ def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
         Enable additional print statements.
 
     """
-    df, config = build_event_dataframe(configfile, verbose)
-    if maxdtoffset < 0:
-        maxdtoffset = config.get('mintrig')
-    if not outfile:
-        outfile = f'matches_{config.get("groupName")}.csv'
-    catalog = pd.read_csv(catfile, sep=delimiter)
-    if arrival:
-        catalog = redpy.catalog.handle_arrivals(catalog, name, config,
-                                                write_to_column='Match Time')
-        catalog['Match Time'] = pd.to_datetime(catalog['Match Time'], utc=True)
-    else:
-        catalog['Match Time'] = pd.to_datetime(catalog[name], utc=True)
-    catalog['Trigger Time'] = ''
-    catalog['Trigger Time'] = pd.to_datetime(catalog['Trigger Time'], utc=True)
-    catalog['dt (s)'] = ''
-    catalog['Family'] = ''
-    catalog['FI'] = ''
-    catalog['Amplitudes'] = ''
-    if config.get('verbose'):
-        print('Matching...')
-    for i in range(len(catalog)):
-        if config.get('verbose'):
-            if i % 1000 == 0 and i > 0:
-                print(f'{100.0*i/len(catalog):3.2f}% complete')
-        time_delta = df['Trigger Time'] - catalog['Match Time'][i]
-        idx = np.argmin(np.abs(time_delta))
-        if np.abs(time_delta[idx].total_seconds()) <= maxdtoffset:
-            catalog['Trigger Time'][i] = df['Trigger Time'][idx]
-            catalog['dt (s)'][i] = time_delta[idx].total_seconds()
-            catalog['Family'][i] = df['Family'][idx]
-            catalog['FI'][i] = df['FI'][idx]
-            catalog['Amplitudes'][i] = df['Amplitudes'][idx]
-    if config.get('verbose'):
-        print(f'Saving to {outfile}')
-    catalog.to_csv(outfile, index=False, date_format='%Y-%m-%dT%H:%M:%S.%fZ')
-
-
-def build_event_dataframe(configfile='settings.cfg', verbose=False):
-    """
-    Create a DataFrame from triggers and repeaters on disk.
-
-    Specifically, this DataFrame has columns for the trigger time, family
-    number (or whether it is a trigger (former orphans or deleted events),
-    current orphan, or categorized as junk), frequency index, and amplitudes
-    on all stations.
-
-    Parameters
-    ----------
-    configfile : str, optional
-        Name of configuration file to read.
-    verbose : bool, optional
-        Enable additional print statements.
-
-    Returns
-    -------
-    df : DataFrame object
-        Tabular summary of all triggers and subset of metadata.
-    config : Config object
-        Describes the run parameters.
-
-    """
-    h5file, rtable, otable, ttable, _, jtable, _, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose)
-    if config.get('verbose'):
-        print('Building event table...')
-    jdates = [UTCDateTime(j).matplotlib_date for j in jtable.cols.startTime[:]]
-    rtimes_mpl = rtable.cols.startTimeMPL[:]
-    fi_mean = np.nanmean(rtable.cols.FI[:], axis=1)
-    amps = rtable.cols.windowAmp[:]
-    df = pd.DataFrame(columns=['Trigger Time', 'Family', 'FI', 'Amplitudes'],
-                      index=np.concatenate((ttable.cols.startTimeMPL[:],
-                                            np.array(jdates))))
-    df['Family'] = 'trigger'
-    df['Family'][jdates] = 'junk'
-    df['Family'][otable.cols.startTimeMPL[:]] = 'orphan'
-    df['Trigger Time'] = mdates.num2date(
-        df.index + config.get('ptrig')/86400)
-    df['Trigger Time'][rtimes_mpl] = mdates.num2date(
-        rtimes_mpl + rtable.cols.windowStart[:]/config.get('samprate')/86400)
-    for fam in range(ftable.attrs.nClust):
-        members = np.fromstring(ftable[fam]['members'], dtype=int, sep=' ')
-        df['Family'][rtimes_mpl[members]] = fam
-        df['FI'][rtimes_mpl[members]] = fi_mean[members]
-        df['Amplitudes'][rtimes_mpl[members]] = amps[members, :].tolist()
-    df.reset_index(drop=True, inplace=True)
-    h5file.close()
-    return df, config
+    detector = redpy.Detector(configfile, verbose)
+    _ = detector.locate('catalog', catfile, arrival, delimiter,
+                        include_missing, junk, maxdtoffset, name, outfile)
+    # Returns the matched catalog as a pandas DataFrame.
+    detector.close()
 
 
 def main():
@@ -195,6 +117,11 @@ def parse():
                         help=('estimate and use the P-wave arrival time to '
                               'the center of the network; requires a location '
                               'to be included in the catalog'))
+    parser.add_argument('-i', '--include_missing', action='store_true',
+                        default=False, help=(
+                            'include REDPy detections without a match'))
+    parser.add_argument('-j', '--junk', action='store_true', default=False,
+                        help='include matches with triggers considered junk')
     parser.add_argument('-c', '--configfile', default='settings.cfg',
                         help=('use configuration file named CONFIGFILE '
                               'instead of default settings.cfg'))
@@ -202,13 +129,13 @@ def parse():
                         help=('define custom DELIMITER between columns '
                               'instead of default "," (e.g., "\\t" for tabs, '
                               '" " for spaces, or "|" for pipes)'))
-    parser.add_argument('-m', '--maxdtoffset', default=-1.,
+    parser.add_argument('-m', '--maxdtoffset', default=-1., type=float,
                         help=('define custom time offset (in seconds) '
                               'instead of default 75%% of window length'))
     parser.add_argument('-n', '--name', default='Time',
                         help=('define custom time column NAME instead of '
                               'default "Time"'))
-    parser.add_argument('-o', '--outfile', default='',
+    parser.add_argument('-o', '--outfile', default='matches.csv',
                         help='define custom output file name and location')
     args = parser.parse_args()
     return args

@@ -18,7 +18,6 @@ optional arguments:
 
 """
 import argparse
-import os
 
 import redpy
 
@@ -38,37 +37,9 @@ def initialize(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    config = redpy.Config(configfile, verbose)
-    create_output_folders(config)
-    redpy.table.initialize_table(config)
-
-
-def create_output_folders(config):
-    """
-    Create folder structure for outputs.
-
-    Parameters
-    ----------
-    config : Config object
-        Describes the run parameters.
-
-    """
-    if config.get('verbose'):
-        print('Creating folders to store outputs...\n'
-              f'{config.get("output_folder")}')
-    try:
-        os.mkdir(config.get('output_folder'))
-    except OSError as exc:
-        if config.get('verbose'):
-            print(exc)
-    subfolder = os.path.join(config.get('output_folder'), 'clusters')
-    if config.get('verbose'):
-        print(subfolder)
-    try:
-        os.mkdir(subfolder)
-    except OSError as exc:
-        if config.get('verbose'):
-            print(exc)
+    detector = redpy.Detector(configfile, verbose)
+    detector.initialize()
+    detector.close()
 
 
 def main():

@@ -46,17 +46,10 @@ def extend_table(cfgfrom, cfgto, verbose=False, noplot=False):
         If True, skip plotting once done copying.
 
     """
-    do_plot = not noplot
-    configfrom = redpy.Config(cfgfrom[0], verbose)
-    configto = redpy.Config(cfgto[0], verbose)
-    h5filefrom, _, _, _, _, _, _, ftablefrom = redpy.table.open_table(configfrom)
-    h5fileto, rtableto, otableto, ttableto, ctableto, _, _, ftableto, configto = \
-        redpy.table.expand_table(
-            h5filefrom, ftablefrom, configfrom, configto=configto, do_plot=do_plot)
-    if do_plot:
-        redpy.plotting.generate_all_outputs(rtableto, ftableto, ttableto,
-                                            ctableto, otableto, configto)
-    h5fileto.close()
+    config_to = redpy.Config(cfgto[0], verbose)
+    detector = redpy.Detector(cfgfrom[0], verbose)
+    detector.expand(config_to, update_outputs=(not noplot))
+    detector.close()
 
 
 def main():

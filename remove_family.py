@@ -44,13 +44,10 @@ def remove_family(fam_list, configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    h5file, rtable, otable, ttable, ctable, _, dtable, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose)
-    redpy.table.remove_families(rtable, ctable, dtable, ftable, fam_list, config)
-    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable, otable,
-                                        config)
-    redpy.plotting.remove_old_files(ftable, config)
-    h5file.close()
+    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector.remove('family', fam_list)
+    detector.output()
+    detector.close()
 
 
 def main():

@@ -674,7 +674,7 @@ def compare_trigger_to_cores(rtable, otable, ctable, ftable, trig, idnum,
     """
 
     # Get cores
-    fnums = np.arange(ftable.attrs.nClust)
+    fnums = np.arange(len(ftable))
     cores_table = rtable[ftable.cols.core[:]]
     core_windowFFTs = cores_table['windowFFT']
     core_windowCoeffs = cores_table['windowCoeff']
@@ -802,7 +802,7 @@ def compare_adconfiged_to_cores(rtable, ctable, ftable, written, config):
         core_windowFFTs = cores_table['windowFFT']
         core_windowCoeffs = cores_table['windowCoeff']
         core_ids = cores_table['id']
-        fnums = range(ftable.attrs.nClust)
+        fnums = range(len(ftable))
 
         # Get repeater that adconfiged the others to compare
         windowCoeff = rtable[-written]['windowCoeff']

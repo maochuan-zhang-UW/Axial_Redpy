@@ -40,14 +40,24 @@ def write_family_locations(configfile='settings.cfg', outfile='famlocs.csv',
 
     Parameters
     ----------
-    things
+    configfile: str, optional
+        Name of configuration file to read.
+    outfile : str, optional
+        Name of output file to write to in the output folder.
+    distant : bool, optional
+        Include distant (regional and teleseismic) matches in addition to
+        local seismicity.
+    regional : bool, optional
+        Include regional matches in addition to local seismicity.
+    verbose : bool, optional
+        Enable additional print statements.
 
     """
-    config = redpy.Config(configfile, verbose)
-    outfile = os.path.join(config.get('output_folder'), outfile)
-    df = redpy.catalog.get_median_locations(config, regional, distant)
-    df.to_csv(outfile, index_label='Family')
-    if config.get('verbose'):
+    detector = redpy.Detector(configfile, verbose)
+    df = detector.locate('median', regional, distant)
+    outfile = os.path.join(detector.get('output_folder'), outfile)
+    df.to_csv(outfile)
+    if detector.get('verbose'):
         print(f'Done writing to {outfile}')
 
 

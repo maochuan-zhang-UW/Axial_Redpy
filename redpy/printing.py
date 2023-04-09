@@ -34,7 +34,7 @@ def catalog_family(ftable, rtimes, config):
     with open(outfile, 'w') as f:
 
         f.write('Family\tEvent Time (UTC)\n')
-        for fnum in range(ftable.attrs.nClust):
+        for fnum in range(len(ftable)):
 
             fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
 
@@ -149,7 +149,7 @@ def catalog_cores(ftable, rtimes, config):
     with open(outfile, 'w') as f:
 
         f.write('Family\tEvent Time (UTC)\n')
-        for fnum in range(ftable.attrs.nClust):
+        for fnum in range(len(ftable)):
 
             core = ftable[fnum]['core']
             format_time = UTCDateTime(rtimes[core]).isoformat()
@@ -194,7 +194,7 @@ def catalog_verbose(ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
 
         f.write('Family\tEvent Time (UTC)\tFI\t')
         f.write('ccc_max\tccc_core\tdt (hr)\t[ Amplitudes ]\n')
-        for fnum in range(ftable.attrs.nClust):
+        for fnum in range(len(ftable)):
 
             fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
             catalogind = np.argsort(rtimes_mpl[fam])
@@ -268,7 +268,7 @@ def catalog_swarm(ftable, ttimes, rtimes, config):
 
     with open(catalogfile, 'w') as f:
 
-        for fnum in range(ftable.attrs.nClust):
+        for fnum in range(len(ftable)):
             fam = np.fromstring(ftable[fnum]['members'], dtype=int, sep=' ')
             for i in np.argsort(rtimes[fam]):
 

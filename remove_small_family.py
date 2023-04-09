@@ -6,18 +6,20 @@ Remove "small" families with few members.
 
 Run this script to remove small families (i.e., families that have less than
 MINMEMBERS members and are more than MAXAGE days old). Remakes images when
-done. optionally, the list of families that meet those criteria may be
+done. Optionally, the list of families that meet those criteria may be
 printed to screen without removing them.
 
 Note: Removing families from large datasets may take a significant amount of
 time.
 
-usage: remove_small_family.py [-h] [-v] [-c CONFIGFILE] [-m MINMEMBERS]
-                              [-a MAXAGE] [-t SEEDTIME] [-l]
+usage: remove_small_family.py [-h] [-v] [-l] [-c CONFIGFILE] [-m MINMEMBERS]
+                              [-a MAXAGE] [-t SEEDTIME]
 
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         increase written print statements
+  -l, --listonly        list families to keep and to remove, but do not
+                        execute removal
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
@@ -31,15 +33,63 @@ optional arguments:
                         time from which to compute family age times (yyyy-
                         mm-dd or yyyy-mm-ddTHH:MM:SS); last trigger time by
                         default
-  -l, --listonly        list families to keep and to remove, but do not
-                        execute removal
 """
 import argparse
 
-import matplotlib.dates as mdates
-from obspy import UTCDateTime
-
 import redpy
+
+
+def remove_small_family(configfile='settings.cfg', minmembers=5, maxage=0,
+                        seedtime='', listonly=False, verbose=False):
+    """
+    Remove "small" families with few members.
+
+    Note that the way this function is written, cores for these families
+    are not added to the 'Deleted' table, which allows repeats to attempt
+    to create a new family instead of being discarded as matching a deleted
+    family. That family will be missing the earlier repeats, but with the
+    benefit of not keeping a small family around for a long time.
+
+    Parameters
+    ----------
+    configfile : str, optional
+        Configuration file to read.
+    minmembers : int, optional
+        Minimum number of family members in order to be kept; 5 by default.
+    maxage : int, optional
+        Maximum age of a family to be saved in days, calculated as the
+        difference between 'seedtime' and the most recent member. This
+        allows recent small families time to grow and removes truly "stale"
+        families. 0 by default, which removes all small families that
+        began before 'seedtime.'
+    seedtime : str, optional
+        Reference date for age calculation; defaults to last trigger time.
+    listonly : bool, optional
+        Only print a list of families that would be removed.
+    verbose : bool, optional
+        Enable additional print statements.
+
+    """
+    detector = redpy.Detector(configfile, verbose, opened=True)
+    if listonly:
+        detector.set('verbose', True)
+    small_families = detector.get_small_families(minmembers, maxage, seedtime)
+    if (len(small_families) > 0) and not listonly:
+        detector.remove('family', small_families, skip_dtable=True)
+        detector.output()
+    else:
+        if detector.get('verbose'):
+            print('No families removed.')
+        if listonly:
+            print('Rerun without -l to remove families listed.')
+    detector.close()
+
+
+def main():
+    """Handle run from the command line."""
+    args = parse()
+    remove_small_family(**vars(args))
+    print('Done')
 
 
 def parse():
@@ -55,6 +105,9 @@ def parse():
         description='Remove "small" families with few members.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
+    parser.add_argument('-l', '--listonly', action='store_true', default=False,
+                        help=('list families to keep and to remove, but do '
+                              'not execute removal'))
     parser.add_argument('-c', '--configfile', default='settings.cfg',
                         help=('use configuration file named CONFIGFILE '
                               'instead of default settings.cfg'))
@@ -68,62 +121,8 @@ def parse():
                         help=('time from which to compute family age '
                               'times (yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS); '
                               'last trigger time by default'))
-    parser.add_argument('-l', '--listonly', action='store_true', default=False,
-                        help=('list families to keep and to remove, but do '
-                              'not execute removal'))
     args = parser.parse_args()
     return args
-
-
-def main():
-    """Handle run from the command line."""
-    args = parse()
-    remove_small_family(**vars(args))
-    print('Done')
-
-
-def remove_small_family(configfile='settings.cfg', minmembers=5, maxage=0,
-                        seedtime='', listonly=False, verbose=False):
-    """
-    Remove "small" families with few members.
-
-    Parameters
-    ----------
-    configfile : str, optional
-        Configuration file to read.
-    minmembers : int, optional
-        Minimum number of family members in order to be kept; 5 by default.
-    maxage : int, optional
-        Maximum age of a family to be saved in days, calculated as the
-        difference between 'seedtime' and to the family start time. This
-        allows recent small families time to grow and removes truly "stale"
-        families. 0 by default, which removes all small families that
-        began before 'seedtime.'
-    seedtime : str, optional
-        Reference date for age calculation; defaults to last trigger time.
-    listonly : bool, optional
-        Only print a list of families that would be removed.
-    verbose : bool, optional
-        Enable additional print statements.
-
-    """
-    h5file, rtable, otable, ttable, ctable, _, dtable, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose)
-    if seedtime:
-        seedtime = UTCDateTime(seedtime)
-    else:
-        seedtime = UTCDateTime(mdates.num2date(ttable[-1]['startTimeMPL']))
-    removed_families = redpy.table.remove_small_families(
-        rtable, ctable, dtable, ftable, ttable, minmembers, maxage, seedtime,
-        config, list_only=listonly)
-    if removed_families and not listonly:
-        redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
-                                            otable, config)
-        redpy.plotting.remove_old_files(ftable, config)
-    else:
-        if config.get('verbose'):
-            print('No families removed. No plots to update...')
-    h5file.close()
 
 
 if __name__ == "__main__":
