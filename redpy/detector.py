@@ -16,9 +16,13 @@ import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 from obspy import UTCDateTime
+from scipy.sparse import coo_matrix
 from tables import open_file
 
-import redpy
+import redpy.locate
+import redpy.output
+from redpy.config import Config
+from redpy.table import Table
 
 
 _UNKNOWN_METHOD = ("Unknown 'method' given. Options are {}; see "
@@ -56,13 +60,20 @@ class Detector():
             Escape try/except statements to diagnose problems.
 
         """
-        self.config = redpy.Config(configfile, verbose, troubleshoot)
+        np.set_printoptions(threshold=sys.maxsize)
+        np.set_printoptions(linewidth=sys.maxsize)
+        self.config = Config(configfile, verbose, troubleshoot)
         self.h5file = None
         self.tables = {}
         self.plotvars = {}
         self.waveforms = {}
         if opened:
             self.open()
+        self._check_output_folders()
+
+    def __len__(self):
+        """Define length as length of Families table."""
+        return len(self.get('ftable'))
 
     def __str__(self):
         """Define print string."""
@@ -83,10 +94,12 @@ class Detector():
         return self.config.append_custom(string)
 
     def close(self):
-        """Gracefully close the tables."""
+        """Gracefully close the tables and empty variables in memory."""
         if self.tables:
             self.h5file.close()
             self.tables = {}
+            self.plotvars = {}
+            self.waveforms = {}
 
     def expand(self, config_to, update_outputs=False):
         """
@@ -167,6 +180,48 @@ class Detector():
             return self.tables[key].get(col, row)
         return self.config.get(key)
 
+    def get_matrix(self):
+        """
+        Return the contents of the Correlation table as a sparse matrix.
+
+        Returns
+        -------
+        int ndarray
+            'id' column from Repeaters table.
+        float csr_matrix
+            Sparse correlation matrix with id as rows/columns.
+
+        """
+        ids = self.get('rtable', 'id')
+        id1 = self.get('ctable', 'id1')
+        id2 = self.get('ctable', 'id2')
+        ccc = self.get('ctable', 'ccc')
+        maxid = np.max((np.max(ids), np.max(id2)))+1
+        all_ids = np.vstack([id1, id2]).T.copy()
+        dtypes = all_ids.dtype.descr * 2
+        i = np.unique(all_ids.view(dtypes), return_index=True)[1]
+        ccc_sparse = coo_matrix((ccc[i], (id1[i], id2[i])),
+                                shape=(maxid, maxid)).tocsr()
+        return ids, ccc_sparse
+
+    def get_members(self, fnum):
+        """
+        Get the members of a family as an array.
+
+        Parameters
+        ----------
+        fnum : int
+            Family number to query.
+
+        Returns
+        -------
+        int ndarray
+            Rows of 'rtable' that are members of this family.
+
+        """
+        return np.fromstring(
+            self.get('ftable', 'members', fnum), dtype=int, sep=' ')
+
     def get_small_families(self, minmembers=5, maxage=0, seedtime=''):
         """
         Search for old, small families.
@@ -229,24 +284,6 @@ class Detector():
                    f'{i}/{len(rtimes)} ({percent_removed:2.1f}%)\n'))
         return small_families
 
-    def get_members(self, fnum):
-        """
-        Get the members of a family as an array.
-
-        Parameters
-        ----------
-        fnum : int
-            Family number to query.
-
-        Returns
-        -------
-        int ndarray
-            Rows of 'rtable' that are members of this family.
-
-        """
-        return np.fromstring(
-            self.get('ftable', 'members', fnum), dtype=int, sep=' ')
-
     def initialize(self):
         """Write empty hdf5 file to disk, overwriting any existing file."""
         if self.get('verbose'):
@@ -261,10 +298,10 @@ class Detector():
             r'/', self.get('groupname'), self.get('title'))
         for name in ['ctable', 'dtable', 'ftable', 'jtable', 'otable',
                      'rtable', 'ttable']:
-            self.tables[name] = redpy.Table(name)
+            self.tables[name] = Table(name)
             self.tables[name].initialize(self.h5file, group, self.config)
         self._create_folder()
-        self._create_folder('clusters')
+        self._create_folder('families')
 
     def locate(self, method, *args, **kwargs):
         """
@@ -274,9 +311,12 @@ class Detector():
         configuration parameter 'checkcomcat' to be True, as they parse the
         .html output files.
 
-        'catalog' - calls redpy.locate.compare_catalog()
-        'distant' - calls redpy.locate.distant_families()
-        'median' - calls redpy.locate.get_median_locations()
+        'catalog':
+            calls redpy.locate.compare_catalog()
+        'distant':
+            calls redpy.locate.distant_families()
+        'median':
+            calls redpy.locate.get_median_locations()
 
         See the documentation for those functions for a full explanation of
         the required arguments and format of outputs.
@@ -296,6 +336,11 @@ class Detector():
             If using method 'distant' returns a dictionary, else returns a
             DataFrame. Format of returned DataFrame varies by method.
 
+        Raises
+        ------
+        ValueError
+            If method is not recognized.
+
         """
         if method == 'catalog':
             return redpy.locate.compare_catalog(self, *args, **kwargs)
@@ -313,19 +358,109 @@ class Detector():
         self.h5file = open_file(self.get('filename'), 'a')
         for name in ['ttable', 'otable', 'rtable', 'ftable', 'jtable',
                      'dtable', 'ctable']:
-            self.tables[name] = redpy.Table(name)
+            self.tables[name] = Table(name)
             self.tables[name].open(self.h5file, self.config)
         self._check_max_famlen()
         if self.get('verbose'):
             print(self)
 
-    def output(self):
-        """Docstring when written."""
-        print('.output()')
+    def output(self, method=None, **kwargs):
+        """
+        Generate outputs as dictated.
+
+        A variety of methods are supported, which alter the functionality in
+        some way. Many utilize at least one keyword argument.
+
+        None:
+            calls redpy.output.generate() - without any arguments, creates
+            the default outputs as dictated by changes to the tables.
+        'force':
+            calls redpy.output.force() - without any arguments, creates all
+            default outputs from scratch. Otherwise, accepts keyword
+            arguments from both redpy.output.set_print_cols() and
+            redpy.output.generate().
+        'junk':
+            calls redpy.output.junk() - does not accept keyword arguments.
+        'pdf_family':
+            calls redpy.output.pdf_family() - must supply at least one
+            argument 'fnum' with a list of family members to create .pdf
+            versions of the family plots for.
+        'pdf_timeline':
+            calls redpy.output.pdf_timeline() - without any arguments,
+            recreates the current full overview timeline as a .pdf.
+        'report':
+            calls redpy.output.create_report() - requires at least one
+            argument 'fnum' with a list of family numbers to create reports
+            for.
+
+        See the documentation for those functions for a full explanation of
+        the keyword arguments and format of outputs.
+
+        Parameters
+        ----------
+        method : str, optional
+            Controls which method of output to apply.
+        **kwargs
+            Arbitrary keyword arguments.
+
+        Raises
+        ------
+        ValueError
+            If method is not recognized.
+
+        """
+        if method is None:
+            redpy.output.generate(self, **kwargs)
+        elif method == 'force':
+            redpy.output.force(self, **kwargs)
+        elif method == 'junk':
+            self._create_folder('junk')
+            redpy.output.junk(self)
+        elif method == 'pdf_family':
+            redpy.output.pdf_family(self, **kwargs)
+        elif method == 'pdf_timeline':
+            redpy.output.pdf_timeline(self, **kwargs)
+        elif method == 'report':
+            self._create_folder('reports')
+            redpy.output.report(self, **kwargs)
+        else:
+            raise ValueError(_UNKNOWN_METHOD.format(
+                "'force', 'junk', 'pdf_family', 'pdf_timeline', or 'report'"))
 
     def remove(self, method, fnums=None, skip_dtable=False):
-        """Docstring when written."""
-        print('.remove()')
+        """
+        Remove items from further consideration.
+
+        Currently, three methods are supported:
+
+        'expire':
+            remove orphans with expiration dates older than latest trigger
+        'junk':
+            empties the 'Junk' table of all triggers
+        'family' or 'families':
+            removes the family or families listed from the 'Families',
+            'Repeater', and 'Correlation' tables, and by default moves the
+            core of each family to the 'Deleted' table.
+
+        Parameters
+        ----------
+        method : str
+            Controls which method of remove to apply.
+        fnums : int, int list, or int ndarray, optional
+            Family or families to remove for 'family' method.
+        skip_dtable : bool, optional
+            If True, does not write cores to the Deleted table.
+
+        Raises
+        ------
+        ValueError
+            If method is not recognized or if no families are provided with
+            the 'family'/'families' method.
+
+        """
+        if method == 'expire':
+            print('deletes orphans with expiration date before latest trigger')
+            print('not yet implemented')
         if method == 'junk':
             self.get('jtable').remove('all')
         elif method in ['family', 'families']:
@@ -335,7 +470,7 @@ class Detector():
                 raise ValueError("Specify at least one family with 'fnum'")
         else:
             raise ValueError(_UNKNOWN_METHOD.format(
-                "'junk', 'family', or 'families'"))
+                "'expire', 'junk', 'family', or 'families'"))
 
     def set(self, key, value, col=None, row=None):
         """
@@ -443,9 +578,9 @@ class Detector():
         expanded.
 
         Unfortunately, in order to do that we need to copy everything over
-        into a new file. Additionally, we use 45% instead of something higher
-        like 95% to allow for the edge case that the largest family and the
-        second largest family with similar lengths are merged.
+        into a new file. Additionally, we use 45% instead of something
+        higher like 95% to allow for the edge case that the largest family
+        and the second largest family with similar lengths are merged.
 
         It's still possible this is too generous based on how often the
         check is done.
@@ -468,6 +603,12 @@ class Detector():
             self.set('max_famlen', allowed_max_famlen)
             self.config.custom_settings.append('max_famlen')
 
+    def _check_output_folders(self):
+        """Rename 'clusters' output folder from older version to 'families'."""
+        if os.path.isdir(os.path.join(self.get('output_folder'), 'clusters')):
+            os.rename(os.path.join(self.get('output_folder'), 'clusters'),
+                      os.path.join(self.get('output_folder'), 'families'))
+
     def _copy_contents(self, detector_from, update_outputs):
         """Copy the contents of one Detector() into this one."""
         dsta = self.get('nsta') - detector_from.get('nsta')
@@ -481,29 +622,29 @@ class Detector():
             self.get(tname).populate_from_table(
                 detector_from.get(tname), self.config, dsta)
         if update_outputs:
-            print('...reset plots here')
+            # !!! Replace with force
+            self.set('ftable', np.ones(len(self.get('ftable'))), 'printme')
+            self.output()
 
     def _create_folder(self, subfolder=None):
         """Create folder for outputs."""
         folder = self.get('output_folder')
         if subfolder:
             folder = os.path.join(folder, subfolder)
-        if self.get('verbose'):
-            print(f"Creating output folder: '{folder}'")
-        try:
-            os.mkdir(folder)
-        except OSError as exc:
+        if not os.path.isdir(folder):
             if self.get('verbose'):
-                print(exc)
+                print(f"Creating output folder: '{folder}'")
+            os.mkdir(folder)
 
     def _remove_families(self, fnums, skip_dtable=False):
         """
         Remove families from catalog.
 
-        Specifically, it removes the families from the Families table, removes
-        the cross-correlation values from the Correlation table for members of
-        those families, moves the core of the families into the Deleted table,
-        and removes the rest of the members from the Repeaters table.
+        Specifically, it removes the families from the Families table,
+        removes the cross-correlation values from the Correlation table for
+        members of those families, moves the core of the families into the
+        Deleted table, and removes the rest of the members from the Repeaters
+        table.
 
         Parameters
         ----------
@@ -538,8 +679,6 @@ class Detector():
             rtable_len-len(members))
         members = np.setdiff1d(members, cores)
         self.get('rtable').remove(members)
-        np.set_printoptions(threshold=sys.maxsize)
-        np.set_printoptions(linewidth=sys.maxsize)
         self.get('ftable').remove(fnums)
         for fnum in range(len(self.get('ftable'))):
             fmembers = self.get_members(fnum)

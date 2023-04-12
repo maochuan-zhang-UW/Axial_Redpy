@@ -1,0 +1,6 @@
+# I want to ship this directory as the default place where run outputs
+# should live to prevent the main REDPy/ directory from getting cluttered.
+# However, I also use this directory for my own runs, so we need to
+# ignore the contents.
+*
+!.gitignore

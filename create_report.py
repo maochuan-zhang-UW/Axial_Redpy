@@ -54,37 +54,10 @@ def create_report(fam_list, configfile='settings.cfg', verbose=False,
         If True, skip recalculating the full correlation matrix.
 
     """
-    h5file, rtable, _, ttable, ctable, _, _, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose)
-    create_report_folder(config)
-    rtimes, rtimes_mpl, windowAmps, _, fi, ids, ccc_sparse = \
-        redpy.plotting.get_plotting_columns(rtable, ttable, ctable, config,
-                                            load_ttimes=False)
-    for fnum in fam_list:
-        redpy.plotting.create_report(
-            rtable, ftable, rtimes, rtimes_mpl, windowAmps, fi, ids,
-            ccc_sparse, fnum, ordered, skip, matrixtofile, config)
-    h5file.close()
-
-
-def create_report_folder(config):
-    """
-    Create folder to store reports.
-
-    Parameters
-    ----------
-    config : Config object
-        Describes the run parameters.
-
-    """
-    subfolder = os.path.join(config.get('output_folder'), 'reports')
-    if config.get('verbose'):
-        print(f'Creating folder to store reports...\n{subfolder}')
-    try:
-        os.mkdir(subfolder)
-    except OSError as exc:
-        if config.get('verbose'):
-            print(exc)
+    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector.output('report', fnum=fam_list, ordered=ordered,
+                    skip_recalculate_ccc=skip, matrixtofile=matrixtofile)
+    detector.close()
 
 
 def main():

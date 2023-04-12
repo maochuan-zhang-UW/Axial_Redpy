@@ -24,24 +24,21 @@ optional arguments:
                         default settings.cfg
   -s STARTTIME, --starttime STARTTIME
                         earliest time to plot (yyyy-mm-dd or
-                        yyyy-mm-ddTHH:MM:SS), defaults to first trigger
+                        yyyy-mm-ddTHH:MM:SS); defaults to first trigger
   -e ENDTIME, --endtime ENDTIME
                         latest time to plot(yyyy-mm-dd or
-                        yyyy-mm-ddTHH:MM:SS), defaults to last trigger
+                        yyyy-mm-ddTHH:MM:SS); defaults to last trigger
   -m MINMEMBERS, --minmembers MINMEMBERS
                         minimum number of members required to include family
                         in occurrence plot
   -o OCCURHEIGHT, --occurheight OCCURHEIGHT
-                        integer multiplier for how much taller the
-                        occurrence plot should be compared to other plots;
-                        defaults to 3
+                        multiplier for how much taller the occurrence
+                        plot(s) should be compared to other plots; defaults
+                        to 3
   -f PLOTFORMAT, --plotformat PLOTFORMAT
                         comma separated list of subplots
 """
 import argparse
-
-import numpy as np
-from obspy import UTCDateTime
 
 import redpy
 
@@ -74,43 +71,19 @@ def create_pdf_overview(
     minmembers : int, optional
         Minimum number of members required to include family in occurrence
         plot; defaults to config.get('minplot').
-    occurheight : int, optional
-        Integer multiplier for how much taller the occurrence plot(s) should
+    occurheight : float, optional
+        Multiplier for how much taller the occurrence plot(s) should
         be compared to other plots; defaults to 3.
     plotformat : str, optional
         Comma separated list of subplots to use with same format as
         'plotformat' in config; defaults to 'eqrate,fi,occurrence,longevity'.
 
     """
-    h5file, rtable, _, ttable, ctable, _, _, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose)
-    if starttime:
-        tmin = UTCDateTime(starttime).matplotlib_date
-    else:
-        tmin = 0
-    if endtime:
-        tmax = UTCDateTime(endtime).matplotlib_date
-    else:
-        tmax = 0
-    if binsize:
-        if usehrs:
-            binsize = binsize/24
-    else:
-        binsize = config.get('dybin')
-    if not minmembers:
-        minmembers = config.get('minplot')
-    if not plotformat:
-        plotformat = 'eqrate,fi,occurrence,longevity'
-    if config.get('verbose'):
-        print('Creating overview.pdf in main output directory...')
-    rtimes, rtimes_mpl, _, ttimes, fi, _, _ = \
-        redpy.plotting.get_plotting_columns(rtable, ttable, ctable, config,
-                                            load_cmatrix=False)
-    fi = np.nanmean(fi, axis=1)
-    redpy.plotting.assemble_pdf_overview(
-        rtable, ftable, ttimes, rtimes, rtimes_mpl, fi, tmin, tmax, binsize,
-        minmembers, occurheight, plotformat, config)
-    h5file.close()
+    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector.output('pdf_timeline', starttime=starttime, endtime=endtime,
+                    binsize=binsize, usehrs=usehrs, minmembers=minmembers,
+                    occurheight=occurheight, plotformat=plotformat)
+    detector.close()
 
 
 def main():
@@ -144,18 +117,18 @@ def parse():
                               'instead of default settings.cfg'))
     parser.add_argument('-s', '--starttime',
                         help=('earliest time to plot (yyyy-mm-dd or '
-                              'yyyy-mm-ddTHH:MM:SS), defaults to first '
+                              'yyyy-mm-ddTHH:MM:SS); defaults to first '
                               'trigger'))
     parser.add_argument('-e', '--endtime',
                         help='latest time to plot (yyyy-mm-dd or '
-                              'yyyy-mm-ddTHH:MM:SS), defaults to last trigger')
+                              'yyyy-mm-ddTHH:MM:SS); defaults to last trigger')
     parser.add_argument('-m', '--minmembers', type=int, default=0,
                         help=('minimum number of members required to include '
                               'family in occurrence plot'))
-    parser.add_argument('-o', '--occurheight', type=int, default=3,
-                        help=('integer multiplier for how much taller the '
-                              'occurrence plot should be compared to other '
-                              'plots; defaults to 3'))
+    parser.add_argument('-o', '--occurheight', type=float, default=3,
+                        help=('multiplier for how much taller the occurrence'
+                              'plot(s) should be compared to other plots, '
+                              'defaults to 3'))
     parser.add_argument('-f', '--plotformat',
                         help='comma separated list of subplots')
     args = parser.parse_args()

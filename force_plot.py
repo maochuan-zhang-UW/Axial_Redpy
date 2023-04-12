@@ -18,7 +18,7 @@ optional arguments:
   -v, --verbose         increase written print statements
   -a, --plotall         render everything, not just updated families
   -f, --famplot         only render the family plots, not .html pages
-  -l, --html            only render the .html pages, not family plots
+  -l, --htmlonly        only render the .html pages, not family plots
   -r, --resetlp         reset the "last print" column (use for "missing
                         file" errors)
   -c CONFIGFILE, --configfile CONFIGFILE
@@ -38,7 +38,7 @@ import redpy
 
 
 def force_plot(configfile='settings.cfg', verbose=False, plotall=False,
-               famplot=False, html=False, resetlp=False, startfam=0,
+               famplot=False, htmlonly=False, resetlp=False, startfam=0,
                endfam=0):
     """
     Generate plots (or a subset of plots) for a table defined in configfile.
@@ -70,19 +70,20 @@ def force_plot(configfile='settings.cfg', verbose=False, plotall=False,
         backward from last family.
 
     """
-    h5file, rtable, otable, ttable, ctable, _, _, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose)
-    redpy.table.set_ftable_columns(ftable, config, plotall, resetlp, startfam,
-                                   endfam)
-    if config.get('verbose'):
-        print('Creating requested plots...')
-    if famplot or html:
-        redpy.plotting.generate_subset_outputs(rtable, ftable, ttable, ctable,
-                                               config, famplot, html)
-    else:
-        redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
-                                            otable, config)
-    h5file.close()
+    catalogs = True
+    timelines = True
+    images = True
+    html = True
+    if htmlonly or famplot:
+        catalogs = False
+        timelines = False
+        html = htmlonly
+        images = famplot
+    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector.output('force', plotall=plotall, resetlp=resetlp, html=html,
+                    images=images, catalogs=catalogs, timelines=timelines,
+                    startfam=startfam, endfam=endfam)
+    detector.close()
 
 
 def main():
@@ -108,7 +109,7 @@ def parse():
                         help='render everything, not just updated families')
     parser.add_argument('-f', '--famplot', action='store_true', default=False,
                         help='only render the family plots, not .html pages')
-    parser.add_argument('-l', '--html', action='store_true', default=False,
+    parser.add_argument('-l', '--htmlonly', action='store_true', default=False,
                         help='only render the .html pages, not family plots')
     parser.add_argument('-r', '--resetlp', action='store_true', default=False,
                         help=('reset the "last print" column (use for '

@@ -238,12 +238,12 @@ class Config():
         self.set('ptrig', 1.5*self.get('winlen')/samprate)
         self.set('atrig', 3*self.get('winlen')/samprate)
         self.set('mintrig', 0.75*self.get('winlen')/samprate)
-        self.set('wshape', int((self.get('ptrig')
-                                       + self.get('atrig'))*samprate)+1)
+        self.set(
+            'wshape', int((self.get('ptrig') + self.get('atrig'))*samprate)+1)
         self.set(
             'maxdt', np.max(np.fromstring(self.get('offset'), sep=',')))
-        self.set('output_folder', (f"{self.get('outputpath')}"
-                                          f"{self.get('groupname')}"))
+        self.set('output_folder',
+                 f"{self.get('outputpath')}{self.get('groupname')}")
         self.set('stalats', np.array(
             self.get('stalats').split(',')).astype(float))
         self.set('stalons', np.array(

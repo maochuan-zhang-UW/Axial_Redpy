@@ -4,7 +4,7 @@
 """
 Create publication-quality, editable .pdf versions of family images.
 
-Run this script to manually produce files in the clusters directory
+Run this script to manually produce files in the families directory
 (same location as fam*.png), optionally with a custom time span.
 
 usage: create_pdf_family.py [-h] [-v] [-c CONFIGFILE] [-s STARTTIME]
@@ -21,14 +21,12 @@ optional arguments:
                         of default settings.cfg
   -s STARTTIME, --starttime STARTTIME
                         earliest time to plot (yyyy-mm-dd or
-                        yyyy-mm-ddTHH:MM:SS), defaults to first event
+                        yyyy-mm-ddTHH:MM:SS); defaults to first event
   -e ENDTIME, --endtime ENDTIME
                         latest time to plot (yyyy-mm-dd or
-                        yyyy-mm-ddTHH:MM:SS), defaults to last event
+                        yyyy-mm-ddTHH:MM:SS); defaults to last event
 """
 import argparse
-
-from obspy import UTCDateTime
 
 import redpy
 
@@ -39,7 +37,7 @@ def create_pdf_family(fam_list, configfile='settings.cfg', verbose=False,
     Create publication-quality, editable .pdf versions of family images.
 
     These images are saved in the same location as fam*.png (i.e., in
-    the clusters directory) as fam*.pdf. A custom start and/or end time
+    the families directory) as fam*.pdf. A custom start and/or end time
     can be defined to zoom the time span to a span of interest.
 
     Parameters
@@ -56,28 +54,10 @@ def create_pdf_family(fam_list, configfile='settings.cfg', verbose=False,
         Latest time to plot; defaults to last event.
 
     """
-    h5file, rtable, _, ttable, ctable, _, _, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose)
-    rtimes, rtimes_mpl, windowAmps, _, _, ids, ccc_sparse = \
-        redpy.plotting.get_plotting_columns(rtable, ttable, ctable, config,
-                                            load_ttimes=False,load_fi=False)
-    windowAmp = windowAmps[:,config.get('printsta')]
-    if starttime:
-        tmin = UTCDateTime(starttime).matplotlib_date
-    else:
-        tmin = 0
-    if endtime:
-        tmax = UTCDateTime(endtime).matplotlib_date
-    else:
-        tmax = 0
-    _, _, bboxes = redpy.plotting.initialize_family_image(config)
-    for fnum in fam_list:
-        if config.get('verbose'):
-            print(f'Creating fam{fnum}.pdf...')
-        redpy.plotting.assemble_family_image(
-            bboxes, rtable, ftable, rtimes, rtimes_mpl, windowAmp, ids,
-            ccc_sparse, 'pdf', 100, fnum, tmin, tmax, config)
-    h5file.close()
+    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector.output(
+        'pdf_family', fnum=fam_list, starttime=starttime, endtime=endtime)
+    detector.close()
 
 
 def main():
@@ -108,10 +88,10 @@ def parse():
                               'instead of default settings.cfg'))
     parser.add_argument('-s', '--starttime',
                         help=('earliest time to plot (yyyy-mm-dd or '
-                              'yyyy-mm-ddTHH:MM:SS), defaults to first event'))
+                              'yyyy-mm-ddTHH:MM:SS); defaults to first event'))
     parser.add_argument('-e', '--endtime',
                         help=('latest time to plot (yyyy-mm-dd or '
-                              'yyyy-mm-ddTHH:MM:SS), defaults to last event'))
+                              'yyyy-mm-ddTHH:MM:SS); defaults to last event'))
     args = parser.parse_args()
     return args
 

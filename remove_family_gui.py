@@ -145,10 +145,10 @@ class RemoveFamilyGUI(tk.Tk):
                              self.params['maxfam'])):
             self.objdict['imgobj'].append(tk.PhotoImage(
                 file=os.path.join(self.detector.get(
-                    'output_folder'), 'clusters', f'{fam}.gif')))
+                    'output_folder'), 'families', f'{fam}.gif')))
             self.objdict['invimgobj'].append(
                 tk.PhotoImage(file=os.path.join(self.detector.get(
-                    'output_folder'), 'clusters', f'{fam}_inv.gif')))
+                    'output_folder'), 'families', f'{fam}_inv.gif')))
             self.objdict['var'].append(tk.IntVar())
             self.objdict['check'].append(tk.Checkbutton(
                 self.frame,
@@ -172,23 +172,23 @@ class RemoveFamilyGUI(tk.Tk):
                          min(len(self.detector.get('ftable')),
                          250*self.params['ncols']-self.params['minfam'])):
             image = Image.open(os.path.join(self.detector.get(
-                'output_folder'), 'clusters', f'{fam}.png')).convert('RGB')
+                'output_folder'), 'families', f'{fam}.png')).convert('RGB')
             image.save(os.path.join(
-                self.detector.get('output_folder'), 'clusters', f'{fam}.gif'))
+                self.detector.get('output_folder'), 'families', f'{fam}.gif'))
             source = image.split()
             black = source[1].point(lambda i: i*0)
             source[1].paste(black)
             source[2].paste(black)
             inverse_image = Image.merge('RGB', source)
             inverse_image.save(os.path.join(self.detector.get(
-                'output_folder'), 'clusters', f'{fam}_inv.gif'))
+                'output_folder'), 'families', f'{fam}_inv.gif'))
 
     def _delete_gifs(self):
         """Delete family .gif files."""
         if self.detector.get('verbose'):
             print('Cleaning up .gif files...')
         gif_list = glob.glob(os.path.join(self.detector.get('output_folder'),
-                                          'clusters', '*.gif'))
+                                          'families', '*.gif'))
         for gif in gif_list:
             os.remove(gif)
 

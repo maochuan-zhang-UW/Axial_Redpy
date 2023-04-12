@@ -14,18 +14,18 @@ optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         increase written print statements
   -r RUNS, --runs RUNS  comma separated list of runs to include, matching
-                        their "groupName" in their configuration files
+                        the "groupname" in their configuration files
   -p PATH, --path PATH  relative path to where "meta.html" should be
-                        created; defaults to current path
+                        created; defaults to "./runs"
   -t TOPATH, --topath TOPATH
                         relative path from "meta.html" to the runs; defaults
-                        to current path
+                        to same path
 """
 import argparse
 import os
 
 
-def make_meta(runs='', path='.', topath='.', verbose=False):
+def make_meta(runs='', path='./runs', topath='.', verbose=False):
     """
     Make "meta.html" to hold multiple meta overview pages.
 
@@ -36,34 +36,19 @@ def make_meta(runs='', path='.', topath='.', verbose=False):
     Parameters
     ----------
     runs : str, optional
-        Comma separated list of runs to include, matching their "groupName"
+        Comma separated list of runs to include, matching the "groupname"
         in their configuration files.
     path : str, optional
         Relative path to where "meta.html" should be created; defaults to
-        current path.
+        './runs' which is the default location for new run outputs.
     topath : str, optional
-        Relative path from "meta.html" to the runs; defaults to current
+        Relative path from "meta.html" to the runs; defaults to same
         path.
     verbose : bool, optional
         Increase written print statements.
 
     """
-    filename = os.path.join(path, 'meta.html')
-    if verbose:
-        print(f'Creating {filename}...')
-    if not runs:
-        print('No runs supplied, assuming "default" only')
-        runs = 'default'
-    with open(filename, 'w', encoding='utf-8') as file:
-        file.write(r'<html><head><title>REDPy Meta Overview</title></head>')
-        file.write(r'<body style="padding:0;margin:0">')
-        for run in runs.split(','):
-            runpath = r'/'.join([topath, run.strip(), 'meta_recent.html'])
-            file.write(rf"""
-                <iframe src="{runpath}" title="{run}"
-                    style="height:350px;width:1300px;border:none;"></iframe>
-                    """)
-        file.write('</body></html>')
+    redpy.outputs.html.make_meta(runs, path, topath, verbose)
 
 
 def main():
@@ -90,12 +75,12 @@ def parse():
                         help=('comma separated list of runs to include, '
                               'matching their "groupName" in their '
                               'configuration files'))
-    parser.add_argument('-p', '--path', default='.',
+    parser.add_argument('-p', '--path', default='./runs',
                         help=('relative path to where "meta.html" should be '
-                              'created; defaults to current path'))
+                              'created; defaults to "./runs"'))
     parser.add_argument('-t', '--topath', default='.',
                         help=('relative path from "meta.html" to the runs; '
-                              'defaults to current path'))
+                              'defaults to same path'))
     args = parser.parse_args()
     return args
 

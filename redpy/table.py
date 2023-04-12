@@ -306,7 +306,7 @@ class Table():
             self.table.remove_rows(0)
             self.columns_in_memory = {}
         else:
-            if (isinstance(row, int)) or (isinstance(row, np.int64)):
+            if isinstance(row, (int, np.int, np.int32, np.int64)):
                 self.table.remove_row(row)
             else:
                 row = np.sort(row)[::-1]

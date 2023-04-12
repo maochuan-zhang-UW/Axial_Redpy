@@ -1,5 +1,7 @@
 */
 !redpy/
+!h5/
+!runs/
 *.pyc
 *.csv
 *.cfg

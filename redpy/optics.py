@@ -1,18 +1,22 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
+"""
+OPTICS - Ordering the Points to Investigate the Clustering Structure.
 
+This class handles the processing REDPy uses for determining 'core'
+events and for ordering events based on their similarity.
+"""
 import numpy as np
-import scipy
 
 
 # Based on https://github.com/espg/OPTICS
-
-class setOfObjects(object):
+class OPTICS():
+    """Object for holding data and processing for OPTICS ordering."""
 
     def __init__(self, distance_pairs):
         """
-        Builds and holds the data structure for OPTICS processing.
+        Build and hold the data structure for OPTICS processing.
 
         Parameters
         ----------
@@ -20,121 +24,115 @@ class setOfObjects(object):
             NxN distance matrix.
 
         """
-
-
         self.data = distance_pairs
         self._n = len(self.data)
-        self._processed = scipy.zeros((self._n, 1), dtype=bool)
-        self._reachability = scipy.ones(self._n) * scipy.inf
-        self._core_dist = scipy.ones(self._n) * scipy.nan
-        self._index = scipy.array(range(self._n))
-        self._nneighbors = scipy.ones(self._n, dtype=int)*self._n
-        self._cluster_id = -scipy.ones(self._n, dtype=int)
-        self._is_core = scipy.ones(self._n, dtype=bool)
+        self._processed = np.zeros((self._n, 1), dtype=bool)
+        self._reachability = np.ones(self._n) * np.inf
+        self._core_dist = np.ones(self._n) * np.nan
+        self._index = np.array(range(self._n))
+        self._nneighbors = np.ones(self._n, dtype=int)*self._n
+        self._cluster_id = -np.ones(self._n, dtype=int)
+        self._is_core = np.ones(self._n, dtype=bool)
         self._ordered_list = []
 
+    def prep_optics(self):
+        """
+        Prep data set for main OPTICS loop.
 
-def prep_optics(SetofObjects, epsilon):
-    """
-    Prep data set for main OPTICS loop.
+        Parameters
+        ----------
+        epsilon : float
+            Determines maximum object size that can be extracted.
+            Smaller epsilons reduce run time.
 
-    Parameters
-    ----------
-    SetofObjects : setOfObjects object
-        Instantiated and prepped instance.
-    epsilon : float
-        Determines maximum object size that can be extracted. Smaller epsilons
-        reduce run time.
+        """
+        for j in self._index:
+            # Find smallest nonzero distance
+            self._core_dist[j] = np.sort(self.data[j, :])[1]
 
-    """
+    def build_optics(self, epsilon):
+        """
+        Build OPTICS ordered list of clustering structure.
 
-    for j in SetofObjects._index:
-        # Find smallest nonzero distance
-        SetofObjects._core_dist[j] = np.sort(SetofObjects.data[j,:])[1]
+        Parameters
+        ----------
+        epsilon : float
+            Determines maximum object size that can be extracted.
+            Smaller epsilons reduce run time.
 
+        """
+        for point in self._index:
+            if not self._processed[point]:
+                self.expand_cluster_order(point, epsilon)
 
-def build_optics(SetOfObjects, epsilon):
-    """
-    Builds OPTICS ordered list of clustering structure.
+    def expand_cluster_order(self, point, epsilon):
+        """
+        Expand OPTICS ordered list of clustering structure.
 
-    Parameters
-    ----------
-    SetofObjects : setOfObjects object
-        Instantiated and prepped instance.
-    epsilon : float
-        Determines maximum object size that can be extracted. Smaller epsilons
-        reduce run time.
+        Parameters
+        ----------
+        point : int
+            Index of event to process.
+        epsilon : float
+            Determines maximum object size that can be extracted.
+            Smaller epsilons reduce run time.
 
-    """
-
-    for point in SetOfObjects._index:
-        if not SetOfObjects._processed[point]:
-            expand_cluster_order(SetOfObjects, point, epsilon)
-
-
-def expand_cluster_order(SetOfObjects, point, epsilon):
-    """
-    Expands OPTICS ordered list of clustering structure
-
-    Parameters
-    ----------
-    SetofObjects : setOfObjects object
-        Instantiated and prepped instance.
-    point : int
-        Index of event to process.
-    epsilon : float
-        Determines maximum object size that can be extracted. Smaller epsilons
-        reduce run time.
-
-    """
-
-    if SetOfObjects._core_dist[point] <= epsilon:
-        while not SetOfObjects._processed[point]:
-            SetOfObjects._processed[point] = True
-            SetOfObjects._ordered_list.append(point)
-            point = set_reach_dist(SetOfObjects, point, epsilon)
-    else:
-        SetOfObjects._processed[point] = True
-
-
-def set_reach_dist(SetOfObjects, point, epsilon):
-    """
-    Sets reachability distance and ordering.
-
-    Parameters
-    ----------
-    SetofObjects : setOfObjects object
-        Instantiated and prepped instance.
-    point : int
-        Index of event to process.
-    epsilon : float
-        Determines maximum object size that can be extracted. Smaller epsilons
-        reduce run time.
-
-    Returns
-    -------
-    point : int, list int
-        Index of event processed, or list of unprocessed points.
-
-    """
-
-    row = [SetOfObjects.data[point,:]]
-    indices = np.argsort(row)
-    distances = np.sort(row)
-
-    if scipy.iterable(distances):
-
-        unprocessed = indices[(SetOfObjects._processed[indices] < 1)[0].T]
-        rdistances = scipy.maximum(distances[
-            (SetOfObjects._processed[indices] < 1)[0].T],
-            SetOfObjects._core_dist[point])
-        SetOfObjects._reachability[unprocessed] = scipy.minimum(
-            SetOfObjects._reachability[unprocessed], rdistances)
-
-        if unprocessed.size > 0:
-            return unprocessed[np.argsort(np.array(SetOfObjects._reachability[
-                unprocessed]))[0]]
+        """
+        if self._core_dist[point] <= epsilon:
+            while not self._processed[point]:
+                self._processed[point] = True
+                self._ordered_list.append(point)
+                point = self.set_reach_dist(point)
         else:
+            self._processed[point] = True
+
+    def set_reach_dist(self, point):
+        """
+        Set reachability distance and ordering.
+
+        Parameters
+        ----------
+        point : int
+            Index of event to process.
+
+        Returns
+        -------
+        int, list int
+            Index of event processed, or list of unprocessed points.
+
+        """
+        row = [self.data[point, :]]
+        indices = np.argsort(row)
+        distances = np.sort(row)
+        if np.iterable(distances):
+            unprocessed = indices[(self._processed[indices] < 1)[0].T]
+            rdistances = np.maximum(distances[
+                (self._processed[indices] < 1)[0].T],
+                self._core_dist[point])
+            self._reachability[unprocessed] = np.minimum(
+                self._reachability[unprocessed], rdistances)
+            if unprocessed.size > 0:
+                return unprocessed[np.argsort(np.array(self._reachability[
+                    unprocessed]))[0]]
             return point
-    else:
         return point
+
+    def run(self, epsilon):
+        """
+        Run OPTICS.
+
+        Parameters
+        ----------
+        epsilon : float
+            Determines maximum object size that can be extracted.
+            Smaller epsilons reduce run time.
+
+        Returns
+        -------
+        int ndarray
+            Ordered list.
+
+        """
+        self.prep_optics()
+        self.build_optics(epsilon)
+        return np.array(self._ordered_list)

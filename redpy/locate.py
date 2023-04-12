@@ -338,7 +338,7 @@ def distant_families(detector, findphrase='', percent=90.):
     """
     fam_dict = dict.fromkeys(DISTANT_TYPES.keys(), '')
     flist = np.array(glob.glob(os.path.join(detector.get('output_folder'),
-                                            'clusters', '*.html')))
+                                            'families', '*.html')))
     fnums = [int(os.path.basename(fname).split('.')[0]) for fname in flist]
     for fname in flist[np.argsort(fnums)]:
         counter = DistantCounter(fname, findphrase, percent)
@@ -404,7 +404,7 @@ def event_times_from_catalog(
 
 def get_median_locations(detector, regional=False, distant=False):
     """
-    Parse .html output files for locations and create a DataFrame of medians.
+    Parse html output files for locations and create a DataFrame of medians.
 
     Called by redpy.Detector.locate('median', ...)
 
@@ -420,12 +420,12 @@ def get_median_locations(detector, regional=False, distant=False):
     Returns
     -------
     DataFrame object
-        Rows by family with columns for median latitude, longitude, and depth,
-        as well as total number of members and number located.
+        Rows by family with columns for median latitude, longitude, and
+        depth, as well as total number of members and number located.
 
     """
     flist = np.array(glob.glob(os.path.join(detector.get('output_folder'),
-                                            'clusters', '*.html')))
+                                            'families', '*.html')))
     fnums = [int(os.path.basename(fname).split('.')[0]) for fname in flist]
     df = pd.DataFrame(columns=['Latitude', 'Longitude', r'Depth/km',
                                r'#Members', r'#Located'],
@@ -489,63 +489,50 @@ def handle_arrivals(detector, catalog, time_column_name, write_to_column=None):
     return catalog
 
 
-def match_external_to_html(detector, fnum, external_catalogs, file):
+def match_external(detector, rtimes, external_catalogs, matchstring):
     """
-    Check repeater trigger times with arrival times from external catalog.
-
-    Currently only supports checking the ANSS Comprehensive Earthquake
-    Catalog (USGS ComCat). It writes these to .html and returns a dictionary
-    of local matches to support mapping image files.
+    Find matches to repeater times within external catalogs.
 
     Parameters
     ----------
     detector : Detector object
         Primary interface for handling detections.
-    fnum : int
-        Family number.
-    external_catalogs : list of DataFrame objects
-        External catalogs to check against, with 'Arrivals_' columns.
-    file : file handle
-        Handle to open .html file to write to.
+    rtimes :
+        Trigger times for repeaters to match.
+    external_catalogs : DataFrame list
+        List of catalogs, one for each region (local, regional, teleseismic).
+    matchstring : str
+        String to append matches to.
 
     Returns
     -------
+    int
+        Number of matches found.
+    str
+        Modified 'matchstring' with matches appended.
     dict
-        Dictionary of local match locations.
+        Dictionary containing locations of local matches.
 
     """
-    rtimes = detector.get('plotvars')['rtimes']
-    members = detector.get_members(fnum)
-    if (detector.get('matchmax') == 0) or (
-            detector.get('matchmax') > len(members)):
-        order = np.argsort(rtimes[members])
-        matchstring = (
-            '</br><b>ComCat matches (all events):</b></br>'
-            '<div style="overflow-y: auto; height:100px; width:1200px;">')
-    else:
-        nlargest = np.argsort(detector.get(
-            'plotvars')['amps'][members])[::-1][:detector.get('matchmax')]
-        members = members[nlargest]
-        order = np.argsort(rtimes[members])
-        matchstring = f"""
-            </br>
-            <b>ComCat matches ({detector.get('matchmax')} largest events):</b>
-            </br>
-            <div style="overflow-y: auto; height:100px; width:1200px;">
-            """
-    nfound, matchstring, local = _match_external(
-        detector, rtimes[members[order]], external_catalogs, matchstring)
-    if nfound > 0:
-        matchstring += '</div>'
-        matchstring += f'Total potential matches: {nfound}</br>'
-        matchstring += f'Potential local matches: {len(local["deps"])}</br>'
-        if len(local['deps']) > 0:
-            file.write(f'<img src="map{fnum}.png"></br>')
-    else:
-        matchstring += 'No matches found</br></div>'
-    file.write(matchstring)
-    # !!! Do the plotting step given local dictionary in output functions
-    return local
+    nfound = 0
+    local = dict.fromkeys(['lats', 'lons', 'deps'], np.array([]))
+    for ev_time in [UTCDateTime(i) for i in rtimes]:
+        cflag = 0
+        for j, cat in enumerate(external_catalogs):
+            # Get the arrival names only from Arrival_ column names
+            anames = [cat.filter(like='Arrival').columns[i].split('_')[1]
+                      for i in range(len(cat.filter(like='Arrival').columns))]
+            arrivals = cat.filter(like='Arrival').to_numpy().astype(str)
+            matched = np.any(
+                ((arrivals >= format(ev_time-detector.get('serr'))) & (
+                    arrivals <= format(ev_time+detector.get('serr')))), axis=1)
+            found = arrivals[matched]
+            if len(found) > 0:
+                cflag, matchstring, local = _write_matches(
+                    j, anames, ev_time, matched, cat, found, cflag,
+                    matchstring, local)
+                nfound += 1
+    return (nfound, matchstring, local)
 
 
 def prepare_catalog(detector):
@@ -713,29 +700,6 @@ def save_external_catalog(detector, csvfile, arrivals=False, start_time=None,
         print('No events found!')
     catalog.to_csv(csvfile, index=False, sep=delimiter)
     return catalog
-
-
-def _match_external(detector, rtimes, external_catalogs, matchstring):
-    """Find matches to repeater times within external catalogs."""
-    nfound = 0
-    local = dict.fromkeys(['lats', 'lons', 'deps'], np.array([]))
-    for ev_time in [UTCDateTime(i) for i in rtimes]:
-        cflag = 0
-        for j, cat in enumerate(external_catalogs):
-            # Get the arrival names only from Arrival_ column names
-            anames = [cat.filter(like='Arrival').columns[i].split('_')[1]
-                      for i in range(len(cat.filter(like='Arrival').columns))]
-            arrivals = cat.filter(like='Arrival').to_numpy().astype(str)
-            matched = np.any(
-                ((arrivals >= format(ev_time-detector.get('serr'))) & (
-                    arrivals <= format(ev_time+detector.get('serr')))), axis=1)
-            found = arrivals[matched]
-            if len(found) > 0:
-                cflag, matchstring, local = _write_matches(
-                    j, anames, ev_time, matched, cat, found, cflag,
-                    matchstring, local)
-                nfound += 1
-    return (nfound, matchstring, local)
 
 
 def _write_matches(j, anames, ev_time, matched, cat, found, cflag,
