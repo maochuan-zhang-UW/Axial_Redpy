@@ -34,11 +34,9 @@ def plot_junk(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    h5file, _, _, _, _, jtable, _, _, config = redpy.table.open_with_cfg(
-        configfile, verbose)
-    create_junk_folder(config)
-    redpy.plotting.create_junk_images(jtable, config)
-    h5file.close()
+    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector.output('junk')
+    detector.close()
 
 
 def create_junk_folder(config):
