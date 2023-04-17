@@ -17,3 +17,4 @@ import redpy.output
 from redpy.config import Config
 from redpy.detector import Detector
 from redpy.table import Table
+from redpy.waveform import Waveform

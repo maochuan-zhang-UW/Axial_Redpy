@@ -530,9 +530,15 @@ class Detector():
         """
         return self._build_dataframe(junk)
 
-    def update(self):
+    def update(self, tstart='', tend='', event_list=[], force=False,
+               expire=True):
         """Docstring when written."""
-        print('.update()')
+        # !!! Handle start/end behavior
+        if not self.waveforms:
+            self.waveforms = redpy.Waveform(self, tstart, tend, event_list)
+        else:
+            self.waveforms.update(self, tstart, tend, event_list)
+        # !!! Do stuff.
 
     def _build_dataframe(self, junk):
         """Build the dataframe representation of the detector."""
