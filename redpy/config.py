@@ -58,9 +58,9 @@ class Config():
         self.settings = {
             # !!! Dictionary needs to be organized
             'title': 'REDPy Catalog',
-            'outputpath': '',
+            'outputpath': './runs/',
             'groupname': 'default',
-            'filename': 'redpytable.h5',
+            'filename': './h5/redpytable.h5',
             'minorph': 0.05,
             'maxorph': 7.0,
             'nsec': 3600,
