@@ -217,7 +217,7 @@ def calculate_arrivals(detector, catalog, phase_list, time_column_name='Time'):
                 for arrival in arrivals:
                     atime = (UTCDateTime(catalog[time_column_name][i])
                              + arrival.time)
-                    catalog[f'Arrival_{arrival.name}'][i] = f'{atime}'
+                    catalog.loc[i, f'Arrival_{arrival.name}'] = f'{atime}'
     return catalog
 
 
