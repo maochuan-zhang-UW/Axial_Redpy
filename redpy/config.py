@@ -249,7 +249,7 @@ class Config():
         self.set('stalons', np.array(
             self.get('stalons').split(',')).astype(float))
         self.set('latitude_center', np.mean(self.get('stalats')))
-        self.set('longitude_center', np.mean(self.get('stalats')))
+        self.set('longitude_center', np.mean(self.get('stalons')))
 
     def _update_from_cfg(self):
         """Assign values from configuration file, enforcing type."""
