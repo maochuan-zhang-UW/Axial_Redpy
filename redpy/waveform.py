@@ -15,7 +15,14 @@ import numpy as np
 import obspy
 import pandas as pd
 from obspy import UTCDateTime
+from obspy.clients.earthworm import Client as EWClient
+from obspy.clients.fdsn import Client as FDSNClient
+from obspy.clients.seedlink import Client as SeedLinkClient
 from obspy.core.stream import Stream
+from obspy.core.trace import Trace
+from obspy.signal.trigger import coincidence_trigger
+
+from redpy.trigger import Trigger
 
 
 class Waveform():
@@ -24,7 +31,7 @@ class Waveform():
 
     Attributes
     ----------
-    event_list : list of datetimes
+    event_list : list of UTCDateTimes
         List of events to trigger on.
     filekey : DataFrame object or list
         Keys file names of local waveform data to their metadata.
@@ -35,12 +42,9 @@ class Waveform():
         Dictionary of UTCDateTime objects for keeping track of times.
     """
 
-#     window : Stream object
-#         Waveform data for the current processing chunk, up to configuration
-#         'nsec' seconds in length.
     def __init__(self, detector, tstart, tend, event_list=None):
         """
-        Load first round of waveform data and set attribute structure.
+        Set attribute structure and do initial preload if necessary.
 
         Parameters
         ----------
@@ -54,8 +58,9 @@ class Waveform():
             List of events to trigger on.
 
         """
-        if event_list:
-            self.event_list = event_list
+        if event_list is not None:
+            self.event_list = np.array(
+                [UTCDateTime(event) for event in event_list])
         else:
             self.event_list = []
         self.filekey = []
@@ -68,7 +73,26 @@ class Waveform():
         self._preload_check(
             detector, self.times['run_start'], self.times['run_end'])
 
-    def get_triggers(self, detector, window_start, window_end):  # force=False
+    def get_data(self, detector, window_start, window_end):
+        """Download or load a window of data."""
+        self._preload_check(detector, window_start, window_end)
+        if self.preload:
+            stream = self._extract_from_preload(
+                detector, window_start, window_end)
+        elif self.filekey:
+            stream = self._load_from_file(detector, window_start, window_end)
+        else:
+            stream = _download_from_client(detector, window_start, window_end)
+        stream = _filter_merge(detector, stream)
+        if detector.get('maxdt'):
+            offsets = np.fromstring(detector.get('offset'), sep=',')
+            for i, trace in enumerate(stream):
+                trace.stats.starttime = trace.stats.starttime-offsets[i]
+        stream = stream.trim(starttime=window_start, endtime=window_end,
+                             pad=True, fill_value=0)
+        return stream
+
+    def get_triggers(self, detector, stream, force=False):
         """
         Get triggers within a window.
 
@@ -76,26 +100,52 @@ class Waveform():
         ----------
         detector : Detector object
             Primary interface for handling detections.
-        window_start : UTCDateTime object
-            Beginning time of window.
-        window_end : UTCDateTime object
-            End time of window.
+        stream : Stream object
+            Waveforms for a window of time to trigger on.
 
         Returns
         -------
         list of Trigger objects
 
         """
-        self._preload_check(detector, window_start, window_end)
-        # !!! Download/load window
-        # !!! -- Preload check
-        # !!! Trigger
-        # !!! Return list of Trigger objects
-        return []
+        start_time = stream[0].stats.starttime
+        end_time = stream[0].stats.endtime
+        triggers = coincidence_trigger(
+            detector.get('trigalg'), detector.get('trigon'),
+            detector.get('trigoff'), stream.copy(),
+            detector.get('nstac'), sta=detector.get('swin'),
+            lta=detector.get('lwin'), details=True)
+        if force:
+            trig_times = self.event_list[(self.event_list > start_time) & (
+                self.event_list < end_time)]
+            ratios = np.zeros(len(trig_times))
+            for i, event in enumerate(trig_times):
+                bestmatch = detector.get('mintrig')
+                for trig in triggers:
+                    if np.abs(trig['time']-event) < bestmatch:
+                        bestmatch = np.abs(trig['time']-event)
+                        ratios[i] = np.max(
+                            trig['cft_peaks'])-detector.get('trigoff')
+        else:
+            trig_times = np.array([trig['time'] for trig in triggers])
+            ratios = np.array([np.max(trig['cft_peaks'])-detector.get(
+                'trigoff') for trig in triggers])
+        trig_list = []
+        if len(trig_times) > 0:
+            for i, trig in enumerate(trig_times):
+                # Enforce time at edges of stream
+                if (start_time + detector.get('atrig')
+                        <= trig < end_time - 2*detector.get('atrig')):
+                    trig_list.append(
+                        Trigger(detector, trig, ratios[i], stream))
+        return trig_list
 
-    def update(self, detector, tstart, tend, event_list=None):
+    def update_span(self, detector, tstart, tend, event_list=None):
         """
         Update the run start and end times for an existing instance.
+
+        # !!! Currently keeping while I decide if I need to keep anything
+        # !!! between runs or not...
 
         Parameters
         ----------
@@ -109,8 +159,9 @@ class Waveform():
             List of events to trigger on.
 
         """
-        if event_list:
-            self.event_list = event_list
+        if event_list is not None:
+            self.event_list = self.event_list = np.array(
+                [UTCDateTime(event) for event in event_list])
         else:
             self.event_list = []
         self.times['run_start'] = UTCDateTime(tstart)
@@ -119,32 +170,15 @@ class Waveform():
         self._preload_check(
             detector, self.times['run_start'], self.times['run_end'])
 
-    def _download_from_webservice(self, detector, window_start, window_end,
-                                  do_filter_merge=True):
-        """Download window of data from a FDSN webservice."""
-        print('Waveform._download_from_webservice()')
-        print(f'{detector} {window_start} {window_end} {do_filter_merge}')
-        print(f'{self.times}')
-        return True
-
-    def _load_from_file(self, detector):
-        """Load data from file."""
+    def _extract_from_preload(self, detector, window_start, window_end):
+        """Extract waveforms from preload."""
         stream = Stream()
-        nets = detector.get('network')
-        stas = detector.get('station')
-        locs = detector.get('location')
-        chas = detector.get('channel')
-        tstart = self.times['preload_start']
-        tend = self.times['preload_end']
-        for i, sta in enumerate(stas):
-            scnl = f'{nets[i]}.{sta}.{chas[i]}.{locs[i]}'
-            flist_sub = self.filekey.query(
-                f"scnl == '{scnl}' and starttime < '{tend}' "
-                f"and endtime > '{tstart}'")['filename'].to_list()
-            if len(flist_sub) > 0:
-                for file in flist_sub:
-                    stream = stream.extend(obspy.read(
-                        file, starttime=tstart, endtime=tend))
+        preload = self.preload.slice(
+            starttime=window_start, endtime=window_end+detector.get('maxdt'))
+        for scnl in _scnl_list_from_config(detector):
+            for trace in preload:
+                if scnl == _scnl_from_trace(trace):
+                    stream.append(trace.copy())
         return stream
 
     def _get_filekey(self, detector):
@@ -185,9 +219,7 @@ class Waveform():
                         print(file)
                     stmp = obspy.read(file, headonly=True)
                     filekey['filename'][i] = file
-                    filekey['scnl'][i] = (
-                        f'{stmp[0].stats.network}.{stmp[0].stats.station}.'
-                        f'{stmp[0].stats.channel}.{stmp[0].stats.location}')
+                    filekey['scnl'][i] = _scnl_from_trace(stmp[0])
                     filekey['starttime'][i] = stmp[0].stats.starttime
                     filekey['endtime'][i] = stmp[-1].stats.endtime
                 filekey.to_csv(path_or_buf=flname, index=False)
@@ -199,6 +231,19 @@ class Waveform():
                 f"starttime < '{self.times['run_end']+buf}' and "
                 f"endtime > '{self.times['run_start']-buf}'")
             self.filekey = filekey
+
+    def _load_from_file(self, detector, window_start, window_end):
+        """Load data from file."""
+        stream = Stream()
+        for scnl in _scnl_list_from_config(detector):
+            flist_sub = self.filekey.query(
+                f"scnl == '{scnl}' and starttime < '{window_end}' "
+                f"and endtime > '{window_start}'")['filename'].to_list()
+            if len(flist_sub) > 0:
+                for file in flist_sub:
+                    stream = stream.extend(obspy.read(
+                        file, starttime=window_start, endtime=window_end))
+        return stream
 
     def _preload_check(self, detector, window_start, window_end):
         """Check if new data need to be 'preloaded' into memory."""
@@ -214,22 +259,177 @@ class Waveform():
                     + detector.get('atrig') + detector.get('maxdt'))
                 self.times['preload_start'] = (window_start
                                                - detector.get('atrig'))
-                self.preload = self._load_from_file(detector)
+                self.preload = self._load_from_file(
+                    detector, self.times['preload_start'],
+                    self.times['preload_end'])
         elif (len(self.event_list) > 0) and (
                 window_start >= self.times['preload_end']):
             sub_list = self.event_list[
                 (self.event_list > window_start) & (
                     self.event_list < window_end + detector.get('nsec'))]
             if len(sub_list) > 1:
-                self.times['preload_end'] = (window_end + sub_list[-1]
-                                             - sub_list[0]
-                                             + 5*detector.get('atrig'))
+                self.times['preload_end'] = (
+                    window_end + (sub_list[-1] - sub_list[0])
+                    + 5*detector.get('atrig'))
                 self.times['preload_start'] = (window_start
                                                - 4*detector.get('atrig'))
-                self.preload = self._download_from_webservice(
-                  detector, self.times['preload_start'],
-                  self.times['preload_end'], do_filter_merge=False)
+                self.preload = _download_from_client(
+                    detector, self.times['preload_start'],
+                    self.times['preload_end'])
             else:
                 self.times['preload_start'] = window_start
                 self.times['preload_end'] = window_end
                 self.preload = None
+
+
+def _append_empty(detector, stream, scnl):
+    """
+    Append a Trace to the end of a Stream with SCNL information but no data.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    stream : Stream object
+        Stream that will contain Traces for each channel.
+    scnl : str
+        SCNL information to add.
+
+    Returns
+    -------
+    Stream object
+        Input Stream with empty Trace appended.
+
+    """
+    print(f'No data found for {scnl}')
+    trace = Trace()
+    trace.stats.sampling_rate = detector.get('samprate')
+    (trace.stats.network, trace.stats.station,
+     trace.stats.channel, trace.stats.location) = scnl.split('.')
+    return stream.append(trace)
+
+
+def _download_from_client(detector, window_start, window_end):
+    """Download window of data from a Client (e.g., FDSN webservice)."""
+    stream = Stream()
+    client = _get_client(detector)
+    for nslc in _nslc_list_from_config(detector):
+        try:
+            stmp = client.get_waveforms(
+                *nslc.split('.'), window_start,
+                window_end+detector.get('maxdt'))
+        except obspy.clients.fdsn.header.FDSNException as exc:
+            if 'client does not have a dataselect service' in str(exc):
+                raise exc  # Case where service is down rather than no data
+            # Try querying one more time
+            try:
+                stmp = client.get_waveforms(
+                    *nslc.split('.'), window_start,
+                    window_end+detector.get('maxdt'))
+            except Exception:
+                stmp = []
+        if stmp:
+            for trace in stmp:
+                trace.stats.location = nslc.split('.')[2]
+            stream.extend(stmp.copy())
+    return stream
+
+
+def _filter_merge(detector, stream):
+    """Filter and merge so data from each channel is in a single Trace."""
+    # !!! Rewrite this to better handle gaps
+    for trace in stream:
+        trace.data = np.where(trace.data == -2**31, 0, trace.data)
+    stream = stream.filter('bandpass', freqmin=detector.get('fmin'),
+                           freqmax=detector.get('fmax'), corners=2,
+                           zerophase=True)
+    stream = stream.taper(
+        0.05, type='hann', max_length=detector.get('mintrig'))
+    for trace in stream:
+        if trace.stats.sampling_rate != detector.get('samprate'):
+            trace = trace.resample(detector.get('samprate'))
+    stream = stream.merge(method=1, fill_value=0)
+    stream_scnls = np.array([_scnl_from_trace(trace) for trace in stream])
+    ordered_stream = Stream()
+    for scnl in _scnl_list_from_config(detector):
+        if len(stream_scnls) > 0:
+            idx = np.where(stream_scnls == scnl)
+            if len(idx[0]) > 0:
+                ordered_stream.append(stream[idx[0][0]])
+            else:
+                ordered_stream = _append_empty(detector, ordered_stream, scnl)
+        else:
+            ordered_stream = _append_empty(detector, ordered_stream, scnl)
+    return ordered_stream
+
+
+def _get_client(detector):
+    """
+    Decide which Client to use to query data.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+
+    Returns
+    -------
+    Client object
+        Handle to the appropriate Client.
+
+    Raises
+    ------
+    ValueError
+        If server string is not recognized.
+
+    """
+    if '://' not in detector.get('server'):
+        if '.' not in detector.get('server'):
+            return FDSNClient(detector.get('server'))
+        return EWClient(detector.get('server'), detector.get('port'))
+    if 'fdsnws://' in detector.get('server'):
+        server = detector.get('server').split('fdsnws://', 1)[1]
+        return FDSNClient(server)
+    if 'waveserver://' in detector.get('server'):
+        server_str = detector.get('server').split('waveserver://', 1)[1]
+        if len(server_str.split(':', 1)) == 2:
+            server, port = server_str.split(':', 1)
+        else:
+            server = server_str
+            port = '16017'
+        return EWClient(server, int(port))
+    if 'seedlink://' in detector.get('server'):
+        server_str = detector.get('server').split('seedlink://', 1)[1]
+        if len(server_str.split(':', 1)) == 2:
+            server, port = server_str.split(':', 1)
+        else:
+            server = server_str
+            port = '18000'
+        return SeedLinkClient(server, port=int(port), timeout=1)
+    raise ValueError(f'Unrecognized server: {detector.get("server")}')
+
+
+def _nslc_list_from_config(detector):
+    """Define list of NSLCs from configuration."""
+    nets = detector.get('network')
+    stas = detector.get('station')
+    locs = detector.get('location')
+    chas = detector.get('channel')
+    return [
+        f'{nets[i]}.{sta}.{locs[i]}.{chas[i]}' for i, sta in enumerate(stas)]
+
+
+def _scnl_from_trace(trace):
+    """Define SCNL from Trace header."""
+    return (f'{trace.stats.network}.{trace.stats.station}.'
+            f'{trace.stats.channel}.{trace.stats.location}')
+
+
+def _scnl_list_from_config(detector):
+    """Define list of SCNLs from configuration."""
+    nets = detector.get('network')
+    stas = detector.get('station')
+    locs = detector.get('location')
+    chas = detector.get('channel')
+    return [
+        f'{nets[i]}.{sta}.{chas[i]}.{locs[i]}' for i, sta in enumerate(stas)]

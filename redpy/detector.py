@@ -317,6 +317,8 @@ class Detector():
             calls redpy.locate.distant_families()
         'median':
             calls redpy.locate.get_median_locations()
+        'query':
+            calls redpy.locate.query_external()
 
         See the documentation for those functions for a full explanation of
         the required arguments and format of outputs.
@@ -348,8 +350,10 @@ class Detector():
             return redpy.locate.distant_families(self, *args, **kwargs)
         if method == 'median':
             return redpy.locate.get_median_locations(self, *args, **kwargs)
+        if method == 'query':
+            return redpy.locate.query_external(self, *args, **kwargs)
         raise ValueError(_UNKNOWN_METHOD.format(
-            "'catalog', 'distant', or 'median'"))
+            "'catalog', 'distant', 'median', or 'query"))
 
     def open(self):
         """Open connection to hdf5 file and populate Table links."""
@@ -530,15 +534,27 @@ class Detector():
         """
         return self._build_dataframe(junk)
 
-    def update(self, tstart='', tend='', event_list=[], force=False,
-               expire=True):
+    def update(self, method, tstart='', tend='', event_list=None, force=False):
         """Docstring when written."""
         # !!! Handle start/end behavior
         if not self.waveforms:
             self.waveforms = redpy.Waveform(self, tstart, tend, event_list)
         else:
-            self.waveforms.update(self, tstart, tend, event_list)
-        # !!! Do stuff.
+            self.waveforms.update_span(self, tstart, tend, event_list)
+        if method == 'backfill':
+            print('you chose backfill')
+            # !!! Change to iterate
+            stream = self.waveforms.get_data(
+                self, UTCDateTime(tstart), UTCDateTime(tend))
+            trigs = self.waveforms.get_triggers(self, stream, force)
+            for trig in trigs:
+                print(trig.trig_time)
+            # !!! Don't forget to update ptime in here; deal with spacing
+        elif method == 'catfill':
+            print('you chose catfill')
+        else:
+            raise ValueError(_UNKNOWN_METHOD.format(
+                "'backfill' or 'catfill'"))
 
     def _build_dataframe(self, junk):
         """Build the dataframe representation of the detector."""
