@@ -21,6 +21,7 @@ from tables import open_file
 
 import redpy.locate
 import redpy.output
+import redpy.trigger
 from redpy.config import Config
 from redpy.table import Table
 
@@ -311,14 +312,14 @@ class Detector():
         configuration parameter 'checkcomcat' to be True, as they parse the
         .html output files.
 
+        'arrivals':
+            calls redpy.locate.query_arrivals()
         'catalog':
             calls redpy.locate.compare_catalog()
         'distant':
             calls redpy.locate.distant_families()
         'median':
             calls redpy.locate.get_median_locations()
-        'query':
-            calls redpy.locate.query_external()
 
         See the documentation for those functions for a full explanation of
         the required arguments and format of outputs.
@@ -344,16 +345,16 @@ class Detector():
             If method is not recognized.
 
         """
+        if method == 'arrivals':
+            return redpy.locate.query_arrivals(self, *args, **kwargs)
         if method == 'catalog':
             return redpy.locate.compare_catalog(self, *args, **kwargs)
         if method == 'distant':
             return redpy.locate.distant_families(self, *args, **kwargs)
         if method == 'median':
             return redpy.locate.get_median_locations(self, *args, **kwargs)
-        if method == 'query':
-            return redpy.locate.query_external(self, *args, **kwargs)
         raise ValueError(_UNKNOWN_METHOD.format(
-            "'catalog', 'distant', 'median', or 'query"))
+            "'arrivals', 'catalog', 'distant', or 'median'"))
 
     def open(self):
         """Open connection to hdf5 file and populate Table links."""
@@ -547,8 +548,9 @@ class Detector():
             stream = self.waveforms.get_data(
                 self, UTCDateTime(tstart), UTCDateTime(tend))
             trigs = self.waveforms.get_triggers(self, stream, force)
-            for trig in trigs:
-                print(trig.trig_time)
+            print(f'Original triggers: {trigs}')
+            trigs = redpy.trigger.remove_duplicates(self, trigs)
+            print(f'Duplicates removed: {trigs}')
             # !!! Don't forget to update ptime in here; deal with spacing
         elif method == 'catfill':
             print('you chose catfill')
