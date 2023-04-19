@@ -583,6 +583,37 @@ def prepare_catalog(detector):
     return external_catalogs
 
 
+def query_arrivals(detector, tmin, tmax, outfile=None):
+    """
+    Query an external event catalog for a list of P-wave arrival times.
+
+    Basically combines query_external() and handle_arrivals(), and returns
+    an event_list that can be used in Detector.update().
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    tmin : UTCDateTime object
+        Start time for catalog query.
+    tmax : UTCDateTime object
+        End time for catalog query.
+    outfile : str, optional
+        Where to save the catalog to file.
+
+    Returns
+    -------
+    str list
+        List of P-wave arrival times for local events.
+
+    """
+    catalog = query_external(detector, 'local', tmin, tmax, True)
+    catalog = handle_arrivals(detector, catalog, 'Time', 'Arrival')
+    if outfile:
+        catalog.to_csv(outfile)
+    return list(catalog['Arrival'])
+
+
 def query_external(detector, region, tmin, tmax, arrivals=True):
     """
     Query and format an external event catalog using a web service.
