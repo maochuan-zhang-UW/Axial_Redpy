@@ -67,7 +67,7 @@ def assemble_bokeh_timeline(detector, options, filepath):
             print(f'{plot} is not a valid plot type. Moving on.')
     for plot in plots:
         plot.x_range = plots[0].x_range
-        plot = _add_bokeh_annotations(plot, detector)
+        plot = _add_bokeh_annotations(detector, plot)
     gridplot_items = [[Div(
         text=options['divtitle'], width=1000, margin=(-40, 5, -10, 5))]]
     pnum = 0
@@ -118,33 +118,33 @@ def assemble_pdf_timeline(detector, options):
     for plot in plot_types:
         if plot == 'eqrate':
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = _add_pdf_annotations(ax, options, detector)
+            ax = _add_pdf_annotations(detector, ax, options)
             ax = subplot_rate(detector, options, use_bokeh=False, ax=ax)
             pnum += 1
         elif plot == 'fi':
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = _add_pdf_annotations(ax, options, detector)
+            ax = _add_pdf_annotations(detector, ax, options)
             ax = subplot_fi(detector, options, use_bokeh=False, ax=ax)
             pnum += 1
         elif plot == 'occurrence':
             ax = fig.add_subplot(
                 nsub, 1, (pnum+1, pnum+options['occurheight']), sharex=axref)
-            ax = _add_pdf_annotations(ax, options, detector)
+            ax = _add_pdf_annotations(detector, ax, options)
             ax = subplot_occurrence(
                 detector, options, 'rate', use_bokeh=False, ax=ax)
-            _add_pdf_colorbar(ax, 'rate', options, detector)
+            _add_pdf_colorbar(detector, ax, 'rate', options)
             pnum += options['occurheight']
         elif plot == 'occurrencefi':
             ax = fig.add_subplot(
                 nsub, 1, (pnum+1, pnum+options['occurheight']), sharex=axref)
-            ax = _add_pdf_annotations(ax, options, detector)
+            ax = _add_pdf_annotations(detector, ax, options)
             ax = subplot_occurrence(
                 detector, options, 'fi', use_bokeh=False, ax=ax)
-            _add_pdf_colorbar(ax, 'fi', options, detector)
+            _add_pdf_colorbar(detector, ax, 'fi', options)
             pnum += options['occurheight']
         elif plot == 'longevity':
             ax = fig.add_subplot(nsub, 1, pnum+1, sharex=axref)
-            ax = _add_pdf_annotations(ax, options, detector)
+            ax = _add_pdf_annotations(detector, ax, options)
             ax = subplot_longevity(detector, options, use_bokeh=False, ax=ax)
             pnum += 1
         else:
@@ -518,7 +518,7 @@ def subplot_rate(detector, options, use_bokeh=True, ax=None):
     return ax
 
 
-def _add_bokeh_annotations(fig, detector):
+def _add_bokeh_annotations(detector, fig):
     """Plot annotations on Bokeh figure."""
     if detector.get('anotfile') != '':
         annotations = pd.read_csv(detector.get('anotfile'))
@@ -536,20 +536,20 @@ def _add_bokeh_annotations(fig, detector):
     return fig
 
 
-def _add_pdf_colorbar(ax, colorby, options, detector):
+def _add_pdf_colorbar(detector, ax, colorby, options):
     """
     Add a colorbar to .pdf occurrence plots.
 
     Parameters
     ----------
+    detector : Detector object
+        Primary interface for handling detections.
     ax : Axid object
         Handle to the current axis.
     colorby : str
         Determines colormap to use ('rate' or 'fi')
     options : float
         Width (in days) of time bins for occurrence plot histogram.
-    detector : Detector object
-        Primary interface for handling detections.
 
     """
     cax = ax.inset_axes([0.025, 0.925, 0.25, 0.025])
@@ -581,7 +581,7 @@ def _add_pdf_colorbar(ax, colorby, options, detector):
     cax.tick_params(length=0)
 
 
-def _add_pdf_annotations(ax, options, detector):
+def _add_pdf_annotations(detector, ax, options):
     """Plot annotations on .pdf overview figure."""
     if detector.get('anotfile') != '':
         annotations = pd.read_csv(detector.get('anotfile'))

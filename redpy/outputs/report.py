@@ -70,7 +70,7 @@ def assemble_bokeh_timeline_report(
     for plot in plots:
         # pylint: disable=W0212
         # I trust use of protected member here.
-        plot = redpy.outputs.timeline._add_bokeh_annotations(plot, detector)
+        plot = redpy.outputs.timeline._add_bokeh_annotations(detector, plot)
         # pylint: enable=W0212
     gridplot_items = []
     pnum = 0

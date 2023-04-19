@@ -69,7 +69,7 @@ def assemble_family_image(detector, fnum, tmin, tmax, bboxes, oformat, dpi):
     subplot_amplitude(detector, rtable_fam, members, core_idx, ax=axes[2])
     subplot_spacing(detector, members, core_idx, ax=axes[3])
     subplot_correlation(detector, members, core_idx, ax=axes[4])
-    axes = _format_family_image(axes, detector)
+    axes = _format_family_image(detector, axes)
     if tmin and tmax:
         axes[2].set_xlim(tmin, tmax)
     elif tmin:
@@ -116,7 +116,7 @@ def correlation_matrix_plot(detector, ccc_fam, ccc_full, members, ordered,
     else:
         plt.title('Stored Correlation Matrix', fontweight='bold')
         ax1 = _add_horizontal_annotations(
-            ax1, detector.get('plotvars')['rtimes_mpl'][members], detector)
+            detector, ax1, detector.get('plotvars')['rtimes_mpl'][members])
     if not skip_recalculate_ccc:
         ax2 = fig.add_subplot(1, 2, 2)
         cax2 = ax2.imshow(
@@ -127,7 +127,7 @@ def correlation_matrix_plot(detector, ccc_fam, ccc_full, members, ordered,
         else:
             plt.title('Full Correlation Matrix', fontweight='bold')
             ax2 = _add_horizontal_annotations(
-                ax2, detector.get('plotvars')['rtimes_mpl'][members], detector)
+                detector, ax2, detector.get('plotvars')['rtimes_mpl'][members])
     plt.tight_layout()
     plt.savefig(outfile, dpi=100)
     plt.close(fig)
@@ -150,9 +150,9 @@ def create_core_images(detector):
         if detector.get('ftable', 'printme', fnum) == 1:
             core = detector.get('rtable', row=core_idx)
             data = prep_wiggle(
-                core['waveform'], detector.get('printsta'),
+                detector, core['waveform'], detector.get('printsta'),
                 core['windowStart'],
-                core['windowAmp'][detector.get('printsta')], detector)
+                core['windowAmp'][detector.get('printsta')])
             wiggle_plot(
                 data, (5, 1), os.path.join(
                     detector.get('output_folder'), 'families', f'{fnum}.png'))
@@ -186,8 +186,6 @@ def create_junk_images(detector):
 
     Parameters
     ----------
-    jtable : Table object
-        Handle to the Junk table.
     detector : Detector object
         Primary interface for handling detections.
 
@@ -200,9 +198,9 @@ def create_junk_images(detector):
             # Concatenate all channels together
             data = np.append(
                 data, prep_wiggle(
-                    row['waveform'], sta,
+                    detector, row['waveform'], sta,
                     row['windowStart'] + int(detector.get(
-                        'ptrig')*detector.get('samprate')), 0, detector))
+                        'ptrig')*detector.get('samprate')), 0))
         jtime = (UTCDateTime(
             row['startTime']) + detector.get('ptrig')).strftime('%Y%m%d%H%M%S')
         jtype = row['isjunk']
@@ -261,7 +259,7 @@ def initialize_family_image(detector, bboxes=None):
             ax.set_position(bboxes[i])
     else:
         # Set up format for axes positions
-        axes = _format_family_image(axes, detector)
+        axes = _format_family_image(detector, axes)
         axes[2].set_xlim(0, 1)  # Ensure that dates near the edge fit
         plt.tight_layout()
         bboxes = [ax.get_position() for ax in axes]
@@ -294,7 +292,7 @@ def move_images(detector):
                       os.path.join(opath, f'map{fnum}.png.tmp'))
 
 
-def prep_wiggle(waveform, sta, window_start, normalize_amplitude, detector):
+def prep_wiggle(detector, waveform, sta, window_start, normalize_amplitude):
     """
     Cut window around trigger time and normalizes the waveform for plotting.
 
@@ -304,6 +302,8 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, detector):
 
     Parameters
     ----------
+    detector : Detector object
+        Primary interface for handling detections.
     waveform : float ndarray
         Waveform to be plotted, all stations/channels concatenated.
     sta : int
@@ -314,8 +314,6 @@ def prep_wiggle(waveform, sta, window_start, normalize_amplitude, detector):
         Amplitude to normalize to. If passed 0, uses the maximum of the
         entire window instead with a small epsilon to prevent division by 0
         if empty.
-    detector : Detector object
-        Primary interface for handling detections.
 
     Returns
     -------
@@ -593,8 +591,8 @@ def subplot_waveforms(
         data = np.zeros((len(rtable_fam), int(detector.get('winlen')*2)))
         for i, row in enumerate(rtable_fam):
             data[i, :] = prep_wiggle(
-                row['waveform'], sta_idx, row['windowStart'],
-                row['windowAmp'][sta_idx], detector)
+                detector, row['waveform'], sta_idx, row['windowStart'],
+                row['windowAmp'][sta_idx])
         if len(rtable_fam) > 12:
             ax.imshow(
                 data, aspect='auto', vmin=-1, vmax=1, cmap='RdBu',
@@ -611,15 +609,15 @@ def subplot_waveforms(
             data_stack = np.zeros((int(detector.get('winlen')*2), ))
             for row in rtable_fam:
                 data_stack += prep_wiggle(
-                    row['waveform'], sta, row['windowStart'],
-                    row['windowAmp'][sta], detector)
+                    detector, row['waveform'], sta, row['windowStart'],
+                    row['windowAmp'][sta])
             data_stack = data_stack/(np.max(np.abs(data_stack))+1e-12)
             data_stack[data_stack > 1] = 1
             data_stack[data_stack < -1] = -1
             data_core = prep_wiggle(
-                rtable_fam['waveform'][core_idx], sta,
+                detector, rtable_fam['waveform'][core_idx], sta,
                 rtable_fam['windowStart'][core_idx],
-                rtable_fam['windowAmp'][core_idx, sta], detector)
+                rtable_fam['windowAmp'][core_idx, sta])
             # Plot
             ax.plot(time_vector, data_stack - 1.75*sta, 'r', linewidth=1)
             ax.plot(time_vector, data_core - 1.75*sta, 'k', linewidth=0.25)
@@ -720,7 +718,7 @@ def wiggle_plot_all(detector, rtable_fam, members, ordered, outfile):
             title_text += ' (Ordered)'
         else:
             ax = _add_horizontal_annotations(
-                ax, detector.get('plotvars')['rtimes_mpl'][members], detector)
+                detector, ax, detector.get('plotvars')['rtimes_mpl'][members])
         plt.title(title_text, fontweight='bold')
         subplot_waveforms(
             detector, rtable_fam, 0, ax, plot_single=True, sta_idx=sta)
@@ -731,18 +729,18 @@ def wiggle_plot_all(detector, rtable_fam, members, ordered, outfile):
     plt.close(fig)
 
 
-def _add_horizontal_annotations(ax, evtimes, detector):
+def _add_horizontal_annotations(detector, ax, evtimes):
     """
     Plot annotations horizontally across an image (e.g., waveforms, matrix).
 
     Parameters
     ----------
+    detector : Detector object
+        Primary interface for handling detections.
     ax : Axis object
         Handle to the matplotlib axis.
     evtimes : float ndarray
         Sorted array of event times plotted on each row of the image.
-    detector : Detector object
-        Primary interface for handling detections.
 
     Returns
     -------
@@ -764,16 +762,16 @@ def _add_horizontal_annotations(ax, evtimes, detector):
     return ax
 
 
-def _format_family_image(axes, detector):
+def _format_family_image(detector, axes):
     """
     Handle formatting for each axis in the family image.
 
     Parameters
     ----------
-    axes : list of Axis objects
-        List of subplot axes to modify.
     detector : Detector object
         Primary interface for handling detections.
+    axes : list of Axis objects
+        List of subplot axes to modify.
 
     Returns
     -------
