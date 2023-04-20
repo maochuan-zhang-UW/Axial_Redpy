@@ -107,31 +107,32 @@ def remove_duplicates(detector, trig_list):
 
     """
     trig_list = np.array(trig_list)
-    trig_times = np.array([i.time for i in trig_list])
-    duplicates = _find_duplicates(
-        detector, trig_times, np.arange(len(trig_times)))
-    if len(duplicates) > 0:
-        trig_list = np.delete(trig_list, duplicates)
-        trig_times = np.delete(trig_times, duplicates)
-        # Do again, just in case we missed some
+    if len(trig_list) > 0:
+        trig_times = np.array([i.time for i in trig_list])
         duplicates = _find_duplicates(
             detector, trig_times, np.arange(len(trig_times)))
         if len(duplicates) > 0:
             trig_list = np.delete(trig_list, duplicates)
             trig_times = np.delete(trig_times, duplicates)
-    # Now compare against existing triggers in ttable
-    existing = detector.get('ttable', 'startTimeMPL')
-    existing = existing[
-        (existing > (np.min(trig_times)-100).matplotlib_date)
-        & (existing < (np.max(trig_times)+100).matplotlib_date)]
-    existing = [UTCDateTime(
-        mdates.num2date(i))+detector.get('ptrig') for i in existing]
-    rank = np.concatenate((-np.ones(len(existing)),
-                           np.arange(len(trig_times)))).astype(int)
-    duplicates = _find_duplicates(
-        detector, np.concatenate((existing, trig_times)), rank)
-    if len(duplicates) > 0:
-        return np.delete(trig_list, duplicates).tolist()
+            # Do again, just in case we missed some
+            duplicates = _find_duplicates(
+                detector, trig_times, np.arange(len(trig_times)))
+            if len(duplicates) > 0:
+                trig_list = np.delete(trig_list, duplicates)
+                trig_times = np.delete(trig_times, duplicates)
+        # Now compare against existing triggers in ttable
+        existing = detector.get('ttable', 'startTimeMPL')
+        existing = existing[
+            (existing > (np.min(trig_times)-100).matplotlib_date)
+            & (existing < (np.max(trig_times)+100).matplotlib_date)]
+        existing = [UTCDateTime(
+            mdates.num2date(i))+detector.get('ptrig') for i in existing]
+        rank = np.concatenate((-np.ones(len(existing)),
+                               np.arange(len(trig_times)))).astype(int)
+        duplicates = _find_duplicates(
+            detector, np.concatenate((existing, trig_times)), rank)
+        if len(duplicates) > 0:
+            return np.delete(trig_list, duplicates).tolist()
     return trig_list.tolist()
 
 

@@ -115,12 +115,15 @@ class Waveform():
             detector.get('trigoff'), stream.copy(),
             detector.get('nstac'), sta=detector.get('swin'),
             lta=detector.get('lwin'), details=True)
+        # Remove triggers from coincident gaps
+        triggers = _gap_check(detector, triggers, stream)
         if force:
             trig_times = self.event_list[(self.event_list > start_time) & (
                 self.event_list < end_time)]
             ratios = np.zeros(len(trig_times))
             for i, event in enumerate(trig_times):
                 bestmatch = detector.get('mintrig')
+                ratios[i] = 0
                 for trig in triggers:
                     if np.abs(trig['time']-event) < bestmatch:
                         bestmatch = np.abs(trig['time']-event)
@@ -361,6 +364,20 @@ def _filter_merge(detector, stream):
         else:
             ordered_stream = _append_empty(detector, ordered_stream, scnl)
     return ordered_stream
+
+
+def _gap_check(detector, triggers, stream):
+    """Remove triggers that occur right after a gap."""
+    for trig in triggers:
+        n_gaps = 0
+        for waves in stream:
+            if waves.id in trig['trace_ids']:
+                data = waves.slice(trig['time']-1, trig['time']).data
+                if len(np.where(data == 0)[0])/len(data) >= 0.5:
+                    n_gaps += 1
+        if n_gaps >= detector.get('nstac'):
+            triggers.remove(trig)
+    return triggers
 
 
 def _get_client(detector):
