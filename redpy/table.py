@@ -433,7 +433,7 @@ class Table():
             self.table.attrs.atrig = config.get('atrig')
             self.table.attrs.fmin = config.get('fmin')
             self.table.attrs.fmax = config.get('fmax')
-            self.table.attrs.previd = 0
+            self.table.attrs.previd = -1
             self.table.attrs.ptime = 0
         if self.name == 'ftable':
             self.table.attrs.allowed_max_famlen = config.get('max_famlen')
