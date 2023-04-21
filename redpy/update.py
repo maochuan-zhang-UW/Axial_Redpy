@@ -8,6 +8,8 @@ The primary function of this module is to support the .update() method of
 Detector() objects. The .update() method creates triggers from continuous
 waveform data that are cross-correlated and sorted into families.
 """
+import time
+
 import matplotlib.dates as mdates
 import numpy as np
 from obspy import UTCDateTime
@@ -95,12 +97,18 @@ def from_window(detector, window_start, window_end, force):
         the event_list contained in detector.waveforms.
 
     """
-    stream = detector.waveforms.get_data(detector, window_start, window_end)
+    i_time = time.time()
+    stream, d_time = detector.waveforms.get_data(
+        detector, window_start, window_end)
     trig_list = detector.waveforms.get_triggers(detector, stream, force)
     trig_list = remove_duplicates(detector, trig_list)
     trig_list = clean_junk(detector, trig_list)
-    tstring = '\n'.join([str(trig) for trig in trig_list])
-    print(f'Triggers remaining to add:\n{tstring}')
+    for trig in trig_list:
+        trig.populate(detector, 'otable')
+    if detector.get('verbose'):
+        print('Time spent this iteration: '
+              f'{(time.time()-i_time-d_time):.2f} seconds '
+              f'(+{d_time:.2f} seconds getting data)')
 
 
 def remove_duplicates(detector, trig_list):
