@@ -10,6 +10,7 @@ triggering of continuous waveform data.
 import glob
 import itertools
 import os
+import time
 
 import numpy as np
 import obspy
@@ -74,7 +75,27 @@ class Waveform():
             detector, self.times['run_start'], self.times['run_end'])
 
     def get_data(self, detector, window_start, window_end):
-        """Download or load a window of data."""
+        """
+        Download or load a window of data.
+
+        Parameters
+        ----------
+        detector : Detector object
+            Primary interface for handling detections.
+        window_start : UTCDateTime object
+            Start of window to get data for.
+        window_end : UTCDateTime object
+            End of window to get data for.
+
+        Returns
+        -------
+        Stream object
+            Waveforms for a window of time.
+        float
+            Seconds spent getting data.
+
+        """
+        t_get = time.time()
         self._preload_check(detector, window_start, window_end)
         if self.preload:
             stream = self._extract_from_preload(
@@ -90,7 +111,7 @@ class Waveform():
                 trace.stats.starttime = trace.stats.starttime-offsets[i]
         stream = stream.trim(starttime=window_start, endtime=window_end,
                              pad=True, fill_value=0)
-        return stream
+        return stream, time.time()-t_get
 
     def get_triggers(self, detector, stream, force=False):
         """
