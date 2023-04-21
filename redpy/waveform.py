@@ -340,14 +340,13 @@ def _download_from_client(detector, window_start, window_end):
 
 def _filter_merge(detector, stream):
     """Filter and merge so data from each channel is in a single Trace."""
-    # !!! Rewrite this to better handle gaps
     for trace in stream:
         trace.data = np.where(trace.data == -2**31, 0, trace.data)
     stream = stream.filter('bandpass', freqmin=detector.get('fmin'),
                            freqmax=detector.get('fmax'), corners=2,
                            zerophase=True)
     stream = stream.taper(
-        0.05, type='hann', max_length=detector.get('mintrig'))
+        0.05, type='hann', max_length=detector.get('mintrig')/10)
     for trace in stream:
         if trace.stats.sampling_rate != detector.get('samprate'):
             trace = trace.resample(detector.get('samprate'))
@@ -368,12 +367,18 @@ def _filter_merge(detector, stream):
 
 def _gap_check(detector, triggers, stream):
     """Remove triggers that occur right after a gap."""
-    for trig in triggers:
+    winlen = detector.get('winlen')
+    winstart = 0.1*winlen/detector.get('samprate')
+    winend = 0.9*winlen/detector.get('samprate')
+    for trig in triggers.copy():
         n_gaps = 0
         for waves in stream:
             if waves.id in trig['trace_ids']:
-                data = waves.slice(trig['time']-1, trig['time']).data
-                if len(np.where(data == 0)[0])/len(data) >= 0.5:
+                pretrig = waves.slice(trig['time']-winstart, trig['time']).data
+                window = waves.slice(trig['time']-winstart,
+                                     trig['time']+winend)
+                if (len(np.where(pretrig == 0)[0])/len(pretrig) >= 0.5) or (
+                        np.sort(np.abs(window))[int(winlen/5)] == 0):
                     n_gaps += 1
         if n_gaps >= detector.get('nstac'):
             triggers.remove(trig)
