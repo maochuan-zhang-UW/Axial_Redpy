@@ -10,27 +10,95 @@ for similarity to be sorted into families. This module also has functions
 for handling cross-correlation matrices.
 """
 import numpy as np
-from scipy.fftpack import ifft
-# from scipy.fftpack import fft, ifft
+from scipy.fftpack import fft, ifft
 
 # import redpy.cluster
 # import redpy.table
 
 
-def get_correlation_function(window_fft1, window_fft2, sta, detector):
+def calculate_window(detector, waveform, trigger_sample):
+    """
+    Calculate derived quantities for a window of data for cross-correlation.
+
+    Quantities are a scaling coefficient, the Fourier transform, and
+    Frequency Index (FI). The scaling coefficient is the inverse square
+    root of the sum of squared amplitudes, which normalizes the
+    cross-correlation coefficient to 1.0 for true auto-correlation. FI is
+    the logarithm (base 10) of the ratio of the mean spectral amplitudes in
+    two frequency windows (high/low) such that FI of 0 is equal amplitudes,
+    positive FI has more amplitude in the higher frequencies, and negative
+    FI has more amplitude in the lower frequencies. Quantities are derived
+    for each station individually.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    waveform : float ndarray
+        Waveform data for all stations, concatenated.
+    trigger_sample : integer
+        Sample of trigger time relative to waveform start.
+
+    Returns
+    -------
+    float ndarray
+        Scaling coefficient to normalize cross-correlation for each station.
+    complex ndarray
+        Fourier transforms for each station concatenated.
+    float ndarray
+        Frequency index for each station, NaNs where missing data.
+
+    """
+    # Shift window to left by 10% of total window length
+    winlen = detector.get('winlen')
+    wshape = detector.get('wshape')
+    window_start = trigger_sample - winlen/10
+    window_coeff = np.zeros(detector.get('nsta'))
+    window_fft = np.zeros(
+        winlen*detector.get('nsta'),).astype(np.complex64)
+    window_fi = np.zeros(detector.get('nsta'))
+    for i in range(detector.get('nsta')):
+        winstart = int(i*wshape + window_start)
+        winend = int(i*wshape + window_start + winlen)
+        window = waveform[winstart:winend]
+        fftwin = np.reshape(fft(window), (winlen, ))
+        window_fft[i*winlen:(i+1)*winlen] = fftwin
+        if np.sort(np.abs(window))[int(winlen/5)] == 0:
+            window_fi[i] = np.nan
+        else:
+            window_coeff[i] = 1/np.sqrt(sum(window * window))
+            window_fi[i] = _calculate_fi(detector, fftwin)
+    return window_coeff, window_fft, window_fi
+
+
+def _calculate_fi(detector, fftwin):
+    """Calculate Frequency Index given the FFT of a window of data."""
+    winlen = detector.get('winlen')
+    samprate = detector.get('samprate')
+    return np.log10(
+        np.mean(np.abs(np.real(fftwin[
+            int(detector.get('fiupmin')*winlen/samprate):
+            int(detector.get('fiupmax')*winlen/samprate)]))
+        ) / np.mean(np.abs(np.real(fftwin[
+            int(detector.get('filomin')*winlen/samprate):
+            int(detector.get('filomax')*winlen/samprate)]))
+        ))
+
+
+def get_correlation_function(detector, window_fft1, window_fft2, sta):
     """
     Calculate the correlation function for a single channel.
 
     Parameters
     ----------
+    detector : Detector object
+        Primary interface for handling detections.
     window_fft1 : complex ndarray
         Fourier transform of first window on all stations, concatenated.
     window_fft2 : complex ndarray
         Fourier transform of second window on all stations, concatenated.
     sta : int
         Index of station/channel of interest.
-    detector : Config object
-        Describes the run parameters.
 
     Returns
     -------
@@ -57,12 +125,12 @@ def make_full(detector, rtable_sub, ccc_sub):
 
     Parameters
     ----------
+    detector : Detector object
+        Primary interface for handling detections.
     rtable_sub : structured array
         Handle to a subset of the Repeaters table.
     ccc_sub : float ndarray
         Existing correlation matrix corresponding to that subset.
-    config : Config object
-        Describes the run parameters.
 
     Returns
     -------
@@ -79,10 +147,9 @@ def make_full(detector, rtable_sub, ccc_sub):
                 if k % 100000 == 0:
                     print(f'{(100*k/total_missing):3.2f}% done...')
                 cor, _, _ = xcorr_1x1(
-                    rtable_sub['windowCoeff'][i],
-                    rtable_sub['windowCoeff'][j],
-                    rtable_sub['windowFFT'][i],
-                    rtable_sub['windowFFT'][j], detector)
+                    detector,
+                    rtable_sub['windowCoeff'][i], rtable_sub['windowCoeff'][j],
+                    rtable_sub['windowFFT'][i], rtable_sub['windowFFT'][j])
                 ccc_full[i, j] = cor
                 ccc_full[j, i] = cor
                 k += 1
@@ -129,7 +196,7 @@ def subset_matrix(ids_sub, ccc_sparse, return_type='maxrow', ind=-1):
 
 
 def xcorr_1x1(
-        window_coeff1, window_coeff2, window_fft1, window_fft2, detector):
+        detector, window_coeff1, window_coeff2, window_fft1, window_fft2):
     """
     Calculate the cross-correlation coefficient and lag for two windows.
 
@@ -143,6 +210,8 @@ def xcorr_1x1(
 
     Parameters
     ----------
+    detector : Detector object
+        Primary interface for handling detections.
     window_coeff1 : float ndarray
         Amplitude coefficient of first window on all stations.
     window_coeff2 : float ndarray
@@ -168,7 +237,7 @@ def xcorr_1x1(
     for sta in range(detector.get('nsta')):
         # This is a very expensive calculation!
         correlation_function = get_correlation_function(
-            window_fft1, window_fft2, sta, detector)
+            detector, window_fft1, window_fft2, sta)
         indx = np.argmax(correlation_function)
         station_cors[sta] = correlation_function[indx] * coeffs[sta]
         station_lags[sta] = indx

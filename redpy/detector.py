@@ -21,7 +21,7 @@ from tables import open_file
 
 import redpy.locate
 import redpy.output
-import redpy.trigger
+import redpy.update
 from redpy.config import Config
 from redpy.table import Table
 
@@ -545,12 +545,8 @@ class Detector():
         if method == 'backfill':
             print('you chose backfill')
             # !!! Change to iterate
-            stream = self.waveforms.get_data(
-                self, UTCDateTime(tstart), UTCDateTime(tend))
-            trigs = self.waveforms.get_triggers(self, stream, force)
-            print(f'Original triggers: {trigs}')
-            trigs = redpy.trigger.remove_duplicates(self, trigs)
-            print(f'Duplicates removed: {trigs}')
+            redpy.update.from_window(
+                self, UTCDateTime(tstart), UTCDateTime(tend), force)
             # !!! Don't forget to update ptime in here; deal with spacing
         elif method == 'catfill':
             print('you chose catfill')
