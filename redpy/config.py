@@ -132,8 +132,8 @@ class Config():
             'kurtwin': 5.,
             'kurtmax': 80.,
             'kurtfmax': 150.,
-            'oratiomax': 0.15,
-            'telefi': -1.,
+            'oratiomax': 0.20,
+            'telefi': -1.5,  # -1
             'teleok': 2  # 1
         }
         self.custom_settings = []
