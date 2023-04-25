@@ -236,6 +236,7 @@ class Config():
         """Populate derived settings."""
         samprate = self.get('samprate')
         self.set('ptrig', 1.5*self.get('winlen')/samprate)
+        self.set('start_sample', 1.5*self.get('winlen'))
         self.set('atrig', 3*self.get('winlen')/samprate)
         self.set('mintrig', 0.75*self.get('winlen')/samprate)
         self.set(

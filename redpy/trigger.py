@@ -48,7 +48,7 @@ class Trigger():
             time - detector.get('ptrig'),
             time + detector.get('atrig') + 2/detector.get('samprate')
             ).copy()
-        self.start_sample = detector.get('ptrig')*detector.get('samprate')
+        self.start_sample = detector.get('start_sample')
         self.ratio = ratio
         self.concat = np.array([])
         self.fft = np.array([])
@@ -79,7 +79,7 @@ class Trigger():
         self._concatenate(detector)  # fill self.concat
         self.coeff, self.fft, self.freq_index = calculate_window(
             detector, self.concat,
-            detector.get('ptrig')*detector.get('samprate'))
+            detector.get('start_sample'))
 
     def populate(self, detector, table_type, n_junk=0, n_tele=0):
         """
@@ -175,7 +175,7 @@ class Trigger():
             row['startTime'] = self.waveforms[0].stats.starttime.isoformat()
             row['waveform'] = self.concat
             row['windowStart'] = int(
-                detector.get('ptrig')*detector.get('samprate'))
+                detector.get('start_sample'))
             row['isjunk'] = jtype
             detector.get('jtable').append(row)
 
