@@ -71,20 +71,6 @@ def calculate_window(detector, waveform, trigger_sample):
     return window_coeff, window_fft, window_fi
 
 
-def _calculate_fi(detector, fftwin):
-    """Calculate Frequency Index given the FFT of a window of data."""
-    winlen = detector.get('winlen')
-    samprate = detector.get('samprate')
-    return np.log10(
-        np.mean(np.abs(np.real(fftwin[
-            int(detector.get('fiupmin')*winlen/samprate):
-            int(detector.get('fiupmax')*winlen/samprate)]))
-        ) / np.mean(np.abs(np.real(fftwin[
-            int(detector.get('filomin')*winlen/samprate):
-            int(detector.get('filomax')*winlen/samprate)]))
-        ))
-
-
 def get_correlation_function(detector, window_fft1, window_fft2, sta):
     """
     Calculate the correlation function for a single channel.
@@ -171,6 +157,7 @@ def subset_matrix(ids_sub, ccc_sparse, return_type='maxrow', ind=-1):
             'maxrow' : Returns row of matrix with highest sum.
             'indrow' : Returns row corresponding to 'ind' (e.g., the core).
             'matrix' : Returns the full dense matrix.
+            'sparse' : Returns the sparse matrix (without eye matrix).
     ind : int, optional
         Index of the row to return within the subset (default last row).
 
@@ -183,15 +170,16 @@ def subset_matrix(ids_sub, ccc_sparse, return_type='maxrow', ind=-1):
     ccc_sub = ccc_sparse[ids_sub, :]
     ccc_sub = ccc_sub[:, ids_sub]
     ccc_sub += ccc_sub.transpose()
+    if return_type == 'sparse':
+        return ccc_sub
     if return_type == 'matrix':
         ccc_sub = ccc_sub.todense()
         ccc_sub = ccc_sub + np.eye(len(ids_sub))
-        ccc_array = np.squeeze(np.asarray(ccc_sub))
-    else:
-        if return_type == 'maxrow':
-            ind = np.argmax(ccc_sub.sum(axis=0))
-        ccc_array = np.squeeze(np.asarray(ccc_sub[:, ind].todense()))
-        ccc_array[ind] = 1  # For autocorrelation
+        return np.squeeze(np.asarray(ccc_sub))
+    if return_type == 'maxrow':
+        ind = np.argmax(ccc_sub.sum(axis=0))
+    ccc_array = np.squeeze(np.asarray(ccc_sub[:, ind].todense()))
+    ccc_array[ind] = 1  # For autocorrelation
     return ccc_array
 
 
@@ -251,3 +239,61 @@ def xcorr_1x1(
     else:
         maxlag = station_lags[np.argmax(station_cors)]
     return maxcor, maxlag, nthcor
+
+
+def xcorr_1xtable(detector, table_type, window_coeff, window_fft, row=None):
+    """
+    Correlate a single trigger with all events in a table or subtable.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    table_type : str
+        Table to compare trigger to ('dtable', 'otable', or 'rtable').
+    window_coeff : float ndarray
+        Amplitude coefficient of window on all stations.
+    window_fft : complex ndarray
+        Fourier transform of window on all stations, concatenated.
+    row : list or ndarray, optional
+        Subset of rows in table to use; if empty correlates against the
+        entire table.
+
+    Returns
+    -------
+    float ndarray
+        Maximum cross-correlation coefficients across all stations.
+    integer ndarray
+        Lags corresponding to maximum cross-correlation.
+    float ndarray
+        Cross-correlation coefficients on the detector.get('ncor')-th station.
+
+    """
+    if isinstance(row, int):
+        row = np.array([row])
+        n_calcs = len(row)
+    else:
+        n_calcs = len(detector.get(table_type))
+    table_coeff = detector.get(table_type, 'windowCoeff', row)
+    table_fft = detector.get(table_type, 'windowFFT', row)
+    maxcors = np.zeros(n_calcs)
+    maxlags = np.zeros(n_calcs)
+    nthcors = np.zeros(n_calcs)
+    for i in np.arange(n_calcs):
+        maxcors[i], maxlags[i], nthcors[i] = xcorr_1x1(
+            detector, window_coeff, table_coeff[i], window_fft, table_fft[i])
+    return maxcors, maxlags, nthcors
+
+
+def _calculate_fi(detector, fftwin):
+    """Calculate Frequency Index given the FFT of a window of data."""
+    winlen = detector.get('winlen')
+    samprate = detector.get('samprate')
+    return np.log10(
+        np.mean(np.abs(np.real(fftwin[
+            int(detector.get('fiupmin')*winlen/samprate):
+            int(detector.get('fiupmax')*winlen/samprate)]))
+        ) / np.mean(np.abs(np.real(fftwin[
+            int(detector.get('filomin')*winlen/samprate):
+            int(detector.get('filomax')*winlen/samprate)]))
+        ))

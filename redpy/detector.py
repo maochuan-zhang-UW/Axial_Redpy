@@ -538,6 +538,7 @@ class Detector():
     def update(self, method, tstart='', tend='', event_list=None, force=False):
         """Docstring when written."""
         # !!! Handle start/end behavior
+        # !!! Handle which columns to "remember"
         if not self.waveforms:
             self.waveforms = redpy.Waveform(self, tstart, tend, event_list)
         else:
@@ -547,7 +548,6 @@ class Detector():
             # !!! Change to iterate
             redpy.update.from_window(
                 self, UTCDateTime(tstart), UTCDateTime(tend), force)
-            # !!! Don't forget to update ptime in here; deal with spacing
         elif method == 'catfill':
             print('you chose catfill')
         else:
