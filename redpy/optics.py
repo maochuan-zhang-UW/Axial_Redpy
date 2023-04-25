@@ -131,8 +131,10 @@ class OPTICS():
         -------
         int ndarray
             Ordered list.
+        int
+            Index of core (minimum reachability).
 
         """
         self.prep_optics()
         self.build_optics(epsilon)
-        return np.array(self._ordered_list)
+        return np.array(self._ordered_list), np.argmin(self._reachability)
