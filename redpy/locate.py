@@ -722,8 +722,8 @@ def save_external_catalog(detector, csvfile, arrivals=False, start_time=None,
         print(f'Defaulting to end time of "now" ({end_time})')
     if not start_time:
         start_time = end_time - detector.get('nsec')
-        if detector.get('rtable').attrs.ptime:
-            start_time = detector.get('rtable').attrs.ptime
+        if detector.get('rtable').table.attrs.ptime:
+            start_time = detector.get('rtable').table.attrs.ptime
         print(f'Defaulting to start time of {start_time}')
     catalog = query_external(detector, 'local', UTCDateTime(start_time),
                              UTCDateTime(end_time), arrivals)
