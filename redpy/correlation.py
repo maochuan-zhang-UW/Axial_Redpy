@@ -271,6 +271,7 @@ def xcorr_1xtable(detector, table_type, window_coeff, window_fft, row=None):
     """
     if isinstance(row, int):
         row = np.array([row])
+    if row is not None:
         n_calcs = len(row)
     else:
         n_calcs = len(detector.get(table_type))
