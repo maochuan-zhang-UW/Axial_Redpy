@@ -9,6 +9,7 @@ Detector() objects. The .update() method creates triggers from continuous
 waveform data that are cross-correlated and sorted into families.
 """
 import time
+from collections import defaultdict
 
 import matplotlib.dates as mdates
 import numpy as np
@@ -133,21 +134,50 @@ def compare_trigger_to_cores(detector, trig, written=0):
         Number of new Repeaters appended.
 
     """
-    famlist = []
-    laglist = []
-    found = 0
+    tracker = defaultdict(list)
+    tracker['found'] = False
+    tracker['written'] = written
     if len(detector) > 0:
-        print('would do calcs here...')
-    if found == 0:
-        if written == 0:
+        fnums = np.arange(len(detector))
+        cores = detector.get('ftable', 'core')
+        core_table = detector.get('rtable', row=cores)
+        core_maxcors, core_maxlags, core_nthcors = xcorr_1xtable(
+            detector, 'rtable', trig.coeff, trig.fft, row=cores)
+        while np.max(core_maxcors) >= detector.get('cmin')-0.05:
+            bestcor = np.argmax(core_maxcors)
+            if not tracker['found']:
+                bestlag = core_maxlags[bestcor]
+                _update_trig_lag(detector, trig, bestlag)
+            if bestlag == 0:
+                new_maxcor, new_maxlag, new_nthcor = (
+                    core_maxcors[bestcor], core_maxlags[bestcor],
+                    core_nthcors[bestcor])
+            else:
+                new_maxcor, new_maxlag, new_nthcor = xcorr_1x1(
+                    detector, trig.best_coeff,
+                    core_table[bestcor]['windowCoeff'], trig.best_fft,
+                    core_table[bestcor]['windowFFT'])
+            if new_nthcor >= detector.get('cmin'):
+                _handle_core_match(
+                    detector, trig, tracker,
+                    fnums[bestcor], new_maxcor, new_maxlag, bestlag,
+                    core_table[bestcor]['id'])
+                tracker['found'] = True
+            else:
+                _handle_near_match(
+                    detector, trig, tracker,
+                    fnums[bestcor], bestlag, new_maxlag)
+            core_maxcors[bestcor] = 0
+    if not tracker['found']:
+        if tracker['written'] == 0:
             trig.populate(detector, 'otable')
         else:
-            populate_new_family(detector, written)
+            populate_new_family(detector, tracker['written'])
     else:
-        if len(famlist) == 1:
-            update_family(detector, famlist)
+        if len(tracker['famlist']) == 1:
+            update_family(detector, tracker['famlist'][0])
         else:
-            merge_families(detector, famlist, laglist)
+            merge_families(detector, tracker['famlist'], tracker['laglist'])
 
 
 def compare_trigger_to_orphans(detector, trig, maxcors, maxlags):
@@ -271,7 +301,8 @@ def merge_families(detector, famlist, laglist):
             member_string = (detector.get(
                 'ftable', 'members', first_fam).decode('utf-8') + ' '
                 + detector.get('ftable', 'members', fnum).decode('utf-8'))
-            detector.set('ftable', member_string, 'members', first_fam)
+            detector.set(
+                'ftable', bytes(member_string, 'utf-8'), 'members', first_fam)
             detector.get('ftable').remove(fnum)
     detector.set('ftable', -1, 'lastprint', first_fam)
     merge = max_mem/len(detector.get_members(first_fam))
@@ -419,6 +450,57 @@ def update_family(detector, fnum, merge=1):
     _update_ftable(detector, fnum, fam)
 
 
+def _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag):
+    """Add a match to tables based on its status."""
+    tracker['famlist'].append(fnum)
+    if not tracker['found']:
+        tracker['laglist'].append(0)
+        if tracker['written'] == 0:
+            trig.coeff = trig.best_coeff
+            trig.fft = trig.best_fft
+            trig.freq_index = trig.best_fi
+            trig.populate(detector, 'rtable')
+            tracker['written'] = 1
+            _append_family_member(detector, fnum, -1)
+        else:
+            for i in np.arange(-tracker['written'], 0):
+                if i == -tracker['written']:
+                    _update_window(
+                        detector, 'rtable', i, 0, trig.best_coeff,
+                        trig.best_fft, trig.best_fi)
+                else:
+                    _update_window(detector, 'rtable', i, bestlag)
+                _append_family_member(detector, fnum, i)
+    else:
+        tracker['laglist'].append(new_maxlag)
+
+
+def _append_family_member(detector, fnum, idx):
+    """Append new family member from rtable to ftable."""
+    if idx < 0:
+        idx = len(detector.get('rtable')) + idx
+    member_string = detector.get(
+        'ftable', 'members', fnum).decode('utf-8') + f' {idx}'
+    detector.set('ftable', bytes(member_string, 'utf-8'), 'members', fnum)
+
+
+def _correlate_remaining_family(detector, fnum, rnum):
+    """Correlate a known repeater with all eligible family members."""
+    if rnum < 0:
+        rnum = len(detector.get('rtable')) + rnum
+    subtable_members = _get_family_subtable(detector, fnum, rnum)
+    new_id = detector.get('rtable', 'id', rnum)
+    new_coeff = detector.get('rtable', 'windowCoeff', rnum)
+    new_fft = detector.get('rtable', 'windowFFT', rnum)
+    maxcors, _, nthcors = xcorr_1xtable(
+        detector, 'rtable', new_coeff, new_fft, subtable_members)
+    if np.max(nthcors) >= detector.get('cmin'):
+        for i in np.where(nthcors >= detector.get('cmin'))[0]:
+            _populate_correlation(
+                detector, new_id, detector.get(
+                    'rtable', 'id', subtable_members[i]), maxcors[i])
+
+
 def _find_duplicates(detector, trig_times, rank):
     """Find duplicates within a list of trigger times."""
     order = np.argsort(trig_times)
@@ -426,6 +508,15 @@ def _find_duplicates(detector, trig_times, rank):
     rank = rank[order]
     i = np.where(spacing < detector.get('mintrig'))[0]
     return np.unique(np.max(np.vstack((rank[i], rank[i+1])), axis=0))
+
+
+def _get_family_subtable(detector, fnum, rnum):
+    """Get eligible members of family for correlation."""
+    members = np.setdiff1d(detector.get_members(fnum),
+                           detector.get('ftable', 'core', fnum))
+    members = np.setdiff1d(members, rnum)
+    # !!! Need to change to utilize most recent/largest functionality !!!
+    return members
 
 
 def _get_lag_adjusted_windows(
@@ -460,14 +551,47 @@ def _get_window(detector, table_type, row):
             detector.get(table_type, 'FI', row))
 
 
+def _handle_core_match(detector, trig, tracker,
+                       fnum, new_maxcor, new_maxlag, bestlag, core_id):
+    """Handle case where trigger matches a core."""
+    _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag)
+    _populate_correlation(
+        detector, detector.get('rtable', 'id', -tracker['written']),
+        core_id, new_maxcor)
+    for i in np.arange(-tracker['written'], 0):
+        _correlate_remaining_family(detector, fnum, i)
+
+
+def _handle_near_match(detector, trig, tracker,
+                       fnum, bestlag, new_maxlag):
+    """Handle case where a trigger nearly matches a core."""
+    subtable_members = _get_family_subtable(detector, fnum, -1)
+    maxcors, _, nthcors = xcorr_1xtable(
+       detector, 'rtable', trig.best_coeff, trig.best_fft, subtable_members)
+    if np.max(nthcors) >= detector.get('cmin'):
+        _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag)
+        tracker['found'] = True
+        for i in np.where(nthcors >= detector.get('cmin'))[0]:
+            _populate_correlation(
+                detector, detector.get('rtable', 'id', -tracker['written']),
+                detector.get('rtable', 'id', subtable_members[i]), maxcors[i])
+
+
+def _populate_correlation(detector, id1, id2, ccc):
+    """Populate correlation table with measurement."""
+    detector.get('ctable').append({
+        'id1': np.min((id1, id2)),
+        'id2': np.max((id1, id2)),
+        'ccc': ccc})
+
+
 def _move_orphan_populate_correlation(
         detector, bestcor, maxcor_aligned, written):
     """Move orphan and populate correlation with new Trigger."""
     detector.get('otable').move(detector.get('rtable'), bestcor)
-    detector.get('ctable').append({
-        'id1': detector.get('rtable', 'id', -1),
-        'id2': detector.get('rtable', 'id', -written),
-        'ccc': maxcor_aligned})
+    _populate_correlation(
+        detector, detector.get('rtable', 'id', -1),
+        detector.get('rtable', 'id', -written), maxcor_aligned)
 
 
 def _run_optics(detector, fnum, fam):
@@ -483,7 +607,7 @@ def _run_optics(detector, fnum, fam):
     distance_matrix = np.squeeze(np.asarray(distance_matrix))
     distance_matrix[range(len(fam)), range(len(fam))] = 0
     _, core = redpy.optics.OPTICS(distance_matrix).run(1)
-    detector.set('ftable', 'core', fnum, fam[core])
+    detector.set('ftable', fam[core], 'core', fnum)
 
 
 def _update_ftable(detector, fnum, fam):
@@ -496,12 +620,24 @@ def _update_ftable(detector, fnum, fam):
     detector.set('ftable', 1, 'printme', -1)
 
 
+def _update_trig_lag(detector, trig, bestlag):
+    """Update trig window based on best lag."""
+    if bestlag != 0:
+        trig.best_coeff, trig.best_fft, trig.best_fi = calculate_window(
+            detector, trig.concat,
+            detector.get('start_sample') + bestlag)
+    else:
+        trig.best_coeff = trig.coeff
+        trig.best_fft = trig.fft
+        trig.best_fi = trig.freq_index
+
+
 def _update_window(
         detector, table_type, row, lag, coeff=None, fft=None, fi=None):
     """Set window parameters for a single row in a table."""
     row = int(row)
     trigger = int(detector.get(table_type, 'windowStart', row) + lag)
-    if not all([len(coeff), len(fft), len(fi)]):
+    if coeff is not None:
         coeff, fft, fi = calculate_window(
             detector, detector.get(table_type, 'waveform', row), trigger)
     detector.set(table_type, trigger, 'windowStart', row)
