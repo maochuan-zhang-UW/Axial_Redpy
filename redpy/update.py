@@ -160,7 +160,7 @@ def compare_trigger_to_cores(detector, trig, written=0):
             if new_nthcor >= detector.get('cmin'):
                 _handle_core_match(
                     detector, trig, tracker,
-                    fnums[bestcor], new_maxcor, new_maxlag, bestlag,
+                    fnums[bestcor], bestlag, new_maxlag, new_maxcor,
                     core_table[bestcor]['id'])
                 tracker['found'] = True
             else:
@@ -239,7 +239,7 @@ def compare_trigger_to_orphans(detector, trig, maxcors, maxlags):
         trig.populate(detector, 'otable')
 
 
-def from_window(detector, window_start, window_end, force):
+def from_window(detector, window_start, window_end, expire, force):
     """
     Update tables from data in a time window.
 
@@ -251,12 +251,16 @@ def from_window(detector, window_start, window_end, force):
         Starting time of data window.
     window_end : UTCDateTime object
         Ending time of data window.
+    expire : bool
+        If True, expire stale orphans.
     force : bool
         If True, force a trigger to occur at the time of an event in
         the event_list contained in detector.waveforms.
 
     """
     i_time = time.time()
+    if detector.get('verbose'):
+        print(window_start)
     stream, d_time = detector.waveforms.get_data(
         detector, window_start, window_end)
     trig_list = detector.waveforms.get_triggers(detector, stream, force)
@@ -265,6 +269,8 @@ def from_window(detector, window_start, window_end, force):
     trig_list = compare_deleted(detector, trig_list)
     for trig in trig_list:
         trigger_to_table(detector, trig)
+    if expire:
+        detector.remove('expire')
     if detector.get('verbose'):
         detector.stats()
         print('Time spent this iteration: '
@@ -459,6 +465,7 @@ def _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag):
             trig.coeff = trig.best_coeff
             trig.fft = trig.best_fft
             trig.freq_index = trig.best_fi
+            trig.start_sample = trig.start_sample+bestlag
             trig.populate(detector, 'rtable')
             tracker['written'] = 1
             _append_family_member(detector, fnum, -1)
@@ -466,7 +473,7 @@ def _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag):
             for i in np.arange(-tracker['written'], 0):
                 if i == -tracker['written']:
                     _update_window(
-                        detector, 'rtable', i, 0, trig.best_coeff,
+                        detector, 'rtable', i, bestlag, trig.best_coeff,
                         trig.best_fft, trig.best_fi)
                 else:
                     _update_window(detector, 'rtable', i, bestlag)
@@ -552,7 +559,7 @@ def _get_window(detector, table_type, row):
 
 
 def _handle_core_match(detector, trig, tracker,
-                       fnum, new_maxcor, new_maxlag, bestlag, core_id):
+                       fnum, bestlag, new_maxlag, new_maxcor, core_id):
     """Handle case where trigger matches a core."""
     _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag)
     _populate_correlation(
