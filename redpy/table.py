@@ -334,24 +334,18 @@ class Table():
             row, and thus value should be a single cell. If an array, these
             are row slices, and the length of value should match.
 
-        Raises
-        ------
-        ValueError
-            If value and row have different lengths.
-
         """
         if isinstance(col, int):
             col = self.column_names[col]
         if row is not None:
-            if not isinstance(row, int):
-                if len(row) == len(value):
-                    for i, j in enumerate(row):
-                        self.table.modify_column(start=j, column=value[i],
-                                                 colname=col)
-                    col = None
-                else:
-                    raise ValueError('Length mismatch in value and row.')
+            if (not isinstance(row, int)) and (not isinstance(row, np.int64)):
+                for i, j in enumerate(row):
+                    self.table.modify_column(start=j, column=value[i],
+                                             colname=col)
+                col = None
             else:
+                if row < 0:
+                    row = len(self) + row
                 start = row
                 stop = row+1
                 step = 1
