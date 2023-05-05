@@ -327,5 +327,7 @@ def set_plotvars(detector):
         'ttable', 'startTimeMPL') + detector.get('ptrig') * samples_to_days
     detector.get('plotvars')['mean_fi'] = np.nanmean(
         detector.get('rtable', 'FI'), axis=1)
+    detector.get('plotvars')['amps'] = detector.get(
+        'rtable', 'windowAmp')[:, detector.get('printsta')]
     (detector.get('plotvars')['ids'],
      detector.get('plotvars')['ccc_sparse']) = detector.get_matrix()
