@@ -334,7 +334,15 @@ class Table():
             row, and thus value should be a single cell. If an array, these
             are row slices, and the length of value should match.
 
+        Raises
+        ------
+        ValueError
+            If None is passed as the value. Other 'empty' values like 0,
+            NaN, '', or [] are accepted.
+
         """
+        if value is None:
+            raise ValueError('None as value not accepted!')
         if isinstance(col, int):
             col = self.column_names[col]
         if row is not None:
@@ -342,6 +350,8 @@ class Table():
                 for i, j in enumerate(row):
                     self.table.modify_column(start=j, column=value[i],
                                              colname=col)
+                    if col in self.columns_in_memory:
+                        self.columns_in_memory[col][j] = value[i]
                 col = None
             else:
                 if row < 0:
@@ -349,8 +359,8 @@ class Table():
                 start = row
                 stop = row+1
                 step = 1
-            if col in self.columns_in_memory:
-                self.columns_in_memory[col][row] = value
+                if col in self.columns_in_memory:
+                    self.columns_in_memory[col][row] = value
         elif len(value) == len(self):
             start = 0
             stop = len(self)
@@ -371,8 +381,18 @@ class Table():
                 # !!! reallocated each time (same with np.delete() in
                 # !!! .remove()). Still likely faster than repetitive reads
                 # !!! from disk. Need to test if this is the case!
-                self.columns_in_memory[col] = np.append(
-                    self.columns_in_memory[col], row[col], axis=0)
+                if not isinstance(row[col], np.ndarray):
+                    if np.array(self.columns_in_memory[col]).size == 0:
+                        self.columns_in_memory[col] = np.array(row[col])
+                    else:
+                        self.columns_in_memory[col] = np.append(
+                            self.columns_in_memory[col], row[col])
+                else:
+                    if np.array(self.columns_in_memory[col]).size == 0:
+                        self.columns_in_memory[col] = np.array([row[col]])
+                    else:
+                        self.columns_in_memory[col] = np.append(
+                            self.columns_in_memory[col], [row[col]], axis=0)
         newrow.append()
         self.table.flush()
 
