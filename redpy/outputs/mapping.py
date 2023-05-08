@@ -13,11 +13,14 @@ import os
 
 import cartopy.crs as ccrs
 import cartopy.io.img_tiles as cimgt
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 from matplotlib.transforms import offset_copy
 from obspy.geodetics import kilometers2degrees
+
+matplotlib.use('agg')
 
 
 def create_local_map(detector, fnum, local):

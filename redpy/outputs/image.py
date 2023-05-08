@@ -11,6 +11,7 @@ detections.
 """
 import os
 
+import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,6 +21,8 @@ from obspy import UTCDateTime
 
 import redpy.correlation
 from redpy.outputs.timeline import bokeh_figure
+
+matplotlib.use('agg')
 
 
 def assemble_family_image(detector, fnum, tmin, tmax, bboxes, oformat, dpi):
