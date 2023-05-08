@@ -644,7 +644,7 @@ def _update_window(
     """Set window parameters for a single row in a table."""
     row = int(row)
     trigger = int(detector.get(table_type, 'windowStart', row) + lag)
-    if coeff is not None:
+    if coeff is None:
         coeff, fft, fi = calculate_window(
             detector, detector.get(table_type, 'waveform', row), trigger)
     detector.set(table_type, trigger, 'windowStart', row)
