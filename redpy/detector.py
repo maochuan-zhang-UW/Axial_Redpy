@@ -464,9 +464,12 @@ class Detector():
 
         """
         if method == 'expire':
-            print('deletes orphans with expiration date before latest trigger')
-            print('not yet implemented')
-        if method == 'junk':
+            expires = np.array(
+                [UTCDateTime(i) for i in self.get('otable', 'expires')])
+            if np.min(expires) < self.get('rtable').table.attrs.ptime:
+                self.get('otable').remove(np.where(
+                    expires < self.get('rtable').table.attrs.ptime)[0])
+        elif method == 'junk':
             self.get('jtable').remove('all')
         elif method in ['family', 'families']:
             if fnums is not None:
@@ -535,24 +538,85 @@ class Detector():
         """
         return self._build_dataframe(junk)
 
-    def update(self, method, tstart='', tend='', event_list=None, force=False):
-        """Docstring when written."""
-        # !!! Handle start/end behavior
-        # !!! Handle which columns to "remember"
+    def update(self, method, tstart='', tend='', event_list=None, force=False,
+               expire=None, nsec=None):
+        """
+        Update based on data from a time period of interest, then plot.
+
+        The basic process proceeds as follows:
+            - Download and filter seismic data for the time period
+            - Create event triggers from those data
+            - Sort into a matching family, or create new orphan
+            - Optionally, expire old orphans
+            - Update outputs
+
+        Currently, two methods are supported:
+
+        'backfill':
+            Process continuous timeseries from tstart to tend in short time
+            steps.
+        'catfill':
+            Process short periods surrounding times provided in event_list.
+
+        Parameters
+        ----------
+        method : str
+            Controls which method of 'update' to apply.
+        tstart : str, optional
+            Starting time of interest.
+        tend : str, optional
+            Ending time of interest.
+        event_list : list of UTCDateTime objects, optional
+            List of times that contain an event of interest.
+        force : bool, optional
+            If True, forces a trigger at the time of each event in
+            event_list.
+        expire : bool, optional
+            If True, expires orphans at the end of each iteration step. If
+            False, does not expire orphans. If not provided, takes the
+            default behavior for the method (True for backfill, False for
+            catfill).
+        nsec : int, optional
+            Temporarily overwrite the number of seconds of data processed
+            per time step.
+
+        Raises
+        ------
+        ValueError
+            If method is not recognized.
+
+        """
+        if nsec:
+            self.set('nsec', nsec)
+        tstart, tend, event_list = self._interpret_start_end(
+            tstart, tend, event_list)
+        self._set_update_remembers()
         if not self.waveforms:
             self.waveforms = redpy.Waveform(self, tstart, tend, event_list)
         else:
             self.waveforms.update_span(self, tstart, tend, event_list)
         if method == 'backfill':
-            print('you chose backfill')
-            # !!! Change to iterate
-            redpy.update.from_window(
-                self, UTCDateTime(tstart), UTCDateTime(tend), force)
+            i = 0
+            if expire is None:
+                expire = True
+            while tstart + i*self.get('nsec') < tend:
+                redpy.update.from_window(
+                    self, tstart + i*self.get('nsec'),
+                    np.min((tend, tstart + (i+1)*self.get('nsec'))),
+                    expire, force)
+                i += 1
         elif method == 'catfill':
-            print('you chose catfill')
+            if expire is None:
+                expire = False
+            for event in event_list:
+                redpy.update.from_window(
+                    self, event - 4*self.get('atrig'),
+                    event + 5*self.get('atrig') + self.get('maxdt'),
+                    expire, force)
         else:
             raise ValueError(_UNKNOWN_METHOD.format(
                 "'backfill' or 'catfill'"))
+        self.output()
 
     def _build_dataframe(self, junk):
         """Build the dataframe representation of the detector."""
@@ -656,6 +720,33 @@ class Detector():
                 print(f"Creating output folder: '{folder}'")
             os.mkdir(folder)
 
+    def _interpret_start_end(self, tstart, tend, event_list):
+        """Interpret the correct start and ending times."""
+        if tend:
+            tend = UTCDateTime(tend)
+            if event_list:
+                event_list = event_list[event_list <= tend]
+        else:
+            if event_list:
+                tend = event_list[-1] + 5*self.get('atrig') + self.get('maxdt')
+            else:
+                tend = UTCDateTime()
+        if tstart:
+            tstart = UTCDateTime(tstart)
+            if event_list:
+                event_list = event_list[event_list >= tstart]
+        else:
+            if event_list:
+                tstart = event_list[0] - 4*self.get('atrig')
+            elif self.get('rtable').table.attrs.ptime:
+                tstart = UTCDateTime(self.get('rtable').table.attrs.ptime)
+            else:
+                tstart = tend - self.get('nsec')
+        if tstart > tend:
+            raise ValueError(
+                f'Start {tstart} is after end {tend}!')
+        return tstart, tend, event_list
+
     def _remove_families(self, fnums, skip_dtable=False):
         """
         Remove families from catalog.
@@ -711,3 +802,10 @@ class Detector():
         self.set('ftable', 1, 'printme', len(self.get('ftable'))-1)
         if self.get('verbose'):
             print('Done removing families!')
+
+    def _set_update_remembers(self):
+        """Control which table columns need to remain in memory."""
+        self.get('dtable').remember('all')
+        self.get('otable').remember('all')
+        self.get('rtable').remember(
+            ['windowAmp', 'windowCoeff', 'startTime', 'startTimeMPL', 'id'])
