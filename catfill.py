@@ -13,7 +13,7 @@ using -f, a trigger will be forced at the given time and 'junk' filtering
 will be skipped, however, the minimum allowed time between events is still
 enforced.
 
-usage: catfill.py [-h] [-v] [-t] [-a] [-f] [-q] [-x] [-c CONFIGFILE]
+usage: catfill.py [-h] [-v] [-a] [-f] [-q] [-x] [-c CONFIGFILE]
                   [-d DELIMITER] [-n NAME] [-s STARTTIME] [-e ENDTIME]
                   csvfile
 
@@ -24,7 +24,6 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         increase written print statements
-  -t, --troubleshoot    run in troubleshoot mode (without try/except)
   -a, --arrival         estimate and use the P-wave arrival time to the
                         center of the network; requires a location to be
                         included in the catalog
@@ -57,9 +56,8 @@ import redpy
 
 
 def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
-            troubleshoot=False, arrival=False, force=False, query=False,
-            expire=False, delimiter=',', name='Time', starttime=None,
-            endtime=None):
+            arrival=False, force=False, query=False, expire=False,
+            delimiter=',', name='Time', starttime=None, endtime=None):
     """
     Update tables defined in configfile with a catalog of known events.
 
@@ -77,8 +75,6 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
         Name of catalog csv file to read or save to.
     verbose : bool, optional
         Enable additional print statements.
-    troubleshoot : bool, optional
-        Escape try/except statements to diagnose problems.
     arrival : bool, optional
         Calculate and use P-wave arrival to center of network.
     force : bool, optional
@@ -98,7 +94,7 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
         Subsets catalog to end at this time.
 
     """
-    detector = redpy.Detector(configfile, verbose, True, troubleshoot)
+    detector = redpy.Detector(configfile, verbose, opened=True)
     if query:
         detector.locate('arrivals', starttime, endtime, outfile=csvfile)
     try:
@@ -137,9 +133,6 @@ def parse():
                               'or file to write a queried catalog to disk'))
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
-    parser.add_argument('-t', '--troubleshoot', action='store_true',
-                        default=False,
-                        help='run in troubleshoot mode (without try/except)')
     parser.add_argument('-a', '--arrival', action='store_true', default=False,
                         help=('estimate and use the P-wave arrival time to '
                               'the center of the network; requires a location '

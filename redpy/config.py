@@ -27,14 +27,11 @@ class Config():
     settings : dict
         Dictionary of all settings, populated either from defaults or
         the configuration file.
-    troubleshoot : bool
-        Escape try/except statements to diagnose problems.
     verbose : bool
         Enable additional print statements.
     """
 
-    def __init__(self, configfile='settings.cfg', verbose=False,
-                 troubleshoot=False):
+    def __init__(self, configfile='settings.cfg', verbose=False):
         """
         Read settings from the configuration file or apply defaults.
 
@@ -48,13 +45,10 @@ class Config():
             Name of configuration file to read.
         verbose : bool, optional
             Enable additional print statements.
-        troubleshoot : bool, optional
-            Escape try/except statements to diagnose problems.
 
         """
         self.configfile = configfile
         self.verbose = verbose
-        self.troubleshoot = troubleshoot
         self.settings = {
             # !!! Dictionary needs to be organized
             'title': 'REDPy Catalog',
@@ -66,7 +60,6 @@ class Config():
             'nsec': 3600,
             'max_famlen': 30000,  # 1000000
             'always_verbose': False,
-            'always_troubleshoot': False,
             'nsta': 8,
             'station': 'SEP,YEL,HSR,SHW,EDM,STD,JUN,SOS',
             'channel': 'EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ',
@@ -184,15 +177,13 @@ class Config():
 
     def get(self, key):
         """Return the keyed attribute's value."""
-        if key in ('configfile', 'verbose', 'troubleshoot', 'settings',
-                   'custom_settings'):
+        if key in ('configfile', 'verbose', 'settings', 'custom_settings'):
             return getattr(self, key)
         return self.settings[key]
 
     def set(self, key, value):
         """Set the keyed attribute's value in the proper place."""
-        if key in ('configfile', 'verbose', 'troubleshoot', 'settings',
-                   'custom_settings'):
+        if key in ('configfile', 'verbose', 'settings', 'custom_settings'):
             setattr(self, key, value)
         else:
             self.settings[key] = value
@@ -272,6 +263,4 @@ class Config():
                     self.custom_settings.append(key)
                 if key == 'always_verbose' and value:
                     setattr(self, 'verbose', True)
-                if key == 'always_troubleshoot' and value:
-                    setattr(self, 'troubleshoot', True)
         self._enforce()

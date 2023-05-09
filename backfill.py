@@ -16,13 +16,12 @@ a large amount of time; it will consume less time downloading the data in
 small chunks if NSEC is an hour or a day instead of a few minutes, but at
 the cost of keeping orphans for longer.
 
-usage: backfill.py [-h] [-v] [-t] [-s STARTTIME] [-e ENDTIME]
+usage: backfill.py [-h] [-v] [-s STARTTIME] [-e ENDTIME]
                    [-c CONFIGFILE] [-n NSEC]
 
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         increase written print statements
-  -t, --troubleshoot    run in troubleshoot mode (without try/except)
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
@@ -41,8 +40,8 @@ import time
 import redpy
 
 
-def backfill(configfile='settings.cfg', verbose=False, troubleshoot=False,
-             starttime=None, endtime=None, nsec=None):
+def backfill(configfile='settings.cfg', verbose=False, starttime=None,
+             endtime=None, nsec=None):
     """
     Update tables defined in configfile with continuous data.
 
@@ -58,8 +57,6 @@ def backfill(configfile='settings.cfg', verbose=False, troubleshoot=False,
         Name of configuration file to read.
     verbose : bool, optional
         Enable additional print statements.
-    troubleshoot : bool, optional
-        Escape try/except statements to diagnose problems.
     starttime : str, optional
         Starting time. If not provided, will default to either the end of
         the previous run time or "nsec" seconds prior to end_time.
@@ -69,7 +66,7 @@ def backfill(configfile='settings.cfg', verbose=False, troubleshoot=False,
         Temporarily overwrite "nsec" from config with this value.
 
     """
-    detector = redpy.Detector(configfile, verbose, True, troubleshoot)
+    detector = redpy.Detector(configfile, verbose, opened=True)
     detector.update('backfill', starttime, endtime, nsec=nsec)
     detector.close()
 
@@ -94,9 +91,6 @@ def parse():
         description='Fill tables using continuous data.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
-    parser.add_argument('-t', "--troubleshoot", action='store_true',
-                        default=False,
-                        help='run in troubleshoot mode (without try/except)')
     parser.add_argument('-c', '--configfile', default='settings.cfg',
                         help=('use configuration file named CONFIGFILE '
                               'instead of default settings.cfg'))

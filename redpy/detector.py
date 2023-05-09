@@ -44,8 +44,7 @@ class Detector():
         Dictionary containing a Table object for each table type.
     """
 
-    def __init__(self, configfile='settings.cfg', verbose=False,
-                 opened=False, troubleshoot=False):
+    def __init__(self, configfile='settings.cfg', verbose=False, opened=False):
         """
         Load configuration file and set attribute structure.
 
@@ -57,13 +56,11 @@ class Detector():
             Enable additional print statements.
         opened : bool, optional
             If True, return opened.
-        troubleshoot : bool, optional
-            Escape try/except statements to diagnose problems.
 
         """
         np.set_printoptions(threshold=sys.maxsize)
         np.set_printoptions(linewidth=sys.maxsize)
-        self.config = Config(configfile, verbose, troubleshoot)
+        self.config = Config(configfile, verbose)
         self.h5file = None
         self.tables = {}
         self.plotvars = {}
@@ -87,8 +84,6 @@ class Detector():
         string = f'redpy.Detector(configfile="{self.get("configfile")}"'
         if self.get('verbose'):
             string += ', verbose=True'
-        if self.get('troubleshoot'):
-            string += ', troubleshoot=True'
         if self.tables:
             string += ', opened=True'
         string += ')'
