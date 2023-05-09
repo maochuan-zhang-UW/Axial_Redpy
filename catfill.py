@@ -98,28 +98,20 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
         Subsets catalog to end at this time.
 
     """
-    t_func = time.time()
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose, troubleshoot)
+    detector = redpy.Detector(configfile, verbose, True, troubleshoot)
     if query:
-        redpy.catalog.save_external_catalog(
-            csvfile, config, arrival, starttime, endtime, rtable, delimiter)
+        detector.locate('arrivals', starttime, endtime, outfile=csvfile)
     try:
-        event_list = redpy.catalog.get_event_times_from_csv(
-            csvfile, name, delimiter, config, starttime, endtime, arrival)
+        event_list = redpy.locate.event_times_from_catalog(
+            detector, csvfile, name, starttime, endtime,
+            arrival, delimiter)
     except KeyError as exc:
         raise KeyError(
-            f'Could not find "{name}" column in {csvfile}. Check file, column '
-            'name, and delimiter! Use -h for help.') from exc
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
-        redpy.table.update_with_event_list(
-            h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable,
-            event_list, config, force, expire)
-    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
-                                        otable, config)
-    h5file.close()
-    if config.get('verbose'):
-        print(f'Total time spent: {(time.time()-t_func)/60:.3f} minutes')
+            f'Could not find "{name}" column in {csvfile}. Check file, '
+            'column name, and delimiter! Use -h for help.') from exc
+    detector.update(
+        'catfill', starttime, endtime, event_list, force, expire)
+    detector.close()
 
 
 def main():

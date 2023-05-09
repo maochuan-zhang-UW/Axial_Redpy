@@ -69,18 +69,9 @@ def backfill(configfile='settings.cfg', verbose=False, troubleshoot=False,
         Temporarily overwrite "nsec" from config with this value.
 
     """
-    t_func = time.time()
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
-        redpy.table.open_with_cfg(configfile, verbose, troubleshoot)
-    h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable, config = \
-        redpy.table.update_with_continuous(
-            h5file, rtable, otable, ttable, ctable, jtable, dtable, ftable,
-            config, starttime, endtime, nsec)
-    redpy.plotting.generate_all_outputs(rtable, ftable, ttable, ctable,
-                                        otable, config)
-    h5file.close()
-    if config.get('verbose'):
-        print(f'Total time spent: {(time.time()-t_func)/60:.3f} minutes')
+    detector = redpy.Detector(configfile, verbose, True, troubleshoot)
+    detector.update('backfill', starttime, endtime, nsec=nsec)
+    detector.close()
 
 
 def main():
