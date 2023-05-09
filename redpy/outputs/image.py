@@ -291,8 +291,9 @@ def move_images(detector):
                       os.path.join(opath, f'{fnum}.png.tmp'))
             os.rename(os.path.join(opath, f'fam{lastprint}.png'),
                       os.path.join(opath, f'map{fnum}.png.tmp'))
-            os.rename(os.path.join(opath, f'map{lastprint}.png'),
-                      os.path.join(opath, f'map{fnum}.png.tmp'))
+            if os.path.exists(os.path.join(opath, f'map{lastprint}.png')):
+                os.rename(os.path.join(opath, f'map{lastprint}.png'),
+                          os.path.join(opath, f'map{fnum}.png.tmp'))
 
 
 def prep_wiggle(detector, waveform, sta, window_start, normalize_amplitude):
