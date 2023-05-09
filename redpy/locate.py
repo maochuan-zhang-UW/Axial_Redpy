@@ -594,9 +594,9 @@ def query_arrivals(detector, tmin, tmax, outfile=None):
     ----------
     detector : Detector object
         Primary interface for handling detections.
-    tmin : UTCDateTime object
+    tmin : UTCDateTime object, str
         Start time for catalog query.
-    tmax : UTCDateTime object
+    tmax : UTCDateTime object, str
         End time for catalog query.
     outfile : str, optional
         Where to save the catalog to file.
@@ -607,6 +607,8 @@ def query_arrivals(detector, tmin, tmax, outfile=None):
         List of P-wave arrival times for local events.
 
     """
+    tmin = UTCDateTime(tmin)
+    tmax = UTCDateTime(tmax)
     catalog = query_external(detector, 'local', tmin, tmax, True)
     catalog = handle_arrivals(detector, catalog, 'Time', 'Arrival')
     if outfile:
