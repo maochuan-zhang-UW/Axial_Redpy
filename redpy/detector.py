@@ -724,19 +724,19 @@ class Detector():
         """Interpret the correct start and ending times."""
         if tend:
             tend = UTCDateTime(tend)
-            if event_list:
+            if event_list is not None:
                 event_list = event_list[event_list <= tend]
         else:
-            if event_list:
+            if event_list is not None:
                 tend = event_list[-1] + 5*self.get('atrig') + self.get('maxdt')
             else:
                 tend = UTCDateTime()
         if tstart:
             tstart = UTCDateTime(tstart)
-            if event_list:
+            if event_list is not None:
                 event_list = event_list[event_list >= tstart]
         else:
-            if event_list:
+            if event_list is not None:
                 tstart = event_list[0] - 4*self.get('atrig')
             elif self.get('rtable').table.attrs.ptime:
                 tstart = UTCDateTime(self.get('rtable').table.attrs.ptime)
