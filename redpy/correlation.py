@@ -250,7 +250,8 @@ def xcorr_1xtable(detector, table_type, window_coeff, window_fft, row=None):
     detector : Detector object
         Primary interface for handling detections.
     table_type : str
-        Table to compare trigger to ('dtable', 'otable', or 'rtable').
+        Table to compare trigger to ('cores', 'dtable', 'otable', or
+        'rtable').
     window_coeff : float ndarray
         Amplitude coefficient of window on all stations.
     window_fft : complex ndarray
@@ -274,7 +275,10 @@ def xcorr_1xtable(detector, table_type, window_coeff, window_fft, row=None):
     if row is not None:
         n_calcs = len(row)
     else:
-        n_calcs = len(detector.get(table_type))
+        if table_type != 'cores':
+            n_calcs = len(detector.get(table_type))
+        else:
+            n_calcs = len(detector)
     table_coeff = detector.get(table_type, 'windowCoeff', row)
     table_fft = detector.get(table_type, 'windowFFT', row)
     maxcors = np.zeros(n_calcs)

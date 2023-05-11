@@ -63,6 +63,7 @@ class Detector():
         self.config = Config(configfile, verbose)
         self.h5file = None
         self.tables = {}
+        self.cores = {}
         self.plotvars = {}
         self.waveforms = {}
         if opened:
@@ -170,6 +171,15 @@ class Detector():
         """
         if key in ['config', 'h5file', 'tables', 'plotvars', 'waveforms']:
             return getattr(self, key)
+        if key == 'cores':
+            if (col is not None):
+                if row is None:
+                    return self.cores[col]
+                else:
+                    return self.cores[col][row]
+            else:
+                raise KeyError(
+                    'When accessing cores, you must provide a column key!')
         if 'table' in key:
             if not self.tables:
                 self.open()
@@ -459,11 +469,18 @@ class Detector():
 
         """
         if method == 'expire':
-            expires = np.array(
-                [UTCDateTime(i) for i in self.get('otable', 'expires')])
-            if np.min(expires) < self.get('rtable').table.attrs.ptime:
-                self.get('otable').remove(np.where(
-                    expires < self.get('rtable').table.attrs.ptime)[0])
+            if len(self.get('otable')):
+                if len(self.get('otable')) == 1:
+                    # Have to deal with edge case handling with bytes here
+                    expires = np.array([UTCDateTime(str(np.char.decode(
+                        self.get('otable', 'expires'))))])
+                else:
+                    expires = np.array(
+                        [UTCDateTime(i) for i in self.get(
+                            'otable', 'expires')])
+                if np.min(expires) < self.get('rtable').table.attrs.ptime:
+                    self.get('otable').remove(np.where(
+                        expires < self.get('rtable').table.attrs.ptime)[0])
         elif method == 'junk':
             self.get('jtable').remove('all')
         elif method in ['family', 'families']:
@@ -499,6 +516,15 @@ class Detector():
         """
         if key in ['config', 'h5file', 'tables']:
             setattr(self, key, value)
+        if key == 'cores':
+            if (col is not None):
+                if row is None:
+                    self.cores[col] = value
+                else:
+                    self.cores[col][row] = value
+            else:
+                raise KeyError(
+                    'When accessing cores, you must provide a column key!')
         if 'table' in key:
             self.tables[key].set(value, col, row)
         self.config.set(key, value)
@@ -715,6 +741,12 @@ class Detector():
                 print(f"Creating output folder: '{folder}'")
             os.mkdir(folder)
 
+    def _get_core_subtable(self):
+        """Populate core subtable into memory."""
+        cores = self.get('ftable', 'core')
+        for col in self.get('rtable').column_names:
+            self.cores[col] = self.get('rtable', col, cores)
+
     def _interpret_start_end(self, tstart, tend, event_list):
         """Interpret the correct start and ending times."""
         if tend:
@@ -804,3 +836,4 @@ class Detector():
         self.get('otable').remember('all')
         self.get('rtable').remember(
             ['windowAmp', 'windowCoeff', 'startTime', 'startTimeMPL', 'id'])
+        self._get_core_subtable()

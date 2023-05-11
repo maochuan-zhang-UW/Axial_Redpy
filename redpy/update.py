@@ -139,10 +139,8 @@ def compare_trigger_to_cores(detector, trig, written=0):
     tracker['written'] = written
     if len(detector) > 0:
         fnums = np.arange(len(detector))
-        cores = detector.get('ftable', 'core')
-        core_table = detector.get('rtable', row=cores)
         core_maxcors, core_maxlags, core_nthcors = xcorr_1xtable(
-            detector, 'rtable', trig.coeff, trig.fft, row=cores)
+            detector, 'cores', trig.coeff, trig.fft)
         while np.max(core_maxcors) >= detector.get('cmin')-0.05:
             bestcor = np.argmax(core_maxcors)
             if not tracker['found']:
@@ -155,13 +153,14 @@ def compare_trigger_to_cores(detector, trig, written=0):
             else:
                 new_maxcor, new_maxlag, new_nthcor = xcorr_1x1(
                     detector, trig.best_coeff,
-                    core_table[bestcor]['windowCoeff'], trig.best_fft,
-                    core_table[bestcor]['windowFFT'])
+                    detector.get('cores', 'windowCoeff', bestcor),
+                    trig.best_fft,
+                    detector.get('cores', 'windowFFT', bestcor))
             if new_nthcor >= detector.get('cmin'):
                 _handle_core_match(
                     detector, trig, tracker,
                     fnums[bestcor], bestlag, new_maxlag, new_maxcor,
-                    core_table[bestcor]['id'])
+                    detector.cores['id'][bestcor])
                 tracker['found'] = True
             else:
                 _handle_near_match(
@@ -310,6 +309,7 @@ def merge_families(detector, famlist, laglist):
             detector.set(
                 'ftable', bytes(member_string, 'utf-8'), 'members', first_fam)
             detector.get('ftable').remove(fnum)
+    _remove_core(detector, np.setdiff1d(famlist, first_fam))
     detector.set('ftable', -1, 'lastprint', first_fam)
     merge = max_mem/len(detector.get_members(first_fam))
     update_family(detector, first_fam, merge)
@@ -341,6 +341,7 @@ def populate_new_family(detector, written):
     row['printme'] = 1
     row['lastprint'] = -1
     detector.get('ftable').append(row)
+    _append_core(detector, core)
     if len(detector) > 1:
         reorder_families(detector)
 
@@ -410,6 +411,8 @@ def reorder_families(detector):
     if (np.arange(len(detector)) != order).any():
         for col in detector.get('ftable').column_names:
             detector.set('ftable', detector.get('ftable', col, order), col)
+        for col in detector.get('rtable').column_names:
+            detector.set('cores', detector.get('cores', col)[order], col)
 
 
 def trigger_to_table(detector, trig):
@@ -454,6 +457,7 @@ def update_family(detector, fnum, merge=1):
             merge <= detector.get('merge_percent')):
         _run_optics(detector, fnum, fam)
     _update_ftable(detector, fnum, fam)
+    _check_core_window(detector, fnum)
 
 
 def _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag):
@@ -482,6 +486,19 @@ def _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag):
         tracker['laglist'].append(new_maxlag)
 
 
+def _append_core(detector, core):
+    """Append core of new family to cores subtable."""
+    for col in detector.get('rtable').column_names:
+        if col in ['FI', 'waveform', 'windowAmp', 'windowCoeff', 'windowFFT']:
+            detector.set('cores', np.append(
+                detector.get('cores', col),
+                [detector.get('rtable', col, core)], axis=0), col)
+        else:
+            detector.set('cores', np.append(
+                detector.get('cores', col),
+                detector.get('rtable', col, core)), col)
+
+
 def _append_family_member(detector, fnum, idx):
     """Append new family member from rtable to ftable."""
     if idx < 0:
@@ -489,6 +506,15 @@ def _append_family_member(detector, fnum, idx):
     member_string = detector.get(
         'ftable', 'members', fnum).decode('utf-8') + f' {idx}'
     detector.set('ftable', bytes(member_string, 'utf-8'), 'members', fnum)
+
+
+def _check_core_window(detector, fnum):
+    """Check that core window hasn't changed."""
+    core = detector.get('ftable', 'core', fnum)
+    window = detector.get('rtable', 'windowStart', core)
+    if detector.get('cores', 'windowStart', fnum) != window:
+        for col in ['windowStart', 'windowFFT', 'windowCoeff']:
+            detector.set('cores', detector.get('rtable', col, core), col, fnum)
 
 
 def _correlate_remaining_family(detector, fnum, rnum):
@@ -601,6 +627,13 @@ def _move_orphan_populate_correlation(
         detector.get('rtable', 'id', -written), maxcor_aligned)
 
 
+def _remove_core(detector, fnum):
+    """Remove family from core subtable."""
+    for col in detector.get('rtable').column_names:
+        detector.set('cores', np.delete(
+            detector.get('cores', col), fnum, axis=0), col)
+
+
 def _run_optics(detector, fnum, fam):
     """Run OPTICS to find best core event."""
     ccc_sparse = redpy.correlation.subset_matrix(
@@ -614,7 +647,15 @@ def _run_optics(detector, fnum, fam):
     distance_matrix = np.squeeze(np.asarray(distance_matrix))
     distance_matrix[range(len(fam)), range(len(fam))] = 0
     _, core = redpy.optics.OPTICS(distance_matrix).run(1)
-    detector.set('ftable', fam[core], 'core', fnum)
+    _update_core(detector, fnum, fam[core])
+
+
+def _update_core(detector, fnum, rnum):
+    """Update the core in ftable and detector.cores."""
+    if detector.get('ftable', 'core', fnum) != rnum:
+        detector.set('ftable', rnum, 'core', fnum)
+        for col in detector.get('rtable').column_names:
+            detector.cores[col][fnum] = detector.get('rtable', col, rnum)
 
 
 def _update_ftable(detector, fnum, fam):
