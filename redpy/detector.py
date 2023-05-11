@@ -168,18 +168,21 @@ class Detector():
             the table as a numpy array are returned. If both col and row are
             specified, the column is sliced with row.
 
+        Raises
+        ------
+        KeyError
+            If key 'cores' is not accompanied by a column name.
+
         """
         if key in ['config', 'h5file', 'tables', 'plotvars', 'waveforms']:
             return getattr(self, key)
         if key == 'cores':
-            if (col is not None):
+            if isinstance(col, str):
                 if row is None:
                     return self.cores[col]
-                else:
-                    return self.cores[col][row]
-            else:
-                raise KeyError(
-                    'When accessing cores, you must provide a column key!')
+                return self.cores[col][row]
+            raise KeyError(
+                'When accessing cores, you must provide a column key!')
         if 'table' in key:
             if not self.tables:
                 self.open()
@@ -517,7 +520,7 @@ class Detector():
         if key in ['config', 'h5file', 'tables']:
             setattr(self, key, value)
         if key == 'cores':
-            if (col is not None):
+            if col is not None:
                 if row is None:
                     self.cores[col] = value
                 else:

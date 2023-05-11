@@ -91,6 +91,7 @@ class Config():
             'ncor': 4,
             'merge_percent': 0.,
             'corr_nrecent': 0,
+            'corr_nyoungest': 0,
             'corr_nlargest': 0,
             'plotformat': 'eqrate,fi,occurrence+occurrencefi,longevity',
             'printsta': 2,

@@ -548,8 +548,29 @@ def _get_family_subtable(detector, fnum, rnum):
     members = np.setdiff1d(detector.get_members(fnum),
                            detector.get('ftable', 'core', fnum))
     members = np.setdiff1d(members, rnum)
-    # !!! Need to change to utilize most recent/largest functionality !!!
-    return members
+    ntotal = (detector.get('corr_nrecent') + detector.get('corr_nyoungest')
+              + detector.get('corr_nlargest'))
+    if (len(members) <= ntotal) or (ntotal == 0):
+        return members
+    n_recent = np.array([]).astype(int)
+    n_youngest = np.array([]).astype(int)
+    n_largest = np.array([]).astype(int)
+    if detector.get('corr_nrecent'):
+        n_recent = members[
+            np.argsort(detector.get('rtable', 'id', members))[
+                -detector.get('corr_nrecent'):]]
+        members = np.setdiff1d(members, n_recent)
+    if detector.get('corr_nyoungest'):
+        n_youngest = members[
+            np.argsort(detector.get('rtable', 'startTimeMPL', members))[
+                -detector.get('corr_nyoungest'):]]
+        members = np.setdiff1d(members, n_youngest)
+    if detector.get('corr_nlargest'):
+        n_largest = members[
+            np.argsort(np.mean(
+                detector.get('rtable', 'windowAmp', members), axis=1))[
+                    -detector.get('corr_nlargest'):]]
+    return np.concatenate((n_recent, n_youngest, n_largest), axis=None)
 
 
 def _get_lag_adjusted_windows(
