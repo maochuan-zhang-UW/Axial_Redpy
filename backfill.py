@@ -66,9 +66,11 @@ def backfill(configfile='settings.cfg', verbose=False, starttime=None,
         Temporarily overwrite "nsec" from config with this value.
 
     """
+    t_start = time.time()
     detector = redpy.Detector(configfile, verbose, opened=True)
     detector.update('backfill', starttime, endtime, nsec=nsec)
     detector.close()
+    print(f'Total time spent: {time.time()-t_start:.2f} seconds')
 
 
 def main():

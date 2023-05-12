@@ -94,6 +94,7 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
         Subsets catalog to end at this time.
 
     """
+    t_start = time.time()
     detector = redpy.Detector(configfile, verbose, opened=True)
     if query:
         detector.locate('arrivals', starttime, endtime, outfile=csvfile)
@@ -108,6 +109,7 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
     detector.update(
         'catfill', starttime, endtime, event_list, force, expire)
     detector.close()
+    print(f'Total time spent: {time.time()-t_start:.2f} seconds')
 
 
 def main():
