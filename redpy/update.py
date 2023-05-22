@@ -454,7 +454,7 @@ def update_family(detector, fnum, merge=1):
     fam = detector.get_members(fnum)
     if (len(fam) in [3, 4, 5, 6, 10, 15, 25, 50, 100, 250, 500, 1000, 2500,
                      5000, 10000, 25000, 50000, 100000, 250000, 500000]) or (
-            merge <= detector.get('merge_percent')):
+            merge <= detector.get('merge_ratio')):
         _run_optics(detector, fnum, fam)
     _update_ftable(detector, fnum, fam)
     _check_core_window(detector, fnum)
