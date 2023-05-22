@@ -50,67 +50,97 @@ class Config():
         self.configfile = configfile
         self.verbose = verbose
         self.settings = {
-            # !!! Dictionary needs to be organized
+
+            #  Name / Path Parameters  #
             'title': 'REDPy Catalog',
             'outputpath': './runs/',
             'groupname': 'default',
             'filename': './h5/redpytable.h5',
-            'minorph': 0.05,
-            'maxorph': 7.0,
-            'nsec': 3600,
-            'max_famlen': 30000,  # 1000000
-            'always_verbose': False,
+
+            #  Data Source Parameters  #
+            'server': 'IRIS',
+            'searchdir': './',
+            'filepattern': '*',
+            'preload': 10.,
+
+            #  SCNL Paramters  #
             'nsta': 8,
             'station': 'SEP,YEL,HSR,SHW,EDM,STD,JUN,SOS',
             'channel': 'EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ',
             'network': 'UW,UW,UW,UW,UW,UW,UW,UW',
             'location': '--,--,--,--,--,--,--,--',
+            'offset': '0',
+
+            #  Filtering Parameters  #
             'samprate': 100.,
             'fmin': 1.,
             'fmax': 10.,
+
+            #  Frequency Index Parameters  #
             'filomin': 1.,
             'filomax': 2.5,
             'fiupmin': 5.,
             'fiupmax': 10.,
-            'fispanlow': -0.5,
-            'fispanhigh': 0.5,
-            'server': 'IRIS',
-            'port': 16017,
-            'searchdir': './',
-            'filepattern': '*',
-            'preload': 10.,
+
+            #  Triggering Parameters  #
             'trigalg': 'classicstalta',
             'nstac': 5,
-            'lwin': 8.,  # 7
             'swin': 0.7,  # 0.8
+            'lwin': 8.,  # 7
             'trigon': 3.,
             'trigoff': 2.,
-            'offset': '0',
+
+            #  Quality Control Parameters  #
+            'kurtwin': 5.,
+            'kurtmax': 80.,
+            'kurtfmax': 150.,
+            'oratiomax': 0.20,  # 0.15
+            'telefi': -1.5,  # -1
+            'teleok': 2  # 1
+
+            #  Correlation Parameters  #
             'winlen': 1024,
             'cmin': 0.7,
             'ncor': 4,
-            'merge_percent': 0.,
-            'corr_nrecent': 0,
-            'corr_nyoungest': 0,
-            'corr_nlargest': 0,
+            'corr_nrecent': 0,  # 25?
+            'corr_nyoungest': 0,  # 25?
+            'corr_nlargest': 0,  # 50?
+
+            #  Run Parameters  #
+            'minorph': 0.05,
+            'maxorph': 7.0,
+            'nsec': 3600,
+            'max_famlen': 30000,  # 1000000
+            'merge_ratio': 0.,  # 0.6?
+            'always_verbose': False,
+
+            #  Timeline Parameters  #
             'plotformat': 'eqrate,fi,occurrence+occurrencefi,longevity',
-            'printsta': 2,
-            'minplot': 5,
-            'dybin': 1.,
-            'hrbin': 1.,
-            'occurbin': 1.,  # convert to decimal days
-            'recbin': 1.,  # convert to decimal days
-            'fixedheight': False,
-            'recplot': 14.,
-            'mminplot': 0,
-            'mhrbin': 1.,
-            'mrecbin': 1.,  # convert to decimal days
-            'mrecplot': 30.,
-            'verbosecatalog': False,
-            'anotfile': '',
-            'amplims': 'global',  # enforce else 'family'
             'bokehendtime': 'trigger',  # enforce else 'now'
             'timeline_vs': 'orphans',  # enforce else 'triggers'
+            'minplot': 5,
+            'mminplot': 0,
+            'recplot': 14.,
+            'mrecplot': 30.,
+            'dybin': 1.,
+            'hrbin': 1.,
+            'mhrbin': 1.,
+            'occurbin': 1.,  # convert to decimal days
+            'recbin': 1.,  # convert to decimal days
+            'mrecbin': 1.,  # convert to decimal days
+            'fixedheight': False,
+            'fispanlow': -0.5,
+            'fispanhigh': 0.5,
+            'anotfile': '',
+
+            #  Family Plot Parameters  #
+            'printsta': 2,
+            'amplims': 'global',  # enforce else 'family'
+
+            #  Text Catalog Parameters  #
+            'verbosecatalog': False,
+
+            #  External Catalog Parameters  #
             'checkcomcat': False,
             'datacenter': 'USGS',
             'stalats': ('46.200210,46.209550,46.174280,46.193470,46.197170,'
@@ -123,12 +153,7 @@ class Config():
             'regmag': 2.5,
             'telemag': 4.5,
             'matchmax': 0,
-            'kurtwin': 5.,
-            'kurtmax': 80.,
-            'kurtfmax': 150.,
-            'oratiomax': 0.20,
-            'telefi': -1.5,  # -1
-            'teleok': 2  # 1
+
         }
         self.custom_settings = []
         self._update_from_cfg()
