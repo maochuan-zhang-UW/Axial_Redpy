@@ -96,7 +96,7 @@ class Config():
             'kurtfmax': 150.,
             'oratiomax': 0.20,  # 0.15
             'telefi': -1.5,  # -1
-            'teleok': 2  # 1
+            'teleok': 2,  # 1
 
             #  Correlation Parameters  #
             'winlen': 1024,
