@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from bokeh.models import Arrow, ColorBar, ColumnDataSource, Div
 from bokeh.models import HoverTool, Label, LinearColorMapper, LogColorMapper
-from bokeh.models import LogTicker, OpenURL, Panel, Range1d, Span, Tabs
+from bokeh.models import LogTicker, OpenURL, TabPanel, Range1d, Span, Tabs
 from bokeh.models import TapTool, VeeHead
 from bokeh.models.glyphs import Line
 from bokeh.models.formatters import LogTickFormatter
@@ -65,9 +65,10 @@ def assemble_bokeh_timeline(detector, options, filepath):
             tabtitles = tabtitles+['Occurrence (Color by FI)']
         else:
             print(f'{plot} is not a valid plot type. Moving on.')
-    for plot in plots:
-        plot.x_range = plots[0].x_range
-        plot = _add_bokeh_annotations(detector, plot)
+    for fig in plots:
+        fig.x_range = plots[0].x_range
+        _add_bokeh_annotations(detector, fig)
+    _generate_tap_tool(plots)
     gridplot_items = [[Div(
         text=options['divtitle'], width=1000, margin=(-40, 5, -10, 5))]]
     pnum = 0
@@ -75,8 +76,8 @@ def assemble_bokeh_timeline(detector, options, filepath):
         if '+' in plotgroup:  # '+' groups plots into tabs
             tabs = []
             for group in range(len(plotgroup.split('+'))):
-                tabs = tabs + [Panel(child=plots[pnum + group],
-                                     title=tabtitles[pnum + group])]
+                tabs = tabs + [TabPanel(child=plots[pnum + group],
+                                        title=tabtitles[pnum + group])]
             gridplot_items = gridplot_items + [[Tabs(tabs=tabs)]]
             pnum += group + 1
         else:
@@ -163,7 +164,7 @@ def bokeh_figure(**kwargs):
     complete list.
 
     The main argument passed is usually 'title'. If they are not defined,
-    'tools', 'plot_width', 'plot_height', and 'x_axis_type' are populated
+    'tools', 'width', 'height', and 'x_axis_type' are populated
     with default values.
 
     Returns
@@ -172,11 +173,11 @@ def bokeh_figure(**kwargs):
 
     """
     if 'tools' not in kwargs:
-        kwargs['tools'] = ['pan,box_zoom,reset,save,tap']
-    if 'plot_width' not in kwargs:
-        kwargs['plot_width'] = 1250
-    if 'plot_height' not in kwargs:
-        kwargs['plot_height'] = 250
+        kwargs['tools'] = ['pan,box_zoom,reset']
+    if 'width' not in kwargs:
+        kwargs['width'] = 1250
+    if 'height' not in kwargs:
+        kwargs['height'] = 250
     if 'x_axis_type' not in kwargs:
         kwargs['x_axis_type'] = 'datetime'
     fig = figure(**kwargs)
@@ -427,9 +428,9 @@ def subplot_occurrence(detector, options, colorby, use_bokeh=True, ax=None):
     """
     if use_bokeh:
         fig = bokeh_figure(
-            tools=[_family_hover_tool(), 'pan,box_zoom,reset,save,tap'],
+            tools=[_family_hover_tool(), 'pan,box_zoom,reset'],
             title='Occurrence Timeline',
-            plot_height=250, plot_width=1250)
+            height=250, width=1250)
         fig.yaxis.axis_label = 'Family by Date' + (
             f' ({options["minplot"]}+ Members)' if options[
                 'minplot'] > 2 else '')
@@ -533,7 +534,6 @@ def _add_bokeh_annotations(detector, fig):
                 line_width=annotations['Weight'][i],
                 line_dash=annotations['Line Type'][i],
                 line_alpha=annotations['Alpha'][i]))
-    return fig
 
 
 def _add_pdf_colorbar(detector, ax, colorby, options):
@@ -813,6 +813,20 @@ def _draw_lines_mpl(line, y_pos, options, color, alpha, log, ax):
     return ax
 
 
+def _generate_tap_tool(plots):
+    """Create a TapTool to open family pages."""
+    renderers = []
+    for fig in plots:
+        hover = fig.select(type=HoverTool)
+        if hover:
+            renderers.append(hover[0].renderers[0])
+    if renderers:
+        taptool = TapTool(renderers=renderers,
+                          callback=OpenURL(url='./families/@famnum.html'))
+        for fig in plots:
+            fig.add_tools(taptool)
+
+
 def _family_hover_tool():
     """Generate HoverTool for family hover preview."""
     return HoverTool(
@@ -828,7 +842,7 @@ def _family_hover_tool():
                 font-family: Helvetica;">@famnum</span>
         </div>
         </div>
-        """, names=["patch"])
+        """, renderers=[])
 
 
 def _finish_occurrence(detector, fig, patch, y_pos, options, colorby):
@@ -838,18 +852,14 @@ def _finish_occurrence(detector, fig, patch, y_pos, options, colorby):
         # Patches allow hovering for image of core and family number
         source = ColumnDataSource(
             data=patch)
-        fig.patches(
-            'xs', 'ys', source=source, name='patch', alpha=0,
+        renderer = fig.patches(
+            'xs', 'ys', source=source, alpha=0,
             selection_fill_alpha=0, selection_line_alpha=0,
             nonselection_fill_alpha=0, nonselection_line_alpha=0)
-        # Tapping on one of the patches will open a window to a file with
-        # more information on the family in question.
-        url = './families/@famnum.html'
-        taptool = fig.select(type=TapTool)[0]
-        taptool.names.append('patch')
-        taptool.callback = OpenURL(url=url)
+        hovertool = fig.select(type=HoverTool)[0]
+        hovertool.renderers.append(renderer)
         if (y_pos > 15) and not options['fixedheight']:
-            fig.plot_height = y_pos*15
+            fig.height = y_pos*15
             fig.y_range = Range1d(-1, y_pos)
             cbar_location = y_pos*15 - 165
     if colorby == 'rate':

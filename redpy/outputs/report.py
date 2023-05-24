@@ -13,7 +13,7 @@ import os
 import shutil
 
 import numpy as np
-from bokeh.models import Panel, Tabs
+from bokeh.models import TabPanel, Tabs
 from bokeh.plotting import gridplot, output_file, save
 
 import redpy.correlation
@@ -43,55 +43,26 @@ def assemble_bokeh_timeline_report(
 
     """
     plots = []
-    tabtitles = []
-    plotformat = 'amplitude,spacing,correlation'
-    # Create each of the subplots specified in the configuration file
-    for plot in plotformat.split(','):
-        if plot == 'amplitude':
-            # Plot EQ Rates (Repeaters and Orphans)
-            plots.append(redpy.outputs.image.subplot_amplitude(
-                detector, rtable_fam, members, core_idx, use_bokeh=True))
-            tabtitles += ['Amplitude']
-        elif plot == 'spacing':
-            # Plot Frequency Index
-            plots.append(redpy.outputs.image.subplot_spacing(
-                detector, members, core_idx, use_bokeh=True))
-            tabtitles += ['Spacing']
-        elif plot == 'correlation':
-            # Plot Cluster Longevity
-            plots.append(redpy.outputs.image.subplot_correlation(
-                detector, members, core_idx, use_bokeh=True,
-                ccc_full=ccc_full))
-            tabtitles += ['Correlation']
-        else:
-            print(f'{plot} is not a valid plot type. Moving on.')
-    for plot in plots:
-        plot.x_range = plots[0].x_range
-    for plot in plots:
+    plots.append(redpy.outputs.image.subplot_amplitude(
+        detector, rtable_fam, members, core_idx, use_bokeh=True))
+    plots.append(redpy.outputs.image.subplot_spacing(
+        detector, members, core_idx, use_bokeh=True))
+    plots.append(redpy.outputs.image.subplot_correlation(
+        detector, members, core_idx, use_bokeh=True, ccc_full=ccc_full))
+    gridplot_items = []
+    for fig in plots:
+        fig.x_range = plots[0].x_range
         # pylint: disable=W0212
         # I trust use of protected member here.
-        plot = redpy.outputs.timeline._add_bokeh_annotations(detector, plot)
+        redpy.outputs.timeline._add_bokeh_annotations(detector, fig)
         # pylint: enable=W0212
-    gridplot_items = []
-    pnum = 0
-    for plot in plotformat.split(','):
-        # '+' groups plots into tabs
-        if '+' in plot:
-            tabs = []
-            for pft in range(len(plot.split('+'))):
-                tabs = tabs + [Panel(child=plots[pnum+pft],
-                                     title=tabtitles[pnum+pft])]
-            gridplot_items = gridplot_items + [[Tabs(tabs=tabs)]]
-            pnum += pft+1
-        else:
-            gridplot_items = gridplot_items + [[plots[pnum]]]
-            pnum += 1
-    plot = gridplot(gridplot_items)
+        gridplot_items = gridplot_items + [[fig]]
+    output = gridplot(gridplot_items)
     filepath = os.path.join(detector.get('output_folder'), 'reports',
                             f'{fnum}-report-bokeh.html')
     output_file(filepath, title=(f'{detector.get("title")} - '
                                  f'Cluster {fnum} Detailed Report'))
-    save(plot)
+    save(output)
 
 
 def create_report(detector, fnum, ordered=False, skip_recalculate_ccc=False,
