@@ -306,7 +306,7 @@ class Table():
             self.table.remove_rows(0)
             self.columns_in_memory = {}
         else:
-            if isinstance(row, (int, np.int, np.int32, np.int64)):
+            if isinstance(row, (int, np.int32, np.int64)):
                 self.table.remove_row(row)
             else:
                 row = np.sort(row)[::-1]
@@ -346,7 +346,7 @@ class Table():
         if isinstance(col, int):
             col = self.column_names[col]
         if row is not None:
-            if (not isinstance(row, int)) and (not isinstance(row, np.int64)):
+            if not isinstance(row, (int, np.int32, np.int64)):
                 for i, j in enumerate(row):
                     self.table.modify_column(start=j, column=value[i],
                                              colname=col)

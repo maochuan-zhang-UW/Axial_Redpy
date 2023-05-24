@@ -42,15 +42,15 @@ def create_local_map(detector, fnum, local):
         # Abstract class instantiation from cartopy
         plate_carree = ccrs.PlateCarree()
         # pylint: enable=E0110
-        stamen_terrain = cimgt.StamenTerrain()
+        background_tile = cimgt.Stamen(style='terrain-background', cache=True)
         extent = [np.median(local['lons']) - detector.get('locdeg')/2,
                   np.median(local['lons']) + detector.get('locdeg')/2,
                   np.median(local['lats']) - detector.get('locdeg')/4,
                   np.median(local['lats']) + detector.get('locdeg')/4]
         fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1, projection=stamen_terrain.crs)
+        ax = fig.add_subplot(1, 1, 1, projection=background_tile.crs)
         ax.set_extent(extent, crs=plate_carree)
-        ax.add_image(stamen_terrain, 11)
+        ax.add_image(background_tile, 11)
         ax.set_xticks(np.arange(np.floor(10*(extent[0]))/10,
                       np.ceil(10*(extent[1]))/10, 0.1), crs=plate_carree)
         ax.set_yticks(np.arange(np.floor(10*(extent[2]))/10,

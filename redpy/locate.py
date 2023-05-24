@@ -451,7 +451,7 @@ def get_median_locations(detector, regional=False, distant=False):
                 nmem = int(line.split(': ')[1][:-4])
         df.loc[fnums[fam]] = [np.median(locs['lats']), np.median(locs['lons']),
                               np.median(locs['deps']), nmem, len(locs['lats'])]
-    return df.astype({r'#Members': np.int32, r'#Located': np.int32})
+    return df.astype({r'#Members': int, r'#Located': int})
 
 
 def handle_arrivals(detector, catalog, time_column_name, write_to_column=None):
