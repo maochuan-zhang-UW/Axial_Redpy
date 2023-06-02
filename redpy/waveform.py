@@ -96,6 +96,8 @@ class Waveform():
 
         """
         t_get = time.time()
+        window_start = window_start - detector.get('atrig')
+        window_end = window_end + detector.get('atrig')
         self._preload_check(detector, window_start, window_end)
         if self.preload:
             stream = self._extract_from_preload(
@@ -108,7 +110,7 @@ class Waveform():
         if detector.get('maxdt'):
             offsets = np.fromstring(detector.get('offset'), sep=',')
             for i, trace in enumerate(stream):
-                trace.stats.starttime = trace.stats.starttime-offsets[i]
+                trace.stats.starttime = trace.stats.starttime - offsets[i]
         stream = stream.trim(starttime=window_start, endtime=window_end,
                              pad=True, fill_value=0)
         return stream, time.time()-t_get
@@ -159,7 +161,7 @@ class Waveform():
             for i, trig in enumerate(trig_times):
                 # Enforce time at edges of stream
                 if (start_time + detector.get('atrig')
-                        <= trig < end_time - 2*detector.get('atrig')):
+                        <= trig < end_time - detector.get('atrig')):
                     trig_list.append(
                         Trigger(detector, trig, ratios[i], stream))
         return trig_list
@@ -363,15 +365,16 @@ def _filter_merge(detector, stream):
     """Filter and merge so data from each channel is in a single Trace."""
     for trace in stream:
         trace.data = np.where(trace.data == -2**31, 0, trace.data)
+    stream = stream.detrend()
+    stream = stream.merge(method=1, fill_value=0)
+    zeros = [np.where(stream[i].data == 0)[0] for i in range(len(stream))]
     stream = stream.filter('bandpass', freqmin=detector.get('fmin'),
                            freqmax=detector.get('fmax'), corners=2,
                            zerophase=True)
-    stream = stream.taper(
-        0.05, type='hann', max_length=detector.get('mintrig')/10)
-    for trace in stream:
+    for i, trace in enumerate(stream):
+        trace.data[zeros[i]] = 0
         if trace.stats.sampling_rate != detector.get('samprate'):
             trace = trace.resample(detector.get('samprate'))
-    stream = stream.merge(method=1, fill_value=0)
     stream_scnls = np.array([_scnl_from_trace(trace) for trace in stream])
     ordered_stream = Stream()
     for scnl in _scnl_list_from_config(detector):

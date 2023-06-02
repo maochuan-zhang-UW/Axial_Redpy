@@ -634,8 +634,8 @@ class Detector():
                 expire = False
             for event in event_list:
                 redpy.update.from_window(
-                    self, event - 4*self.get('atrig'),
-                    event + 5*self.get('atrig') + self.get('maxdt'),
+                    self, event - 3*self.get('atrig'),
+                    event + 4*self.get('atrig') + self.get('maxdt'),
                     expire, force)
         else:
             raise ValueError(_UNKNOWN_METHOD.format(
