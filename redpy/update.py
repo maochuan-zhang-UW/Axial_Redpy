@@ -209,16 +209,16 @@ def compare_trigger_to_orphans(detector, trig, maxcors, maxlags):
             bestlag = maxlags[bestcor]
         (window_coeff1, window_fft1, window_fi1,
          window_coeff2, window_fft2, window_fi2) = _get_lag_adjusted_windows(
-            detector, trig, maxlags, bestlag, bestcor, 'otable', bestcor, 0)
+            detector, trig, maxlags, bestlag, bestcor, 'otable', bestcor,
+            written)
         maxcor_aligned, _, nthcor_aligned = xcorr_1x1(
             detector, window_coeff1, window_coeff2, window_fft1, window_fft2)
-        maxcors[bestcor] = 0
         if nthcor_aligned >= detector.get('cmin'):
             if written == 0:
                 written = 2
-                trig.coeff = window_coeff1
-                trig.fft = window_fft1
-                trig.freq_index = window_fi1
+                trig.coeff, trig.fft, trig.freq_index = (
+                    redpy.correlation.calculate_window(detector, trig.concat,
+                    detector.get('start_sample') + bestlag))
                 trig.start_sample = detector.get('start_sample') + bestlag
                 trig.populate(detector, 'rtable')
                 _move_orphan_populate_correlation(
@@ -226,12 +226,12 @@ def compare_trigger_to_orphans(detector, trig, maxcors, maxlags):
             else:
                 written += 1
                 _update_window(
-                    detector, 'otable', bestcor, bestlag-maxlags[bestcor],
+                    detector, 'otable', bestcor, bestlag - maxlags[bestcor],
                     window_coeff2, window_fft2, window_fi2)
                 _move_orphan_populate_correlation(
                     detector, bestcor, maxcor_aligned, written)
-            maxcors = np.delete(maxcors, bestcor)
-            maxlags = np.delete(maxlags, bestcor)
+        maxcors = np.delete(maxcors, bestcor)
+        maxlags = np.delete(maxlags, bestcor)
     if len(detector.get('rtable')) > 0:
         compare_trigger_to_cores(detector, trig, written)
     else:
@@ -434,6 +434,7 @@ def trigger_to_table(detector, trig):
     """
     maxcors, maxlags, _ = xcorr_1xtable(
         detector, 'otable', trig.coeff, trig.fft)
+
     # If there's a possible match with an orphan, run most complex function
     if (len(maxcors) > 0) and (np.max(maxcors) > detector.get('cmin')-0.05):
         compare_trigger_to_orphans(detector, trig, maxcors, maxlags)
@@ -466,10 +467,16 @@ def _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag):
     if not tracker['found']:
         tracker['laglist'].append(0)
         if tracker['written'] == 0:
-            trig.coeff = trig.best_coeff
-            trig.fft = trig.best_fft
-            trig.freq_index = trig.best_fi
-            trig.start_sample = trig.start_sample+bestlag
+            if new_maxlag:
+                trig.coeff, trig.fft, trig.freq_index = (
+                    redpy.correlation.calculate_window(detector, trig.concat,
+                    trig.start_sample + bestlag + new_maxlag))
+                trig.start_sample = trig.start_sample + bestlag + new_maxlag
+            else:
+                trig.coeff = trig.best_coeff
+                trig.fft = trig.best_fft
+                trig.freq_index = trig.best_fi
+                trig.start_sample = trig.start_sample + bestlag
             trig.populate(detector, 'rtable')
             tracker['written'] = 1
             _append_family_member(detector, fnum, -1)
@@ -477,10 +484,9 @@ def _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag):
             for i in np.arange(-tracker['written'], 0):
                 if i == -tracker['written']:
                     _update_window(
-                        detector, 'rtable', i, bestlag, trig.best_coeff,
-                        trig.best_fft, trig.best_fi)
+                        detector, 'rtable', i, bestlag + new_maxlag)
                 else:
-                    _update_window(detector, 'rtable', i, bestlag)
+                    _update_window(detector, 'rtable', i, bestlag + new_maxlag)
                 _append_family_member(detector, fnum, i)
     else:
         tracker['laglist'].append(new_maxlag)
@@ -576,14 +582,13 @@ def _get_family_subtable(detector, fnum, rnum):
 def _get_lag_adjusted_windows(
         detector, trig, maxlags, bestlag, bestcor, table_type, row, written=0):
     """Get window parameters adjusted for lag."""
+    window_coeff1, window_fft1, window_fi1 = (
+        trig.coeff, trig.fft, trig.freq_index)
     if written == 0:
         if bestlag != 0:
             window_coeff1, window_fft1, window_fi1 = calculate_window(
                 detector, trig.concat,
                 detector.get('start_sample') + bestlag)
-        else:
-            window_coeff1, window_fft1, window_fi1 = (
-                trig.coeff, trig.fft, trig.freq_index)
         window_coeff2, window_fft2, window_fi2 = _get_window(
             detector, table_type, row)
     else:
@@ -620,10 +625,11 @@ def _handle_near_match(detector, trig, tracker,
                        fnum, bestlag, new_maxlag):
     """Handle case where a trigger nearly matches a core."""
     subtable_members = _get_family_subtable(detector, fnum, -1)
-    maxcors, _, nthcors = xcorr_1xtable(
+    maxcors, maxlags, nthcors = xcorr_1xtable(
        detector, 'rtable', trig.best_coeff, trig.best_fft, subtable_members)
     if np.max(nthcors) >= detector.get('cmin'):
-        _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag)
+        _add_match(detector, trig, tracker, fnum, bestlag,
+                   maxlags[np.argmax(maxcors)])
         tracker['found'] = True
         for i in np.where(nthcors >= detector.get('cmin'))[0]:
             _populate_correlation(
@@ -693,8 +699,7 @@ def _update_trig_lag(detector, trig, bestlag):
     """Update trig window based on best lag."""
     if bestlag != 0:
         trig.best_coeff, trig.best_fft, trig.best_fi = calculate_window(
-            detector, trig.concat,
-            detector.get('start_sample') + bestlag)
+            detector, trig.concat, trig.start_sample + bestlag)
     else:
         trig.best_coeff = trig.coeff
         trig.best_fft = trig.fft

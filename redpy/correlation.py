@@ -49,6 +49,7 @@ def calculate_window(detector, waveform, trigger_sample):
         Frequency index for each station, NaNs where missing data.
 
     """
+    trigger_sample = int(trigger_sample)
     # Shift window to left by 10% of total window length
     winlen = detector.get('winlen')
     wshape = detector.get('wshape')
