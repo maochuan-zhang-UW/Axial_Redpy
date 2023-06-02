@@ -70,7 +70,7 @@ def assemble_bokeh_timeline(detector, options, filepath):
         _add_bokeh_annotations(detector, fig)
     _generate_tap_tool(plots)
     gridplot_items = [[Div(
-        text=options['divtitle'], width=1000, margin=(-40, 5, -10, 5))]]
+        text=options['divtitle'], width=1000, margin=(-40, 5, -10, 15))]]
     pnum = 0
     for plotgroup in options['plotformat'].split(','):
         if '+' in plotgroup:  # '+' groups plots into tabs
@@ -184,6 +184,7 @@ def bokeh_figure(**kwargs):
     fig.grid.grid_line_alpha = 0.3
     fig.xaxis.axis_label = 'Date'
     fig.yaxis.axis_label = ''
+    fig.margin = (0, 0, 0, 5)
     return fig
 
 
@@ -212,18 +213,21 @@ def generate_pdf_timeline(
         Comma-separated list of plots to include.
 
     """
+    ttimes = detector.get('plotvars')['ttimes']
     if tmin:
         mintime = tmin
     else:
-        mintime = min(detector.get('plotvars')['ttimes'])
+        mintime = np.min(ttimes) - (
+            2 * detector.get('winlen') / detector.get('samprate') / 86400)
     if tmax:
         maxtime = tmax
     else:
-        maxtime = max(detector.get('plotvars')['ttimes'])
+        maxtime = np.max(ttimes) + (
+            2 * detector.get('winlen') / detector.get('samprate') / 86400)
     options = {
         'mintime': mintime,
         'maxtime': maxtime,
-        'barpad': 0.01*(maxtime-mintime),
+        'barpad': 0.01 * (maxtime-mintime),
         'binsize_hist': binsize,
         'binsize_occur': binsize,
         'minplot': minmembers,
@@ -249,17 +253,17 @@ def generate_timelines(detector):
     if detector.get('bokehendtime') == 'now':
         maxtime = UTCDateTime().matplotlib_date
     else:
-        maxtime = np.max(ttimes)
+        maxtime = np.max(ttimes) + (
+            2 * detector.get('winlen') / detector.get('samprate') / 86400)
     for file in ['overview', 'overview_recent', 'meta_recent']:
         # Set parameters unique to each timeline type
         if file == 'overview':
             mintime = np.min(ttimes) - (
-                detector.get('winlen') / detector.get('samprate') / 86400)
+                2 * detector.get('winlen') / detector.get('samprate') / 86400)
             options = {
-                # Give a little extra padding to mintime
                 'mintime': mintime,
                 'maxtime': maxtime,
-                'barpad': (maxtime-mintime)*0.01,
+                'barpad': 0.01 * (maxtime-mintime),
                 'plotformat': detector.get('plotformat'),
                 'binsize_hist': detector.get('dybin'),
                 'binsize_occur': detector.get('occurbin'),
@@ -271,9 +275,9 @@ def generate_timelines(detector):
             options = {
                 'mintime': maxtime - detector.get('recplot'),
                 'maxtime': maxtime,
-                'barpad': detector.get('recplot')*0.01,
+                'barpad': 0.01 * detector.get('recplot'),
                 'plotformat': detector.get('plotformat'),
-                'binsize_hist': detector.get('hrbin')/24,
+                'binsize_hist': detector.get('hrbin') / 24,
                 'binsize_occur': detector.get('recbin'),
                 'minplot': 0,
                 'fixedheight': detector.get('fixedheight'),
@@ -285,9 +289,9 @@ def generate_timelines(detector):
             options = {
                 'mintime': maxtime - detector.get('mrecplot'),
                 'maxtime': maxtime,
-                'barpad': detector.get('mrecplot')*0.01,
+                'barpad': 0.01 * detector.get('mrecplot'),
                 'plotformat': detector.get('plotformat').replace(',', '+'),
-                'binsize_hist': detector.get('mhrbin')/24,
+                'binsize_hist': detector.get('mhrbin') / 24,
                 'binsize_occur': detector.get('mrecbin'),
                 'minplot': detector.get('mminplot'),
                 'fixedheight': True,
@@ -648,16 +652,14 @@ def _build_occurrence_histogram(detector, options, members, colorby):
     return left[idx], right[idx], colors[idx]
 
 
-def _build_patch(patch, y_pos, rtimes_mpl, members, fnum,
+def _build_patch(patch, y_pos, left, right, fnum,
                  options):
     """Build source for Bokeh hover patches."""
     patch['xs'].append([
-        mdates.num2date(max(min(
-            rtimes_mpl[members]), options['mintime']) - options['barpad']),
-        mdates.num2date(max(min(
-            rtimes_mpl[members]), options['mintime']) - options['barpad']),
-        mdates.num2date(max(rtimes_mpl[members]) + options['barpad']),
-        mdates.num2date(max(rtimes_mpl[members]) + options['barpad'])])
+        np.min(left) - datetime.timedelta(days=options['barpad']),
+        np.min(left) - datetime.timedelta(days=options['barpad']),
+        np.max(right) + datetime.timedelta(days=options['barpad']),
+        np.max(right) + datetime.timedelta(days=options['barpad'])])
     patch['ys'].append(
         [y_pos-0.5, y_pos+0.5, y_pos+0.5, y_pos-0.5])
     patch['famnum'].append([fnum])
@@ -818,13 +820,15 @@ def _generate_tap_tool(plots):
     renderers = []
     for fig in plots:
         hover = fig.select(type=HoverTool)
-        if hover:
+        if hover and len(hover[0].renderers):
             renderers.append(hover[0].renderers[0])
     if renderers:
         taptool = TapTool(renderers=renderers,
                           callback=OpenURL(url='./families/@famnum.html'))
-        for fig in plots:
-            fig.add_tools(taptool)
+    else:
+        taptool = TapTool()
+    for fig in plots:
+        fig.add_tools(taptool)
 
 
 def _family_hover_tool():
@@ -906,8 +910,7 @@ def _occurrence_for_family(
                 text=f'  {len(members)}',
                 text_font_size='9pt', text_baseline='middle'))
             patch = _build_patch(
-                patch, y_pos, detector.get('plotvars')['rtimes_mpl'],
-                members, fnum, options)
+                patch, y_pos, left, right, fnum, options)
         else:
             ax = _draw_lines_mpl(
                 _determine_lines(detector, options, fnum),
