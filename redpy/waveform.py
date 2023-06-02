@@ -392,8 +392,8 @@ def _filter_merge(detector, stream):
 def _gap_check(detector, triggers, stream):
     """Remove triggers that occur right after a gap."""
     winlen = detector.get('winlen')
-    winstart = 0.1*winlen/detector.get('samprate')
-    winend = 0.9*winlen/detector.get('samprate')
+    winstart = 0.01*winlen/detector.get('samprate')
+    winend = 0.99*winlen/detector.get('samprate')
     for trig in triggers.copy():
         n_gaps = 0
         for waves in stream:
@@ -401,10 +401,11 @@ def _gap_check(detector, triggers, stream):
                 pretrig = waves.slice(trig['time']-winstart, trig['time']).data
                 window = waves.slice(trig['time']-winstart,
                                      trig['time']+winend)
-                if (len(np.where(pretrig == 0)[0])/len(pretrig) >= 0.5) or (
+                if (len(np.where(pretrig == 0)[0]) >= 1) or (
                         np.sort(np.abs(window))[int(winlen/5)] == 0):
                     n_gaps += 1
         if n_gaps >= detector.get('nstac'):
+            print(f'removing: {trig}')
             triggers.remove(trig)
     return triggers
 
