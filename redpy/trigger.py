@@ -126,8 +126,10 @@ class Trigger():
     def _calculate_window_amplitude(self, detector):
         """Calculate the maximum amplitudes within the window."""
         amps = np.zeros(detector.get('nsta'))
-        winstart = self.time - 0.1*detector.get('winlen')
-        winend = self.time + 0.9*detector.get('winlen')
+        winstart = (
+            self.time - 0.1*detector.get('winlen')/detector.get('samprate'))
+        winend = (
+            self.time + 0.75*detector.get('winlen')/detector.get('samprate'))
         for i in range(detector.get('nsta')):
             amps[i] = np.max(np.abs(
                 self.waveforms[i].slice(winstart, winend).data))
