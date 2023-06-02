@@ -82,19 +82,22 @@ def generate(detector, catalogs=True, timelines=True, images=True, html=True):
         If True, write family .html files.
 
     """
-    if detector.get('verbose'):
-        print('Updating plots...')
-    set_plotvars(detector)
-    if catalogs:
-        redpy.outputs.printing.generate_catalogs(detector)
-    if timelines:
-        redpy.outputs.timeline.generate_timelines(detector)
-    if images:
-        redpy.outputs.image.generate_images(detector)
-    if html:
-        redpy.outputs.html.generate_html(detector)
-    set_print_cols(detector)
-    remove_old_files(detector)
+    if len(detector.get('ttable')):
+        if detector.get('verbose'):
+            print('Updating outputs...')
+        set_plotvars(detector)
+        if catalogs:
+            redpy.outputs.printing.generate_catalogs(detector)
+        if timelines:
+            redpy.outputs.timeline.generate_timelines(detector)
+        if images:
+            redpy.outputs.image.generate_images(detector)
+        if html:
+            redpy.outputs.html.generate_html(detector)
+        set_print_cols(detector)
+        remove_old_files(detector)
+    else:
+        print('No triggers, not creating outputs!')
 
 
 def junk(detector):
@@ -330,5 +333,9 @@ def set_plotvars(detector):
         detector.get('rtable', 'FI'), axis=1)
     detector.get('plotvars')['amps'] = detector.get(
         'rtable', 'windowAmp')[:, detector.get('printsta')]
-    (detector.get('plotvars')['ids'],
-     detector.get('plotvars')['ccc_sparse']) = detector.get_matrix()
+    if len(detector):
+        (detector.get('plotvars')['ids'],
+         detector.get('plotvars')['ccc_sparse']) = detector.get_matrix()
+    else:
+        detector.get('plotvars')['ids'] = np.array([])
+        detector.get('plotvars')['ccc_sparse'] = np.array([])
