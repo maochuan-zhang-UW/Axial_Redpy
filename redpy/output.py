@@ -317,14 +317,15 @@ def set_plotvars(detector):
     detector.get('rtable').remember('windowAmp')
     detector.get('ftable').remember('startTime')
     detector.get('ftable').remember('longevity')
-    samples_to_days = 1 / detector.get('samprate') / 86400
+    seconds_to_days = 1 / 86400
+    samples_to_days = seconds_to_days / detector.get('samprate')
     window_start = detector.get('rtable', 'windowStart') * samples_to_days
     rtimes_mpl = detector.get('rtable', 'startTimeMPL') + window_start
     detector.get('plotvars')['rtimes_mpl'] = rtimes_mpl
     detector.get('plotvars')['rtimes'] = np.array(
         [mdates.num2date(rtime) for rtime in rtimes_mpl])
     detector.get('plotvars')['ttimes'] = detector.get(
-        'ttable', 'startTimeMPL') + detector.get('ptrig') * samples_to_days
+        'ttable', 'startTimeMPL') + detector.get('ptrig') * seconds_to_days
     detector.get('plotvars')['mean_fi'] = np.nanmean(
         detector.get('rtable', 'FI'), axis=1)
     detector.get('plotvars')['amps'] = detector.get(
