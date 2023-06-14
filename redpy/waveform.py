@@ -405,7 +405,6 @@ def _gap_check(detector, triggers, stream):
                         np.sort(np.abs(window))[int(winlen/5)] == 0):
                     n_gaps += 1
         if n_gaps >= detector.get('nstac'):
-            print(f'removing: {trig}')
             triggers.remove(trig)
     return triggers
 
