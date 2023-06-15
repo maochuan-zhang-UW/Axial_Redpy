@@ -164,8 +164,7 @@ def compare_trigger_to_cores(detector, trig, written=0):
                 tracker['found'] = True
             else:
                 _handle_near_match(
-                    detector, trig, tracker,
-                    fnums[bestcor], bestlag, new_maxlag)
+                    detector, trig, tracker, fnums[bestcor], bestlag)
             core_maxcors[bestcor] = 0
     if not tracker['found']:
         if tracker['written'] == 0:
@@ -207,7 +206,7 @@ def compare_trigger_to_orphans(detector, trig, maxcors, maxlags):
         bestcor = np.argmax(maxcors)
         if written == 0:
             bestlag = maxlags[bestcor]
-        (window_coeff1, window_fft1, window_fi1,
+        (window_coeff1, window_fft1, _,
          window_coeff2, window_fft2, window_fi2) = _get_lag_adjusted_windows(
             detector, trig, maxlags, bestlag, bestcor, 'otable', bestcor,
             written)
@@ -217,8 +216,9 @@ def compare_trigger_to_orphans(detector, trig, maxcors, maxlags):
             if written == 0:
                 written = 2
                 trig.coeff, trig.fft, trig.freq_index = (
-                    redpy.correlation.calculate_window(detector, trig.concat,
-                    detector.get('start_sample') + bestlag))
+                    redpy.correlation.calculate_window(
+                        detector, trig.concat,
+                        detector.get('start_sample') + bestlag))
                 trig.start_sample = detector.get('start_sample') + bestlag
                 trig.populate(detector, 'rtable')
                 _move_orphan_populate_correlation(
@@ -469,8 +469,9 @@ def _add_match(detector, trig, tracker, fnum, bestlag, new_maxlag):
         if tracker['written'] == 0:
             if new_maxlag:
                 trig.coeff, trig.fft, trig.freq_index = (
-                    redpy.correlation.calculate_window(detector, trig.concat,
-                    trig.start_sample + bestlag + new_maxlag))
+                    redpy.correlation.calculate_window(
+                        detector, trig.concat,
+                        trig.start_sample + bestlag + new_maxlag))
                 trig.start_sample = trig.start_sample + bestlag + new_maxlag
             else:
                 trig.coeff = trig.best_coeff
@@ -621,8 +622,7 @@ def _handle_core_match(detector, trig, tracker,
         _correlate_remaining_family(detector, fnum, i)
 
 
-def _handle_near_match(detector, trig, tracker,
-                       fnum, bestlag, new_maxlag):
+def _handle_near_match(detector, trig, tracker, fnum, bestlag):
     """Handle case where a trigger nearly matches a core."""
     subtable_members = _get_family_subtable(detector, fnum, -1)
     maxcors, maxlags, nthcors = xcorr_1xtable(

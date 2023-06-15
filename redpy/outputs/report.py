@@ -13,7 +13,6 @@ import os
 import shutil
 
 import numpy as np
-from bokeh.models import TabPanel, Tabs
 from bokeh.plotting import gridplot, output_file, save
 
 import redpy.correlation
