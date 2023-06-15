@@ -33,6 +33,7 @@ def generate_html(detector):
     """
     if detector.get('checkcomcat'):
         external_catalogs = redpy.locate.prepare_catalog(detector)
+        redpy.outputs.mapping.get_tiles(detector)
     else:
         external_catalogs = []
     printme = detector.get('ftable', 'printme')
