@@ -140,7 +140,9 @@ def _reorder_by_optics(members, rtable_fam, ccc_fam, ccc_full):
     ccc_fam = ccc_fam[:, sort]
     ccc_full = ccc_full[sort, :]
     ccc_full = ccc_full[:, sort]
-    order, _ = redpy.optics.OPTICS(distance_matrix).run(1)
+    optics_object, rtable_fam = redpy.optics.run_optics(
+        None, rtable_fam, distance_matrix)
+    order = optics_object.ordering_
     members = members[order]
     ccc_fam = ccc_fam[order, :]
     ccc_fam = ccc_fam[:, order]

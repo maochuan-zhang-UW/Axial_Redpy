@@ -452,12 +452,13 @@ def update_family(detector, fnum, merge=1):
     famlen = len(detector.get('ftable', 'members', fnum))
     if famlen > detector.get('ftable').table.attrs.current_max_famlen:
         detector.get('ftable').table.attrs.current_max_famlen = famlen
-    fam = detector.get_members(fnum)
-    if (len(fam) in [3, 4, 5, 6, 10, 15, 25, 50, 100, 250, 500, 1000, 2500,
-                     5000, 10000, 25000, 50000, 100000, 250000, 500000]) or (
+    members = detector.get_members(fnum)
+    if (len(members) in [
+        3, 4, 5, 6, 10, 15, 25, 50, 100, 250, 500, 1000, 2500,
+        5000, 10000, 25000, 50000, 100000, 250000, 500000]) or (
             merge <= detector.get('merge_ratio')):
-        _run_optics(detector, fnum, fam)
-    _update_ftable(detector, fnum, fam)
+        _run_optics(detector, fnum, members)
+    _update_ftable(detector, fnum, members)
     _check_core_window(detector, fnum)
 
 
@@ -661,20 +662,11 @@ def _remove_core(detector, fnum):
             detector.get('cores', col), fnum, axis=0), col)
 
 
-def _run_optics(detector, fnum, fam):
+def _run_optics(detector, fnum, members):
     """Run OPTICS to find best core event."""
-    ccc_sparse = redpy.correlation.subset_matrix(
-        detector.get('rtable', 'id', fam), detector.get_matrix()[1],
-        'sparse')
-    order = np.argsort(np.squeeze(np.asarray(ccc_sparse.sum(axis=0))))
-    fam = fam[order]
-    ccc_sparse = ccc_sparse[order, :]
-    ccc_sparse = ccc_sparse[:, order]
-    distance_matrix = np.ones(len(fam)) - ccc_sparse
-    distance_matrix = np.squeeze(np.asarray(distance_matrix))
-    distance_matrix[range(len(fam)), range(len(fam))] = 0
-    _, core = redpy.optics.OPTICS(distance_matrix).run(1)
-    _update_core(detector, fnum, fam[core])
+    optics_object, members = redpy.optics.run_optics(detector, members)
+    core = members[np.argmin(optics_object.reachability_)]
+    _update_core(detector, fnum, core)
 
 
 def _update_core(detector, fnum, rnum):
@@ -685,9 +677,9 @@ def _update_core(detector, fnum, rnum):
             detector.cores[col][fnum] = detector.get('rtable', col, rnum)
 
 
-def _update_ftable(detector, fnum, fam):
+def _update_ftable(detector, fnum, members):
     """Ensure Families table is up to date with members."""
-    start_times = detector.get('rtable', 'startTimeMPL', fam)
+    start_times = detector.get('rtable', 'startTimeMPL', members)
     mintime = np.min(start_times)
     detector.set('ftable', mintime, 'startTime', fnum)
     detector.set('ftable', np.max(start_times) - mintime, 'longevity', fnum)
