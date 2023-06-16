@@ -312,9 +312,12 @@ class Table():
                 row = np.sort(row)[::-1]
                 for i in row:
                     self.table.remove_row(i)
-            for col in self.columns_in_memory:
-                self.columns_in_memory[col] = np.delete(
-                    self.columns_in_memory[col], row, axis=0)
+            if len(self.table) > 0:
+                for col in self.columns_in_memory:
+                    self.columns_in_memory[col] = np.delete(
+                        self.columns_in_memory[col], row, axis=0)
+            else:
+                self.columns_in_memory = {}
         self.table.flush()
 
     def set(self, value, col, row=None):

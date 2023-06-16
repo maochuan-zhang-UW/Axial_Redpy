@@ -102,7 +102,7 @@ class Waveform():
         if self.preload:
             stream = self._extract_from_preload(
                 detector, window_start, window_end)
-        elif self.filekey:
+        elif len(self.filekey) > 0:
             stream = self._load_from_file(detector, window_start, window_end)
         else:
             stream = _download_from_client(detector, window_start, window_end)
@@ -402,7 +402,8 @@ def _gap_check(detector, triggers, stream):
                 window = waves.slice(trig['time']-winstart,
                                      trig['time']+winend)
                 if (len(np.where(pretrig == 0)[0]) >= 1) or (
-                        np.sort(np.abs(window))[int(winlen/5)] == 0):
+                        (len(window) > winlen/5) and (
+                            np.sort(np.abs(window))[int(winlen/5)] == 0)):
                     n_gaps += 1
         if n_gaps >= detector.get('nstac'):
             triggers.remove(trig)
