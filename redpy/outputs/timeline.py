@@ -395,12 +395,13 @@ def subplot_longevity(detector, options, use_bokeh=True, ax=None):
         ax.set_xlabel('Date', style='italic')
     for fnum in range(len(detector)):
         line = _determine_lines(detector, options, fnum)
-        if use_bokeh:
-            fig = _draw_lines_bokeh(
-                line, longevity[fnum], 'red', 0.5, fig)
-        else:
-            ax = _draw_lines_mpl(
-                line, longevity[fnum], options, 'red', 0.75, True, ax)
+        if line:
+            if use_bokeh:
+                fig = _draw_lines_bokeh(
+                    line, longevity[fnum], 'red', 0.5, fig)
+            else:
+                ax = _draw_lines_mpl(
+                    line, longevity[fnum], options, 'red', 0.75, True, ax)
     if use_bokeh:
         return fig
     return ax
@@ -608,7 +609,7 @@ def _build_occurrence_histogram(detector, options, members, colorby):
         bins=np.arange(
             min(detector.get('plotvars')['rtimes_mpl'][members]),
             max(detector.get('plotvars')['rtimes_mpl'][members]
-                + options['binsize_occur']),
+                + 2*options['binsize_occur']),
             options['binsize_occur']))
     left = hist_x[np.where(hist > 0)]
     right = hist_x[np.where(hist > 0)] + options['binsize_occur']
@@ -648,7 +649,8 @@ def _build_occurrence_histogram(detector, options, members, colorby):
     palette = [matplotlib.colors.rgb2hex(i) for i in colormap(
         np.arange(colormap.N)[::-1])]
     colors = np.array([palette[i] for i in ind])
-    idx = np.where(hist_x[np.where(hist > 0)[0]] > options['mintime'])[0]
+    idx = np.where(hist_x[np.where(
+        hist > 0)[0]] + options['binsize_occur'] > options['mintime'])[0]
     return left[idx], right[idx], colors[idx]
 
 
