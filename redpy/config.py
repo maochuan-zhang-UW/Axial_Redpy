@@ -102,7 +102,7 @@ class Config():
             'winlen': 1024,
             'cmin': 0.7,
             'ncor': 4,
-            'corr_permit': 0.05  # 0.1? 0.15?
+            'corr_permit': 0.05,  # 0.1? 0.15?
             'corr_nrecent': 0,  # 25?
             'corr_nyoungest': 0,  # 25?
             'corr_nlargest': 0,  # 50?
