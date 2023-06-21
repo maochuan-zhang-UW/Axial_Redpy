@@ -102,6 +102,7 @@ class Config():
             'winlen': 1024,
             'cmin': 0.7,
             'ncor': 4,
+            'corr_permit': 0.05  # 0.1? 0.15?
             'corr_nrecent': 0,  # 25?
             'corr_nyoungest': 0,  # 25?
             'corr_nlargest': 0,  # 50?
@@ -260,6 +261,7 @@ class Config():
             'wshape', int((self.get('ptrig') + self.get('atrig'))*samprate)+1)
         self.set(
             'maxdt', np.max(np.fromstring(self.get('offset'), sep=',')))
+        self.set('cperm', self.get('cmin')-self.get('corr_permit'))
         self.set('output_folder',
                  f"{self.get('outputpath')}{self.get('groupname')}")
         self.set('stalats', np.array(

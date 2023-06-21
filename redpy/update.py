@@ -108,7 +108,7 @@ def compare_deleted(detector, trig_list):
             # If near match found, remove from trigger list. This assumes if
             # it correlates at this level it likely would have correlated
             # with another member of the full family.
-            if np.max(maxcor) >= (detector.get('cmin')-0.05):
+            if np.max(maxcor) >= detector.get('cperm'):
                 trig_list.remove(trig)
     return trig_list
 
@@ -141,7 +141,7 @@ def compare_trigger_to_cores(detector, trig, written=0):
         fnums = np.arange(len(detector))
         core_maxcors, core_maxlags, core_nthcors = xcorr_1xtable(
             detector, 'cores', trig.coeff, trig.fft)
-        while np.max(core_maxcors) >= detector.get('cmin')-0.05:
+        while np.max(core_maxcors) >= detector.get('cperm'):
             bestcor = np.argmax(core_maxcors)
             if not tracker['found']:
                 bestlag = core_maxlags[bestcor]
@@ -202,7 +202,7 @@ def compare_trigger_to_orphans(detector, trig, maxcors, maxlags):
 
     """
     written = 0
-    while len(maxcors[maxcors >= detector.get('cmin')-0.05]) > 0:
+    while len(maxcors[maxcors >= detector.get('cperm')]) > 0:
         bestcor = np.argmax(maxcors)
         if written == 0:
             bestlag = maxlags[bestcor]
@@ -437,7 +437,7 @@ def trigger_to_table(detector, trig):
         detector, 'otable', trig.coeff, trig.fft)
 
     # If there's a possible match with an orphan, run most complex function
-    if (len(maxcors) > 0) and (np.max(maxcors) > detector.get('cmin')-0.05):
+    if (len(maxcors) > 0) and (np.max(maxcors) > detector.get('cperm')):
         compare_trigger_to_orphans(detector, trig, maxcors, maxlags)
     else:
         if len(detector.get('rtable')) > 0:
