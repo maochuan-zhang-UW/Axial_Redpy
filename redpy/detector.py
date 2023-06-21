@@ -90,15 +90,25 @@ class Detector():
         string += ')'
         return self.config.append_custom(string)
 
-    def close(self):
-        """Gracefully close the tables and empty variables in memory."""
+    def close(self, preserve_waveforms=False):
+        """
+        Gracefully close the tables and empty variables in memory.
+
+        Parameters
+        ----------
+        preserve_waveforms : bool, optional
+            If True, do not empty the waveforms attribute.
+
+        """
         if self.tables:
             self.h5file.close()
             self.tables = {}
             self.plotvars = {}
+        if not preserve_waveforms:
             self.waveforms = {}
 
-    def expand(self, config_to, update_outputs=False):
+    def expand(self, config_to, update_outputs=False,
+               preserve_waveforms=False):
         """
         Copy the contents of the current hdf5 file into an expanded one.
 
@@ -114,12 +124,14 @@ class Detector():
             Configuration of the destination run.
         update_outputs : bool, optional
             If True, encourages all outputs to be updated.
+        preserve_waveforms : bool, optional
+            If True, do not empty the waveforms attribute.
 
         """
         # Enforce largest max_famlen
         config_to.set('max_famlen', max(self.get('max_famlen'),
                                         config_to.get('max_famlen')))
-        self.close()
+        self.close(preserve_waveforms)
         detector_from = deepcopy(self)
         self.config = config_to
         if self.get('filename') == detector_from.get('filename'):
@@ -698,11 +710,12 @@ class Detector():
                 >= 0.45*self.get('ftable').table.attrs.allowed_max_famlen):
             if self.get('verbose'):
                 print('Approaching maximum family length Families table '
-                      r'can hold!\nAutomatically expanding to compensate...')
+                      'can hold!\nAutomatically expanding to compensate...')
             config_to = self.get('config').copy()
             config_to.set('max_famlen',
                           3*self.get('ftable').table.attrs.allowed_max_famlen)
-            self.expand(config_to)
+            self.expand(config_to, preserve_waveforms=True)
+            self._set_update_remembers()
 
     def _check_max_famlen(self):
         """Ensure the maximum family length setting is up to date."""

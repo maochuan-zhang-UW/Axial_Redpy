@@ -257,6 +257,7 @@ def from_window(detector, window_start, window_end, expire, force):
         the event_list contained in detector.waveforms.
 
     """
+    detector._check_famlen()
     i_time = time.time()
     if detector.get('verbose'):
         print(window_start)
