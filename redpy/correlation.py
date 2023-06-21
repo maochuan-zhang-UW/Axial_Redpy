@@ -239,6 +239,8 @@ def xcorr_1x1(
             station_cors)[::-1][0:detector.get('ncor')]])
     else:
         maxlag = station_lags[np.argmax(station_cors)]
+    if detector.get('use_nthcor'):
+        return nthcor, maxlag, nthcor
     return maxcor, maxlag, nthcor
 
 
