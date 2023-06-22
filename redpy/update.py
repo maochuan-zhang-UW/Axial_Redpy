@@ -257,7 +257,10 @@ def from_window(detector, window_start, window_end, expire, force):
         the event_list contained in detector.waveforms.
 
     """
+    # pylint: disable=W0212
+    # I trust use of protected member here.
     detector._check_famlen()
+    # pylint: enable=W0212
     i_time = time.time()
     if detector.get('verbose'):
         print(window_start)
