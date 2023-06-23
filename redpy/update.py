@@ -529,11 +529,13 @@ def _check_core_window(detector, fnum):
             detector.set('cores', detector.get('rtable', col, core), col, fnum)
 
 
-def _correlate_remaining_family(detector, fnum, rnum):
+def _correlate_remaining_family(detector, fnum, rnum, writtens):
     """Correlate a known repeater with all eligible family members."""
     if rnum < 0:
         rnum = len(detector.get('rtable')) + rnum
-    subtable_members = _get_family_subtable(detector, fnum, rnum)
+    writtens[writtens < 0] = len(detector.get('rtable')) + writtens[
+        writtens < 0]
+    subtable_members = _get_family_subtable(detector, fnum, writtens)
     new_id = detector.get('rtable', 'id', rnum)
     new_coeff = detector.get('rtable', 'windowCoeff', rnum)
     new_fft = detector.get('rtable', 'windowFFT', rnum)
@@ -624,7 +626,8 @@ def _handle_core_match(detector, trig, tracker,
         detector, detector.get('rtable', 'id', -tracker['written']),
         core_id, new_maxcor)
     for i in np.arange(-tracker['written'], 0):
-        _correlate_remaining_family(detector, fnum, i)
+        _correlate_remaining_family(
+            detector, fnum, i, np.arange(-tracker['written'], 0))
 
 
 def _handle_near_match(detector, trig, tracker, fnum, bestlag):

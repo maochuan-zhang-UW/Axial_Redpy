@@ -403,6 +403,7 @@ class Table():
         """Run compatibility checks for tables created with older versions."""
         self._check_attrs()
         self._check_epoch_date()
+        self._check_duplicates()
 
     def _check_attrs(self):
         """Populate missing attributes from older tables."""
@@ -432,6 +433,22 @@ class Table():
                 time_column[time_column < reference[1]] += mdates.date2num(
                     np.datetime64('1970-01-01'))
                 self.set(time_column, column_name)
+
+    def _check_duplicates(self):
+        """Check for duplicate entries in the correlation table."""
+        if self.name == 'ctable':
+            id1 = self.get('id1')
+            id2 = self.get('id2')
+            ccc = self.get('ccc')
+            all_ids = np.vstack([id1, id2]).T.copy()
+            dtypes = all_ids.dtype.descr * 2
+            uniques = np.unique(all_ids.view(dtypes), return_index=True)[1]
+            if len(uniques) < len(id1):
+                duplicates = np.setdiff1d(np.arange(len(id1)), uniques)
+                if self.verbose:
+                    print(f'Removing {len(duplicates):i} duplicate '
+                          'correlation entries...')
+                self.remove(duplicates)
 
     def _fill_column_names(self):
         """Fill names of columns from the table."""

@@ -218,10 +218,7 @@ class Detector():
         id2 = self.get('ctable', 'id2')
         ccc = self.get('ctable', 'ccc')
         maxid = np.max((np.max(ids), np.max(id2)))+1
-        all_ids = np.vstack([id1, id2]).T.copy()
-        dtypes = all_ids.dtype.descr * 2
-        i = np.unique(all_ids.view(dtypes), return_index=True)[1]
-        ccc_sparse = coo_matrix((ccc[i], (id1[i], id2[i])),
+        ccc_sparse = coo_matrix((ccc, (id1, id2)),
                                 shape=(maxid, maxid)).tocsr()
         return ids, ccc_sparse
 
@@ -850,6 +847,7 @@ class Detector():
         """Control which table columns need to remain in memory."""
         self.get('dtable').remember('all')
         self.get('otable').remember('all')
+        self.get('ctable').remember('all')
         self.get('rtable').remember(
             ['windowAmp', 'windowCoeff', 'startTime', 'startTimeMPL', 'id'])
         self._get_core_subtable()
