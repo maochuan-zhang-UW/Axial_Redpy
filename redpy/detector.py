@@ -847,7 +847,6 @@ class Detector():
         """Control which table columns need to remain in memory."""
         self.get('dtable').remember('all')
         self.get('otable').remember('all')
-        self.get('ctable').remember('all')
         self.get('rtable').remember(
             ['windowAmp', 'windowCoeff', 'startTime', 'startTimeMPL', 'id'])
         self._get_core_subtable()
