@@ -439,15 +439,13 @@ class Table():
         if self.name == 'ctable':
             id1 = self.get('id1')
             id2 = self.get('id2')
-            ccc = self.get('ccc')
             all_ids = np.vstack([id1, id2]).T.copy()
             dtypes = all_ids.dtype.descr * 2
             uniques = np.unique(all_ids.view(dtypes), return_index=True)[1]
             if len(uniques) < len(id1):
                 duplicates = np.setdiff1d(np.arange(len(id1)), uniques)
-                if self.verbose:
-                    print(f'Removing {len(duplicates):i} duplicate '
-                          'correlation entries...')
+                print(f'Removing {len(duplicates):i} duplicate '
+                      'correlation entries...')
                 self.remove(duplicates)
 
     def _fill_column_names(self):
