@@ -290,7 +290,7 @@ def move_images(detector):
             os.rename(os.path.join(opath, f'{lastprint}.png'),
                       os.path.join(opath, f'{fnum}.png.tmp'))
             os.rename(os.path.join(opath, f'fam{lastprint}.png'),
-                      os.path.join(opath, f'map{fnum}.png.tmp'))
+                      os.path.join(opath, f'fam{fnum}.png.tmp'))
             if os.path.exists(os.path.join(opath, f'map{lastprint}.png')):
                 os.rename(os.path.join(opath, f'map{lastprint}.png'),
                           os.path.join(opath, f'map{fnum}.png.tmp'))

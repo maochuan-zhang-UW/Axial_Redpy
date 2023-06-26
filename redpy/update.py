@@ -314,7 +314,7 @@ def merge_families(detector, famlist, laglist):
                 'ftable', bytes(member_string, 'utf-8'), 'members', first_fam)
             detector.get('ftable').remove(fnum)
     _remove_core(detector, np.setdiff1d(famlist, first_fam))
-    detector.set('ftable', -1, 'lastprint', first_fam)
+    detector.set('ftable', first_fam, 'lastprint', first_fam)
     merge = max_mem/len(detector.get_members(first_fam))
     update_family(detector, first_fam, merge)
     reorder_families(detector)
@@ -343,7 +343,7 @@ def populate_new_family(detector, written):
     row['longevity'] = np.max(
         detector.get('rtable', 'startTimeMPL', members)) - row['startTime']
     row['printme'] = 1
-    row['lastprint'] = -1
+    row['lastprint'] = len(detector)
     detector.get('ftable').append(row)
     _append_core(detector, core)
     if len(detector) > 1:
