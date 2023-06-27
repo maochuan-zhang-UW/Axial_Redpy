@@ -133,6 +133,11 @@ class DistantCounter():
             Phrase corresponding to the 'kind' of earthquake. See global
             variable DISTANT_TYPES for supported types.
 
+        Returns
+        -------
+        str
+            Modified fam_string.
+
         """
         if kind == 'regional3':
             if self.count_dict['regional'] >= 3:
@@ -157,7 +162,7 @@ def append_location(locs, line):
 
     Returns
     -------
-    locs : dict
+    dict
         Modified dictionary of locations.
 
     """
@@ -385,7 +390,8 @@ def event_times_from_catalog(
 
     Returns
     -------
-    event_list : ndarray of UTCDateTime objects
+    ndarray of UTCDateTime objects
+        List of event times.
 
     """
     if isinstance(catalog, str):
@@ -475,7 +481,7 @@ def handle_arrivals(detector, catalog, time_column_name, write_to_column=None):
 
     Returns
     -------
-    catalog : DataFrame object
+    DataFrame object
         Modified catalog.
 
     """
@@ -552,7 +558,8 @@ def prepare_catalog(detector):
 
     Returns
     -------
-    external_catalogs : list of DataFrame objects
+    list of DataFrame objects
+        Catalogs for local, regional, and teleseismic events.
 
     """
     ttimes = detector.get('ttable', 'startTimeMPL')
@@ -717,6 +724,11 @@ def save_external_catalog(detector, csvfile, arrivals=False, start_time=None,
         End time for catalog query.
     delimiter : str, optional
         Delimiter to use between columns in output .csv file.
+
+    Returns
+    -------
+    DataFrame object
+        Catalog of local events.
 
     """
     if not end_time:

@@ -101,7 +101,15 @@ def generate(detector, catalogs=True, timelines=True, images=True, html=True):
 
 
 def junk(detector):
-    """Make junk outputs (catalog and images)."""
+    """
+    Make junk outputs (catalog and images).
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+
+    """
     redpy.outputs.printing.catalog_junk(detector)
     redpy.outputs.image.create_junk_images(detector)
 
@@ -222,7 +230,31 @@ def remove_old_files(detector):
 
 def report(detector, fnum=None, ordered=False, skip_recalculate_ccc=False,
            matrixtofile=False):
-    """Create more detailed 'report' family pages."""
+    """
+    Create more detailed 'report' family pages.
+
+    Reports are generated in the reports/ directory, named by family number.
+    They include images of all waveforms on each station/channel stored,
+    interactive versions of the family timelines, and correlation matrices.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    fnum : int, int list, int ndarray
+        Family number(s) to render report(s) for.
+    ordered : bool, optional
+        If True, order waveforms and correlation matrix by OPTICS instead of
+        by time.
+    skip_recalculate_ccc : bool, optional
+        If True, do not calculate the full cross-correlation matrix. This is
+        recommended for very large families as the number of calculations
+        required to fill the matrix can be significant.
+    matrixtofile : bool, optional
+        If True, save the full cross-correlation matrix to a .npy file in
+        the reports/ directory.
+
+    """
     if fnum is None:
         raise ValueError("Specify at least one family number with fnum=")
     if isinstance(fnum, int):
@@ -258,14 +290,11 @@ def set_print_cols(detector, resetlp=True, plotall=False, startfam=0,
     if plotall:
         if detector.get('verbose'):
             print('Resetting plotting column...')
-        detector.get('ftable').set(
-            np.ones(len(detector)), 'printme')
+        detector.set('ftable', np.ones(len(detector)), 'printme')
     else:
-        detector.get('ftable').set(
-            np.zeros(len(detector)), 'printme')
+        detector.set('ftable', np.zeros(len(detector)), 'printme')
     if resetlp:
-        detector.get('ftable').set(
-            np.arange(len(detector)), 'lastprint')
+        detector.set('ftable', np.arange(len(detector)), 'lastprint')
     if startfam or endfam:
         if startfam < 0:
             startfam = len(detector) + startfam
@@ -284,15 +313,15 @@ def set_print_cols(detector, resetlp=True, plotall=False, startfam=0,
                              f'-{len(detector)}')
         if startfam and not endfam:
             endfam = len(detector)
-        detector.get('ftable').set(np.ones(endfam - startfam), 'printme',
-                                   np.arange(startfam, endfam))
+        detector.set('ftable', np.ones(endfam - startfam), 'printme',
+                     np.arange(startfam, endfam))
 
 
 def set_plotvars(detector):
     """
     Load commonly called variables into Detector's 'plotvars' dictionary.
 
-    These variables are
+    These variables are:
 
         'rtimes' : datetime ndarray
             Trigger times of all repeaters as datetimes.

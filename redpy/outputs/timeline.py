@@ -30,7 +30,7 @@ from obspy import UTCDateTime
 
 def assemble_bokeh_timeline(detector, options, filepath):
     """
-    Assembles an interactive timeline with given parameters using Bokeh.
+    Assemble an interactive timeline with given parameters using Bokeh.
 
     Parameters
     ----------
@@ -541,6 +541,22 @@ def _add_bokeh_annotations(detector, fig):
                 line_alpha=annotations['Alpha'][i]))
 
 
+def _add_pdf_annotations(detector, ax, options):
+    """Plot annotations on .pdf overview figure."""
+    if detector.get('anotfile') != '':
+        annotations = pd.read_csv(detector.get('anotfile'))
+        for i in range(len(annotations)):
+            plotdate = mdates.date2num(np.datetime64(
+                annotations['Time'][i]))
+            # If within bounds, add to figure
+            if options['mintime'] <= plotdate <= options['maxtime']:
+                ax.axvline(plotdate, color=annotations['Color'][i],
+                           lw=annotations['Weight'][i],
+                           ls=annotations['Line Type'][i],
+                           alpha=annotations['Alpha'][i], zorder=-1)
+    return ax
+
+
 def _add_pdf_colorbar(detector, ax, colorby, options):
     """
     Add a colorbar to .pdf occurrence plots.
@@ -584,22 +600,6 @@ def _add_pdf_colorbar(detector, ax, colorby, options):
              detector.get('fispanhigh'))), detector.get('fispanhigh')))
     cax.set_frame_on(False)
     cax.tick_params(length=0)
-
-
-def _add_pdf_annotations(detector, ax, options):
-    """Plot annotations on .pdf overview figure."""
-    if detector.get('anotfile') != '':
-        annotations = pd.read_csv(detector.get('anotfile'))
-        for i in range(len(annotations)):
-            plotdate = mdates.date2num(np.datetime64(
-                annotations['Time'][i]))
-            # If within bounds, add to figure
-            if options['mintime'] <= plotdate <= options['maxtime']:
-                ax.axvline(plotdate, color=annotations['Color'][i],
-                           lw=annotations['Weight'][i],
-                           ls=annotations['Line Type'][i],
-                           alpha=annotations['Alpha'][i], zorder=-1)
-    return ax
 
 
 def _build_occurrence_histogram(detector, options, members, colorby):
@@ -669,7 +669,7 @@ def _build_patch(patch, y_pos, left, right, fnum,
 
 
 def _determine_color_mapper(options):
-    """Define LogColorMapper for occurrence plot."""
+    """Determine LogColorMapper for occurrence plot."""
     colormap = matplotlib.cm.get_cmap('YlOrRd')
     bokehpalette = [matplotlib.colors.rgb2hex(m) for m in colormap(
         np.arange(colormap.N)[::-1])]
@@ -679,7 +679,7 @@ def _determine_color_mapper(options):
 
 
 def _determine_color_mapper_fi(detector):
-    """Define LinearColorMapper for occurrencefi plot."""
+    """Determine LinearColorMapper for occurrencefi plot."""
     colormap = matplotlib.cm.get_cmap('coolwarm')
     bokehpalette = [matplotlib.colors.rgb2hex(m) for m in colormap(
         np.arange(colormap.N)[::-1])]

@@ -437,52 +437,6 @@ def subplot_amplitude(
     return ax
 
 
-def subplot_spacing(
-        detector, members, core_idx, use_bokeh=False, ax=None):
-    """
-    Fill the temporal spacing timeline subplot.
-
-    Parameters
-    ----------
-    detector : Detector object
-        Primary interface for handling detections.
-    members : int ndarray
-        Indices of family members within the Repeaters table ordered by
-        time.
-    core_idx : int
-        Index corresponding to position of core event within ordered family.
-    use_bokeh : bool, optional
-        True if to render Bokeh figure, or False for matplotlib figure.
-    ax : Axis object, optional
-        If using matplotlib, the Axis handle in which to plot.
-
-    Returns
-    -------
-    Figure object or Axis object
-
-    """
-    catalog = detector.get('plotvars')['rtimes_mpl'][members]
-    spacing = np.diff(catalog)*24
-    if use_bokeh:
-        fig = bokeh_figure(
-            title='Time since Previous Event',
-            y_axis_type='log', y_range=[1e-3, 2*np.max(spacing)])
-        fig.yaxis.axis_label = 'Interval (hr)'
-        fig.circle(
-            detector.get('plotvars')['rtimes'][members[1:]], spacing,
-            color='red', line_alpha=0, size=4, fill_alpha=0.5)
-        return fig
-    ax.plot_date(
-        catalog[1:], spacing, 'ro', alpha=0.5,
-        markeredgecolor='r', markeredgewidth=0.5, markersize=3)
-    if core_idx > 0:
-        ax.plot_date(
-            catalog[core_idx], spacing[core_idx-1], 'ko',
-            markeredgecolor='k', markeredgewidth=0.5, markersize=3)
-    ax.set_ylim(1e-3, np.max(spacing)*2)
-    return ax
-
-
 def subplot_correlation(
         detector, members, core_idx, use_bokeh=False, ax=None,
         ccc_full=None):
@@ -555,6 +509,91 @@ def subplot_correlation(
     return ax
 
 
+def subplot_fft(detector, rtable_fam, core_idx, ax):
+    """
+    Fill the FFT subplot.
+
+    This plot shows the amplitude spectrum from the Fourier transform summed
+    over all stations. The core is always plotted in black, and the sum over
+    all events in red.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    rtable_fam : structured array
+        Handle to a subset of the Repeaters table containing all members of
+        a family.
+    core_idx : int
+        Index corresponding to position of core event within ordered family.
+    ax : Axis object
+        Subplot axis to modify in place.
+
+    """
+    freq = np.linspace(0, detector.get('samprate')/2,
+                       int(detector.get('winlen')/2))
+    fftc = np.zeros((int(detector.get('winlen')/2),))
+    fftm = np.zeros((int(detector.get('winlen')/2),))
+    for sta in range(detector.get('nsta')):
+        fft = np.abs(np.real(rtable_fam['windowFFT'][core_idx, int(
+            sta*detector.get('winlen')):int(sta*detector.get(
+                'winlen')+detector.get('winlen')/2)]))
+        fft = fft/(np.amax(fft)+1.0/1000)
+        fftc = fftc+fft
+        ffts = np.mean(np.abs(np.real(rtable_fam['windowFFT'][:, int(
+            sta*detector.get('winlen')):int(sta*detector.get(
+                'winlen')+detector.get('winlen')/2)])), axis=0)
+        fftm = fftm + ffts/(np.amax(ffts)+1.0/1000)
+    ax.plot(freq, fftm, 'r', linewidth=1)
+    ax.plot(freq, fftc, 'k', linewidth=0.25)
+
+
+def subplot_spacing(
+        detector, members, core_idx, use_bokeh=False, ax=None):
+    """
+    Fill the temporal spacing timeline subplot.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    members : int ndarray
+        Indices of family members within the Repeaters table ordered by
+        time.
+    core_idx : int
+        Index corresponding to position of core event within ordered family.
+    use_bokeh : bool, optional
+        True if to render Bokeh figure, or False for matplotlib figure.
+    ax : Axis object, optional
+        If using matplotlib, the Axis handle in which to plot.
+
+    Returns
+    -------
+    Figure object or Axis object
+
+    """
+    catalog = detector.get('plotvars')['rtimes_mpl'][members]
+    spacing = np.diff(catalog)*24
+    if use_bokeh:
+        fig = bokeh_figure(
+            title='Time since Previous Event',
+            y_axis_type='log', y_range=[1e-3, 2*np.max(spacing)])
+        fig.yaxis.axis_label = 'Interval (hr)'
+        fig.circle(
+            detector.get('plotvars')['rtimes'][members[1:]], spacing,
+            color='red', line_alpha=0, size=4, fill_alpha=0.5)
+        return fig
+    ax.plot_date(
+        catalog[1:], spacing, 'ro', alpha=0.5,
+        markeredgecolor='r', markeredgewidth=0.5, markersize=3)
+    if core_idx > 0:
+        ax.plot_date(
+            catalog[core_idx], spacing[core_idx-1], 'ko',
+            markeredgecolor='k', markeredgewidth=0.5, markersize=3)
+    ax.set_ylim(1e-3, np.max(spacing)*2)
+    return ax
+
+
 def subplot_waveforms(
         detector, rtable_fam, core_idx, ax, plot_single=False, sta_idx=0):
     """
@@ -584,7 +623,7 @@ def subplot_waveforms(
 
     Returns
     -------
-    ax : Axis object
+    Axis object
 
     """
     time_vector = np.arange(
@@ -626,45 +665,6 @@ def subplot_waveforms(
             ax.plot(time_vector, data_stack - 1.75*sta, 'r', linewidth=1)
             ax.plot(time_vector, data_core - 1.75*sta, 'k', linewidth=0.25)
     return ax
-
-
-def subplot_fft(detector, rtable_fam, core_idx, ax):
-    """
-    Fill the FFT subplot.
-
-    This plot shows the amplitude spectrum from the Fourier transform summed
-    over all stations. The core is always plotted in black, and the sum over
-    all events in red.
-
-    Parameters
-    ----------
-    detector : Detector object
-        Primary interface for handling detections.
-    rtable_fam : structured array
-        Handle to a subset of the Repeaters table containing all members of
-        a family.
-    core_idx : int
-        Index corresponding to position of core event within ordered family.
-    ax : Axis object
-        Subplot axis to modify in place.
-
-    """
-    freq = np.linspace(0, detector.get('samprate')/2,
-                       int(detector.get('winlen')/2))
-    fftc = np.zeros((int(detector.get('winlen')/2),))
-    fftm = np.zeros((int(detector.get('winlen')/2),))
-    for sta in range(detector.get('nsta')):
-        fft = np.abs(np.real(rtable_fam['windowFFT'][core_idx, int(
-            sta*detector.get('winlen')):int(sta*detector.get(
-                'winlen')+detector.get('winlen')/2)]))
-        fft = fft/(np.amax(fft)+1.0/1000)
-        fftc = fftc+fft
-        ffts = np.mean(np.abs(np.real(rtable_fam['windowFFT'][:, int(
-            sta*detector.get('winlen')):int(sta*detector.get(
-                'winlen')+detector.get('winlen')/2)])), axis=0)
-        fftm = fftm + ffts/(np.amax(ffts)+1.0/1000)
-    ax.plot(freq, fftm, 'r', linewidth=1)
-    ax.plot(freq, fftc, 'k', linewidth=0.25)
 
 
 def wiggle_plot(data, figsize, outfile):

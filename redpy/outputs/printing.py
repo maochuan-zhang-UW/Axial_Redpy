@@ -120,12 +120,12 @@ def catalog_orphans(detector):
 
 def catalog_swarm(detector):
     """
-    Write a .csv file for use in annotating events in Swarm v2.8.5+.
+    Print .csv files for use in annotating events in Swarm v2.8.5+.
 
     Format for Swarm is 'Date Time, STA CHA NET LOC, label'
     The SCNL defaults to whichever station was chosen for the preview,
     which can be changed by a global search/replace in a text editor.
-    The label name is the same as the folder name (groupName) followed by
+    The label name is the same as the folder name (groupname) followed by
     the family number. Highlighting families of interest in a different
     color can be done by editing the EventClassifications.config file in
     the Swarm folder, and adding a line for each family of interest
@@ -133,6 +133,8 @@ def catalog_swarm(detector):
         default1, #ffff00
     to highlight family 1 from the 'default' run in yellow compared to
     other repeaters in red/orange.
+
+    Separate files for repeaters and triggers are rendered.
 
     Parameters
     ----------
@@ -183,7 +185,7 @@ def catalog_triggers(detector):
 
 def catalog_verbose(detector):
     """
-    Write a detailed catalog of family members to a .csv file.
+    Print detailed catalog of family members to a .csv file.
 
     Like the simple catalog, events are sorted by event time within each
     family. Additional columns correspond to frequency index,

@@ -65,7 +65,7 @@ def parse():
 
     Returns
     -------
-    args : ArgumentParser Object
+    ArgumentParser Object
 
     """
     parser = argparse.ArgumentParser(description=(

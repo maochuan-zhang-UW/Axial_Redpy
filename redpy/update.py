@@ -44,8 +44,6 @@ def clean_junk(detector, trig_list):
     list of Trigger objects
         Trigger list that does not contain junk.
 
-    # !!! Future plan: store more information in jtable?
-
     """
     wshape = detector.get('wshape')
     winlen = detector.get('winlen')
@@ -119,9 +117,9 @@ def compare_trigger_to_cores(detector, trig, written=0):
 
     Triggers are first compared with cores (representative members of a
     Family), and if a near-match to a core is found, it is correlated with
-    all members of the Family. If it is a true match, it is adopted into
-    that Family. Families are merged if the new Trigger matches more than
-    one Family. If no matches are found and the Trigger hasn't adopted other
+    members of the Family. If it is a true match, it is adopted into that
+    Family. Families are merged if the new Trigger matches more than one
+    Family. If no matches are found and the Trigger hasn't adopted other
     Orphans, it is appended as an Orphan.
 
     Parameters
@@ -452,7 +450,24 @@ def trigger_to_table(detector, trig):
 
 
 def update_family(detector, fnum, merge=1):
-    """Update the Families table."""
+    """
+    Update other data in Families table with current membership.
+
+    Specifically, update the current maximum family length, determine if
+    OPTICS needs to be run to find an updated core, and update metadata
+    like starting time, longevity, and output variables.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    fnum : int
+        Updated family number of interest.
+    merge : float, optional
+        Ratio of length of largest merged family to current total family
+        length.
+
+    """
     famlen = len(detector.get('ftable', 'members', fnum))
     if famlen > detector.get('ftable').table.attrs.current_max_famlen:
         detector.get('ftable').table.attrs.current_max_famlen = famlen

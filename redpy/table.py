@@ -380,10 +380,6 @@ class Table():
         for col in self.column_names:
             newrow[col] = row[col]
             if col in self.columns_in_memory:
-                # !!! Changes to the length of the column mean it must be
-                # !!! reallocated each time (same with np.delete() in
-                # !!! .remove()). Still likely faster than repetitive reads
-                # !!! from disk. Need to test if this is the case!
                 if not isinstance(row[col], np.ndarray):
                     if np.array(self.columns_in_memory[col]).size == 0:
                         self.columns_in_memory[col] = np.array(row[col])
@@ -415,8 +411,6 @@ class Table():
 
     def _check_epoch_date(self):
         """Check and fix epoch of matplotlib dates stored in table."""
-        # !!! Some unnecessary complexity here to deal with ftable being
-        # !!! named differently.
         if len(self) > 0 and self.name in ['ttable', 'otable', 'rtable',
                                            'dtable', 'ftable']:
             column_name = 'startTimeMPL'
@@ -501,7 +495,7 @@ class Table():
                 'members': StringCol(
                     itemsize=config.get('max_famlen'), shape=(), pos=0),
                 'core': Int32Col(shape=(), pos=1),
-                'startTime': Float64Col(shape=(), pos=2),  # !!! starttime_mpl?
+                'startTime': Float64Col(shape=(), pos=2),
                 'longevity': Float64Col(shape=(), pos=3),
                 'printme': Int32Col(shape=(), pos=4),
                 'lastprint': Int32Col(shape=(), pos=5)

@@ -292,4 +292,6 @@ class Config():
                     self.custom_settings.append(key)
                 if key == 'always_verbose' and value:
                     setattr(self, 'verbose', True)
+            else:
+                raise ValueError(f'Unrecognized setting {item[0]}; aborting!')
         self._enforce()

@@ -18,12 +18,22 @@ class Trigger():
 
     Attributes
     ----------
-    trig_time : UTCDateTime object
+    coeff : float ndarray
+        Array of scaling coefficients for normalizing cross-correlation.
+    concat : float ndarray
+        Data from waveforms concatenated into a single array.
+    fft : complex ndarray
+        Fourier transforms of windows for all stations/channels concatenated.
+    freq_index : float ndarray
+        Array of frequency index values for all stations/channels.
+    ratio : float
+        Maximum value of STA/LTA ratio; used to calculate orphan expiration.
+    start_sample : int
+        Index of starting sample corresponding to current trigger time.
+    time : UTCDateTime object
         Time of original trigger.
     waveforms : Stream object
         Ordered waveform data for all stations/channels for the trigger.
-    ratio : float
-        Maximum value of STA/LTA ratio; used to calculate orphan expiration.
     """
 
     def __init__(self, detector, time, ratio, stream):

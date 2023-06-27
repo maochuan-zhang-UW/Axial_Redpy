@@ -12,9 +12,6 @@ for handling cross-correlation matrices.
 import numpy as np
 from scipy.fftpack import fft, ifft
 
-# import redpy.cluster
-# import redpy.table
-
 
 def calculate_window(detector, waveform, trigger_sample):
     """
@@ -121,7 +118,7 @@ def make_full(detector, rtable_sub, ccc_sub):
 
     Returns
     -------
-    ccc_full : float ndarray
+    float ndarray
         Filled correlation matrix.
 
     """

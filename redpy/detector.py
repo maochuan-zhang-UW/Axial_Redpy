@@ -38,10 +38,16 @@ class Detector():
     ----------
     config : Config object
         Container for all configuration parameters describing a single run.
+    cores : Structured ndarray object
+        Subset of the 'Repeaters' table corresponding to the 'core' events.
     h5file : PyTables File object
         In-memory representation of the hdf5 file on disk.
+    plotvars : dict
+        Dictionary of numpy arrays used for plotting to reduce IO overhead.
     tables : dict
         Dictionary containing a Table object for each table type.
+    waveforms : Waveform object
+        Seismic waveforms currently loaded into memory.
     """
 
     def __init__(self, configfile='settings.cfg', verbose=False, opened=False):
@@ -114,9 +120,10 @@ class Detector():
 
         A limited number of checks are made on the destination's
         configuration. It can be very similar or very different from the
-        current configuration, and the user is warned that this method is
-        simultaneously powerful and naive. Note that the current Detector
-        object must be closed, and all columns in memory will be lost.
+        current configuration, and the user should be warned that this
+        method is simultaneously powerful and naive. Note that the current
+        Detector object must be closed, and all columns in memory will be
+        lost.
 
         Parameters
         ----------
@@ -160,7 +167,7 @@ class Detector():
         ----------
         key : str
             Either the name of an attribute of this object, a configuration
-            setting, or a Table name (e.g., 'rtable').
+            setting, or a Table short name (e.g., 'rtable').
         col : str or int, optional
             Column name or index; only supported if key is a Table name.
             Only supports a single column at a time.
@@ -405,7 +412,7 @@ class Detector():
             calls redpy.output.junk() - does not accept keyword arguments.
         'pdf_family':
             calls redpy.output.pdf_family() - must supply at least one
-            argument 'fnum' with a list of family members to create .pdf
+            argument 'fnum' with a list of family numbers to create .pdf
             versions of the family plots for.
         'pdf_timeline':
             calls redpy.output.pdf_timeline() - without any arguments,
@@ -456,12 +463,12 @@ class Detector():
         Currently, three methods are supported:
 
         'expire':
-            remove orphans with expiration dates older than latest trigger
+            remove orphans with expiration dates older than latest trigger.
         'junk':
-            empties the 'Junk' table of all triggers
+            empty the 'Junk' table of all triggers.
         'family' or 'families':
-            removes the family or families listed from the 'Families',
-            'Repeater', and 'Correlation' tables, and by default moves the
+            remove the family or families listed from the 'Families',
+            'Repeater', and 'Correlation' tables, and by default move the
             core of each family to the 'Deleted' table.
 
         Parameters
@@ -740,9 +747,7 @@ class Detector():
             self.get(tname).populate_from_table(
                 detector_from.get(tname), self.config, dsta)
         if update_outputs:
-            # !!! Replace with force
-            self.set('ftable', np.ones(len(self.get('ftable'))), 'printme')
-            self.output()
+            self.output('force')
 
     def _create_folder(self, subfolder=None):
         """Create folder for outputs."""

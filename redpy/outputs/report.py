@@ -129,7 +129,7 @@ def create_report(detector, fnum, ordered=False, skip_recalculate_ccc=False,
 
 
 def _reorder_by_optics(members, rtable_fam, ccc_fam, ccc_full):
-    """Order variables by OPTICS rather than by time."""
+    """Order given variables by OPTICS rather than by time."""
     distance_matrix = 1 - ccc_full
     sort = np.argsort(sum(distance_matrix))[::-1]
     distance_matrix = distance_matrix[sort, :]

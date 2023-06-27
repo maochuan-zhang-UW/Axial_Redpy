@@ -170,9 +170,6 @@ class Waveform():
         """
         Update the run start and end times for an existing instance.
 
-        # !!! Currently keeping while I decide if I need to keep anything
-        # !!! between runs or not...
-
         Parameters
         ----------
         detector : Detector object
@@ -214,9 +211,6 @@ class Waveform():
         Specifically, the metadata of importance are SCNL code, start time,
         and end time. This drastically improves local file read import
         times by reading the headers only once.
-
-        !!! Need to develop a method to update this file instead of
-        !!! starting over from scratch if the files have changed.
 
         Parameters
         ----------
