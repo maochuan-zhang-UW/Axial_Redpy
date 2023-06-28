@@ -201,11 +201,15 @@ def calculate_arrivals(detector, catalog, phase_list, time_column_name='Time'):
     if len(catalog) > 0:
         taupymodel_runs = 0
         model = TauPyModel(model='iasp91')
-        latitudes = np.squeeze(catalog.filter(regex='[lL]at.*'))
-        longitudes = np.squeeze(catalog.filter(regex='[lL]on.*'))
-        depths = np.squeeze(catalog.filter(regex='[dD]ep.*m'))
+        latitudes = np.squeeze(
+            catalog.filter(regex='[lL]at.*').to_numpy(), axis=1)
+        longitudes = np.squeeze(
+            catalog.filter(regex='[lL]on.*').to_numpy(), axis=1)
+        depths = np.squeeze(
+            catalog.filter(regex='[dD]ep.*m').to_numpy(), axis=1)
         if len(depths) < 1:
-            depths = np.squeeze(catalog.filter(regex='[dD]ep.*'))
+            depths = np.squeeze(
+                catalog.filter(regex='[dD]ep.*').to_numpy(), axis=1)
         for i in range(len(catalog)):
             deg = locations2degrees(latitudes[i], longitudes[i],
                                     detector.get('latitude_center'),
