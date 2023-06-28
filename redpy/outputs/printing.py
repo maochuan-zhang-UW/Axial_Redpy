@@ -83,17 +83,18 @@ def catalog_junk(detector):
 
     """
     outfile = os.path.join(detector.get('output_folder'), 'junk.txt')
+    type_strings = ['freq', 'kurt', 'both']
     if detector.get('verbose'):
         print(f'Writing junk catalog to {outfile}...')
     start_times = detector.get('jtable', 'startTime')
     jtype = detector.get('jtable', 'isjunk')
     with open(outfile, 'w', encoding='utf-8') as file:
-        file.write('Trigger Time (UTC)\tJunk Code\n')
+        file.write('Trigger Time (UTC)\tJunk Type\n')
         for i in np.argsort(start_times):
             format_time = (UTCDateTime(start_times[i])
                            + detector.get('ptrig') / detector.get('samprate')
                            ).isoformat()
-            file.write(f'{format_time}\t{jtype[i]}\n')
+            file.write(f'{format_time}\t{type_strings[jtype[i]]}\n')
 
 
 def catalog_orphans(detector):

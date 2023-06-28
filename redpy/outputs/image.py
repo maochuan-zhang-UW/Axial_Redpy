@@ -195,6 +195,7 @@ def create_junk_images(detector):
     """
     if detector.get('verbose'):
         print('Creating junk plots...')
+    type_strings = ['freq', 'kurt', 'both']
     for row in detector.get('jtable').table:
         data = np.array([])
         for sta in range(detector.get('nsta')):
@@ -208,7 +209,8 @@ def create_junk_images(detector):
             row['startTime']) + detector.get('ptrig')).strftime('%Y%m%d%H%M%S')
         jtype = row['isjunk']
         wiggle_plot(data, (15, 0.5), os.path.join(
-            detector.get('output_folder'), 'junk', f'{jtime}-{jtype}.png'))
+            detector.get('output_folder'), 'junk',
+            f'{jtime}-{type_strings[jtype]}.png'))
 
 
 def generate_images(detector):
