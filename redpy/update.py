@@ -725,10 +725,19 @@ def _update_window(
     """Set window parameters for a single row in a table."""
     row = int(row)
     trigger = int(detector.get(table_type, 'windowStart', row) + lag)
+    waveform = detector.get(table_type, 'waveform', row)
     if coeff is None:
-        coeff, fft, fi = calculate_window(
-            detector, detector.get(table_type, 'waveform', row), trigger)
+        coeff, fft, fi = calculate_window(detector, waveform, trigger)
     detector.set(table_type, trigger, 'windowStart', row)
     detector.set(table_type, coeff, 'windowCoeff', row)
     detector.set(table_type, fft, 'windowFFT', row)
     detector.set(table_type, fi, 'FI', row)
+    amps = np.zeros(detector.get('nsta'))
+    wshape = detector.get('wshape')
+    winlen = detector.get('winlen')
+    window_start = int(trigger - 0.1*winlen)
+    window_end = int(trigger + 0.75*winlen)
+    for i in range(detector.get('nsta')):
+        amps[i] = np.max(np.abs(
+            waveform[i*wshape+window_start:i*wshape+window_end]))
+    detector.set(table_type, amps, 'windowAmp', row)
