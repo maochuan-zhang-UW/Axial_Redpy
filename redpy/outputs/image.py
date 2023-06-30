@@ -816,7 +816,10 @@ def _format_family_image(detector, axes):
     axes[2].margins(0.05)
     axes[2].set_yscale('log')
     axes[2].set_xlabel('Date', style='italic')
-    axes[2].set_ylabel('Amplitude (Counts)', style='italic')
+    axes[2].set_ylabel((
+        f'Amplitude on {detector.get("station")[detector.get("printsta")]}'
+        f'.{detector.get("channel")[detector.get("printsta")]} (Counts)'),
+        style='italic')
     axes[3].xaxis.set_major_formatter(date_format)
     axes[3].margins(0.05)
     axes[3].set_yscale('log')
