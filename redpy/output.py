@@ -362,6 +362,13 @@ def set_plotvars(detector):
         detector.get('rtable', 'FI'), axis=1)
     detector.get('plotvars')['amps'] = detector.get(
         'rtable', 'windowAmp')[:, detector.get('printsta')]
+    detector.get('plotvars')['nstas'] = np.count_nonzero(np.isfinite(
+        detector.get('rtable', 'FI')), axis=1)
+    famnum = np.zeros(len(detector.get('rtable')))
+    for fam in range(len(detector)):
+        members = detector.get_members(fam)
+        famnum[members] = fam
+    detector.get('plotvars')['famnum'] = famnum
     if len(detector):
         (detector.get('plotvars')['ids'],
          detector.get('plotvars')['ccc_sparse']) = detector.get_matrix()

@@ -331,28 +331,70 @@ def subplot_fi(detector, options, use_bokeh=True, ax=None):
         matplotlib Axis handle.
 
     """
-    mean_fi = detector.get('plotvars')['mean_fi']
-    rtimes = detector.get('plotvars')['rtimes']
-    rtimes_mpl = detector.get('plotvars')['rtimes_mpl']
+    nstas = detector.get('plotvars')['nstas']
+    idxs = np.where(
+        (detector.get('plotvars')['rtimes_mpl'] >= options['mintime']) & (
+            detector.get('plotvars')['rtimes_mpl'] <= options['maxtime']))[0]
+    colors = matplotlib.cm.get_cmap('YlOrRd', lut=detector.get('nsta')+2)
+    palette = [matplotlib.colors.rgb2hex(i) for i in colors(
+        np.arange(colors.N))][1:detector.get('nsta')+1]
+    colors = np.array([palette[i] for i in nstas[idxs]-1])  # overwrite
     if use_bokeh:
-        fig = bokeh_figure(title='Frequency Index')
-        fig.yaxis.axis_label = 'FI'
-        # Always plot at least one invisible point
-        fig.circle(mdates.num2date(options['maxtime']), 0,
-                   line_alpha=0, fill_alpha=0)
+        fig = bokeh_figure(
+            title='Frequency Index',
+            tools=[_fi_hover_tool(), 'pan,box_zoom,reset'])
+        fig.yaxis.axis_label = 'Mean FI'
+        fig.circle(mdates.num2date(options['maxtime']), 0, line_alpha=0,
+                   fill_alpha=0)  # Always plot at least one invisible point
     else:
         ax.set_title('Frequency Index', loc='left', fontweight='bold')
-        ax.set_ylabel('FI', style='italic')
+        ax.set_ylabel('Mean FI', style='italic')
         ax.set_xlabel('Date', style='italic')
-    idxs = np.where((rtimes_mpl >= options['mintime']) & (
-                    rtimes_mpl <= options['maxtime']))[0]
     if use_bokeh:
-        fig.circle(rtimes[idxs], mean_fi[idxs], color='red', line_alpha=0,
-                   size=3, fill_alpha=0.5)
+        source = ColumnDataSource(data={
+            'x': detector.get('plotvars')['rtimes'][idxs],
+            'y': detector.get('plotvars')['mean_fi'][idxs],
+            'mean_fi': np.array([f'{i:.2f}' for i in detector.get(
+                'plotvars')['mean_fi'][idxs]]),
+            'nstas': nstas[idxs],
+            'famnum': detector.get('plotvars')['famnum'][idxs],
+            'datestr': np.array(
+                [UTCDateTime(i).isoformat()[:23] for i in detector.get(
+                    'plotvars')['rtimes'][idxs]]),
+            'colors': colors
+            })
+        renderer = fig.circle(
+            'x', 'y', source=source, fill_color='colors', fill_alpha=1,
+            line_alpha=0, size=4, selection_fill_alpha=1,
+            selection_line_alpha=0, nonselection_fill_alpha=1,
+            nonselection_line_alpha=0)
+        hovertool = fig.select(type=HoverTool)[0]
+        hovertool.renderers.append(renderer)
+        color_bar = ColorBar(color_mapper=LinearColorMapper(
+                palette=palette, low=0.5, high=detector.get('nsta')+0.5),
+            border_line_color='#eeeeee', location=(7, 85),
+            orientation='horizontal', width=110, height=15,
+            title='#Channels', padding=15,
+            major_tick_line_alpha=0)
+        fig.add_layout(color_bar)
         return fig
-    ax.scatter(rtimes[idxs], mean_fi[idxs], 2, c='red', alpha=0.25)
-    # Need to call get_ylim() or y-limits sometimes freak out
-    _ = ax.get_ylim()
+    ax.scatter(detector.get('plotvars')['rtimes'][idxs], detector.get(
+        'plotvars')['mean_fi'][idxs], 10, colors, edgecolor='None')
+    cax = ax.inset_axes([0.025, 0.75, 0.175, 0.075])
+    cax.set_title('#Channels', loc='left', style='italic')
+    cax.get_yaxis().set_visible(False)
+    color_bar = np.linspace(0, 1, detector.get('nsta'))
+    color_bar = np.vstack((color_bar, color_bar))
+    palette = matplotlib.colors.LinearSegmentedColormap.from_list(
+        'nstas', [matplotlib.colors.to_rgb(i) for i in palette],
+        N=len(palette))
+    cax.imshow(color_bar, aspect='auto', cmap=palette,
+               interpolation='nearest')
+    cax.set_xticks(np.arange(0, detector.get('nsta')))
+    cax.set_xticklabels(np.arange(1, detector.get('nsta')+1))
+    cax.set_frame_on(False)
+    cax.tick_params(length=0)
+    _ = ax.get_ylim()  # Need to call or y-limits sometimes freaks out
     return ax
 
 
@@ -398,10 +440,10 @@ def subplot_longevity(detector, options, use_bokeh=True, ax=None):
         if line:
             if use_bokeh:
                 fig = _draw_lines_bokeh(
-                    line, longevity[fnum], 'red', 0.5, fig)
+                    line, longevity[fnum], '#e31a1c', 0.5, fig)
             else:
                 ax = _draw_lines_mpl(
-                    line, longevity[fnum], options, 'red', 0.75, True, ax)
+                    line, longevity[fnum], options, '#e31a1c', 0.75, True, ax)
     if use_bokeh:
         return fig
     return ax
@@ -508,15 +550,15 @@ def subplot_rate(detector, options, use_bokeh=True, ax=None):
         fig = bokeh_figure(title=title)
         fig.yaxis.axis_label = 'Events'
         fig.line(mdates.num2date(bin_times[0:-1] + dt_offset), hist_trigorph,
-                 color='black', legend_label=trigorph)
+                 color='#525252', legend_label=trigorph)
         fig.line(mdates.num2date(bin_times[0:-1] + dt_offset), hist_repeaters,
-                 color='red', legend_label='Repeaters', line_width=2)
+                 color='#e31a1c', legend_label='Repeaters', line_width=2)
         fig.legend.location = 'top_left'
         return fig
     ax.plot(mdates.num2date(bin_times[0:-1] + dt_offset), hist_trigorph,
             color='black', label=trigorph, lw=0.5)
     ax.plot(mdates.num2date(bin_times[0:-1] + dt_offset), hist_repeaters,
-            color='red', label='Repeaters', lw=2)
+            color='#e31a1c', label='Repeaters', lw=2)
     ax.set_title(title, loc='left', fontweight='bold')
     ax.set_ylabel('Events', style='italic')
     ax.set_xlabel('Date', style='italic')
@@ -837,17 +879,37 @@ def _family_hover_tool():
     """Generate HoverTool for family hover preview."""
     return HoverTool(
         tooltips="""
-        <div>
-        <div>
-            <img src="./families/@famnum.png"
-                style="height: 100px; width: 500px;
-                vertical-align: middle;"/>
-            <span style="font-size: 9px;
-                font-family: Helvetica;">Family ID: </span>
-            <span style="font-size: 12px;
-                font-family: Helvetica;">@famnum</span>
-        </div>
-        </div>
+            <div>
+            <div>
+                <img src="./families/@famnum.png"
+                    style="height: 100px; width: 500px;
+                    vertical-align: middle;"/>
+                <span style="font-size: 9px;
+                    font-family: Helvetica;">Family ID: </span>
+                <span style="font-size: 12px;
+                    font-family: Helvetica;">@famnum</span>
+            </div>
+            </div>
+        """, renderers=[])
+
+
+def _fi_hover_tool():
+    """Generate HoverTool for FI hover preview."""
+    return HoverTool(
+        tooltips="""
+            <div>
+            <div>
+                <span style="font-size: 11px;
+                    font-family: Helvetica;">
+                <b>@datestr</b></br></span>
+                <span style="font-size: 10px;
+                    font-family: Helvetica">
+                <em>&nbsp;&nbsp;&nbsp;Family:</em> @famnum</br>
+                <em>&nbsp;&nbsp;&nbsp;Mean FI:</em> @mean_fi</br>
+                <em>&nbsp;&nbsp;&nbsp;#Channels:</em> @nstas</br>
+                </span>
+            </div>
+            </div>
         """, renderers=[])
 
 
