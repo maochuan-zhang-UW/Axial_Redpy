@@ -214,7 +214,8 @@ def write_html_header(detector, fnum, file, report=False):
         Longevity: {detector.get('ftable', 'longevity', fnum):.2f} days</br>
         Mean event spacing: {np.mean(spacing):.2f} hours</br>
         Median event spacing: {np.median(spacing):.2f} hours</br>
-        Mean frequency index: {detector.get('plotvars')['mean_fi'][fnum]:.2f}
+        Mean frequency index: {np.mean(
+            detector.get('plotvars')['mean_fi'][fam]):.2f}
         </br></br>
         First event: {UTCDateTime(rtimes[fam[0]]).isoformat()}</br>
         Core event: {UTCDateTime(rtimes[corenum]).isoformat()}</br>
