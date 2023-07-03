@@ -9,8 +9,8 @@ This currently only parses the existing .html files rather than querying
 a catalog directly. Default behavior only uses locations for local matched
 earthquakes, but the -d and -r flags allow distant matches to be considered.
 
-usage: write_family_locations.py [-h] [-v] [-d] [-r] [-c CONFIGFILE]
-                                  [-o OUTFILE]
+usage: redpy-write-family-locations [-h] [-v] [-d] [-r] [-c CONFIGFILE]
+                                    [-o OUTFILE]
 
 optional arguments:
   -h, --help            show this help message and exit

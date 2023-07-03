@@ -10,8 +10,8 @@ settings follow Python convention for arrays, i.e., start at 0 and do not
 include the ending number. For example, -s 1 -e 5 would replot 1, 2, 3,
 and 4. Negative numbers may be used to count backward from the last family.
 
-usage: force_plot.py [-h] [-v] [-a] [-f] [-l] [-r] [-c CONFIGFILE]
-                     [-s STARTFAM] [-e ENDFAM]
+usage: redpy-force-plot [-h] [-v] [-a] [-f] [-l] [-r] [-c CONFIGFILE]
+                        [-s STARTFAM] [-e ENDFAM]
 
 optional arguments:
   -h, --help            show this help message and exit

@@ -16,8 +16,8 @@ a large amount of time; it will consume less time downloading the data in
 small chunks if NSEC is an hour or a day instead of a few minutes, but at
 the cost of keeping orphans for longer.
 
-usage: backfill.py [-h] [-v] [-s STARTTIME] [-e ENDTIME]
-                   [-c CONFIGFILE] [-n NSEC]
+usage: redpy-backfill [-h] [-v] [-s STARTTIME] [-e ENDTIME]
+                      [-c CONFIGFILE] [-n NSEC]
 
 optional arguments:
   -h, --help            show this help message and exit

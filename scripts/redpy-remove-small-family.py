@@ -12,8 +12,8 @@ printed to screen without removing them.
 Note: Removing families from large datasets may take a significant amount of
 time.
 
-usage: remove_small_family.py [-h] [-v] [-l] [-c CONFIGFILE] [-m MINMEMBERS]
-                              [-a MAXAGE] [-t SEEDTIME]
+usage: redpy-remove-small-family [-h] [-v] [-l] [-c CONFIGFILE]
+                                 [-m MINMEMBERS] [-a MAXAGE] [-t SEEDTIME]
 
 optional arguments:
   -h, --help            show this help message and exit

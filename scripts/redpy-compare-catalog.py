@@ -11,9 +11,9 @@ family or trigger type the best match corresponds to, and for repeaters,
 the frequency index and amplitudes. The combined catalog is saved
 separately, and by default in the current directory as 'matches.csv'.
 
-usage: compare_catalog.py [-h] [-v] [-a] [-i] [-j] [-c CONFIGFILE]
-                          [-d DELIMITER] [-m MAXDTOFFSET] [-n NAME]
-                          [-o OUTFILE] catfile
+usage: redpy-compare-catalog [-h] [-v] [-a] [-i] [-j] [-c CONFIGFILE]
+                             [-d DELIMITER] [-m MAXDTOFFSET] [-n NAME]
+                             [-o OUTFILE] catfile
 
 positional arguments:
   catfile               catalog file

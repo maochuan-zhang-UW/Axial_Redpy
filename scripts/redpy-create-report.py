@@ -12,7 +12,7 @@ what that matrix would look like if it were filled with all possible pairs.
 Note that for very large families (1000+ members) this matrix can take a
 long time to calculate, and may be bypassed with -s.
 
-usage: create_report.py [-h] [-v] [-o] [-c CONFIGFILE] N [N ...]
+usage: redpy-create-report [-h] [-v] [-o] [-c CONFIGFILE] N [N ...]
 
 positional arguments:
   N                     family number(s) to be reported on

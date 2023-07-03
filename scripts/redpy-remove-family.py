@@ -2,9 +2,18 @@
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 """
-Output the contents of the junk table for troubleshooting.
+Manually remove one or more families.
 
-usage: plot_junk.py [-h] [-v] [-c CONFIGFILE]
+Run this script to remove families that are not of interest such as
+correlated noise that made it past the 'junk' detector or regional
+seismicity. The cores from these families are moved to the "deleted" table
+and, if new triggers correlate with them, they are not considered further.
+Ensures outputs are up to date.
+
+usage: redpy-remove-family [-h] [-v] [-c CONFIGFILE] N [N ...]
+
+positional arguments:
+  N                     family number(s) to be moved and deleted
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -14,20 +23,21 @@ optional arguments:
                         default settings.cfg
 """
 import argparse
-import os
 
 import redpy
 
 
-def plot_junk(configfile='settings.cfg', verbose=False):
+def remove_family(fam_list, configfile='settings.cfg', verbose=False):
     """
-    Output the contents of the junk table for troubleshooting.
+    Manually remove one or more families.
 
-    Creates images in a folder "junk" as well as a flat catalog "junk.txt"
-    both in the main outputs directory for the run.
+    The cores from these families are moved to the "deleted" table, and, if
+    new triggers correlate with them, they are not considered further.
 
     Parameters
     ----------
+    fam_list : int list
+        List of family numbers to remove.
     configfile : str, optional
         Name of configuration file to read.
     verbose : bool, optional
@@ -35,36 +45,15 @@ def plot_junk(configfile='settings.cfg', verbose=False):
 
     """
     detector = redpy.Detector(configfile, verbose, opened=True)
-    detector.output('junk')
+    detector.remove('family', fam_list)
+    detector.output()
     detector.close()
-
-
-def create_junk_folder(config):
-    """
-    Create folder structure for outputs.
-
-    Parameters
-    ----------
-    config : Config object
-        Describes the run parameters.
-
-    """
-    if config.get('verbose'):
-        print('Creating folder to store junk images...')
-    subfolder = os.path.join(config.get('output_folder'), 'junk')
-    if config.get('verbose'):
-        print(subfolder)
-    try:
-        os.mkdir(subfolder)
-    except OSError as exc:
-        if config.get('verbose'):
-            print(exc)
 
 
 def main():
     """Handle run from the command line."""
     args = parse()
-    plot_junk(**vars(args))
+    remove_family(**vars(args))
     print('Done')
 
 
@@ -78,8 +67,9 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
-        description=('Output the contents of the junk table for '
-                     'troubleshooting.'))
+        description='Manually remove one or more families.')
+    parser.add_argument('fam_list', metavar='N', type=int, nargs='+',
+                        help='family number(s) to be moved and deleted')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
     parser.add_argument('-c', '--configfile', default='settings.cfg',

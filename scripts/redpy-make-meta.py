@@ -1,14 +1,14 @@
 # REDPy - Repeating Earthquake Detector in Python
 # Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
-"""
+r"""
 Make "meta.html" to hold multiple meta overview pages.
 
 Run this script to generate a file "meta.html" in a specified directory and
 with a list of runs. This page gathers the 'meta_recent.html' tabbed
 overviews within the output directories into a single page.
 
-usage: make_meta.py [-h] [-v] [-r RUNS] [-p PATH] [-t TOPATH]
+usage: redpy-make-meta [-h] [-v] [-r RUNS] [-p PATH] [-t TOPATH]
 
 optional arguments:
   -h, --help            show this help message and exit

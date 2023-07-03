@@ -7,8 +7,8 @@ Create publication-quality, editable .pdf versions of family images.
 Run this script to manually produce files in the families directory
 (same location as fam*.png), optionally with a custom time span.
 
-usage: create_pdf_family.py [-h] [-v] [-c CONFIGFILE] [-s STARTTIME]
-                            [-e ENDTIME] N [N ...]
+usage: redpy-create-pdf-family [-h] [-v] [-c CONFIGFILE] [-s STARTTIME]
+                               [-e ENDTIME] N [N ...]
 
 positional arguments:
   N                     family number(s) to be plotted

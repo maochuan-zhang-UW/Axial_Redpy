@@ -1,6 +1,7 @@
 */
 !redpy/
 !redpy/outputs/
+!scripts/
 !h5/
 !runs/
 *.pyc

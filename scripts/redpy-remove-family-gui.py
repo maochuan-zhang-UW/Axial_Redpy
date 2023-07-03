@@ -15,7 +15,8 @@ Vertical scrolling with the mouse wheel is supported, but not horizontal
 scrolling. The user may alter the number of columns (e.g., if they have a
 wide or narrow screen), but only 250 rows of images can be rendered at once.
 
-usage: remove_family_gui.py [-h] [-v] [-c CONFIGFILE] [-n NCOLS] [-m MINFAM]
+usage: redpy-remove-family-gui [-h] [-v] [-c CONFIGFILE] [-n NCOLS]
+                               [-m MINFAM]
 
 optional arguments:
   -h, --help            show this help message and exit

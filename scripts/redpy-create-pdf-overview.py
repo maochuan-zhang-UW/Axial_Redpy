@@ -9,9 +9,9 @@ Run this script to manually produce overview.pdf in the output directory
 different options from the configuration file. Note that BINSIZE applies to
 both the 'rate' and 'occurrence'/'occurrencefi' histograms.
 
-usage: create_pdf_overview.py [-h] [-v] [-u] [-b BINSIZE] [-c CONFIGFILE]
-                              [-s STARTTIME] [-e ENDTIME] [-m MINMEMBERS]
-                              [-o OCCURHEIGHT] [-f FORMAT]
+usage: redpy-create-pdf-overview [-h] [-v] [-u] [-b BINSIZE] [-c CONFIGFILE]
+                                 [-s STARTTIME] [-e ENDTIME] [-m MINMEMBERS]
+                                 [-o OCCURHEIGHT] [-f FORMAT]
 
 optional arguments:
   -h, --help            show this help message and exit

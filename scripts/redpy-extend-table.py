@@ -13,7 +13,7 @@ filename in the new .cfg file. If the table names in both .cfg files are the
 same, the original table will be renamed and then deleted. All output files
 are also remade to reflect the additional station, unless flagged otherwise.
 
-usage: extend_table.py [-h] [-v] [-n] CONFIGFILE_FROM CONFIGFILE_TO
+usage: redpy-extend-table [-h] [-v] [-n] CONFIGFILE_FROM CONFIGFILE_TO
 
 positional arguments:
   CONFIGFILE_FROM       old .cfg file corresponding to table to be copied

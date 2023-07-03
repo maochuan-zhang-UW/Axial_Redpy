@@ -10,8 +10,8 @@ that can then be copy/pasted into remove_family.py. An optional table is
 printed that summarizes matches of each type. A custom 'FINDPHRASE' may
 be given to find matches in the location string.
 
-usage: distant_families.py [-h] [-v] [-c CONFIGFILE] [-f FINDPHRASE]
-                           [-p PERCENT]
+usage: redpy-distant-families [-h] [-v] [-c CONFIGFILE] [-f FINDPHRASE]
+                              [-p PERCENT]
 
 optional arguments:
   -h, --help            show this help message and exit

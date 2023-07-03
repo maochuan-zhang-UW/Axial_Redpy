@@ -13,9 +13,9 @@ using -f, a trigger will be forced at the given time and 'junk' filtering
 will be skipped, however, the minimum allowed time between events is still
 enforced.
 
-usage: catfill.py [-h] [-v] [-a] [-f] [-q] [-x] [-c CONFIGFILE]
-                  [-d DELIMITER] [-n NAME] [-s STARTTIME] [-e ENDTIME]
-                  csvfile
+usage: redpy-catfill [-h] [-v] [-a] [-f] [-q] [-x] [-c CONFIGFILE]
+                     [-d DELIMITER] [-n NAME] [-s STARTTIME] [-e ENDTIME]
+                     csvfile
 
 positional arguments:
   csvfile               catalog csv file with a column of event times or
