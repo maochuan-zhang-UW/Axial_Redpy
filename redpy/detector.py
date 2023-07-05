@@ -418,7 +418,7 @@ class Detector():
             calls redpy.output.pdf_timeline() - without any arguments,
             recreates the current full overview timeline as a .pdf.
         'report':
-            calls redpy.output.create_report() - requires at least one
+            calls redpy.output.report() - requires at least one
             argument 'fnum' with a list of family numbers to create reports
             for.
 
