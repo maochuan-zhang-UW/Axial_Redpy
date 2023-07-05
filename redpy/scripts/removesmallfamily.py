@@ -36,7 +36,7 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def remove_small_family(configfile='settings.cfg', minmembers=5, maxage=0,
@@ -70,7 +70,7 @@ def remove_small_family(configfile='settings.cfg', minmembers=5, maxage=0,
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     if listonly:
         detector.set('verbose', True)
     small_families = detector.get_small_families(minmembers, maxage, seedtime)

@@ -27,7 +27,8 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.config import Config
+from redpy.detector import Detector
 
 
 def extend_table(cfgfrom, cfgto, verbose=False, noplot=False):
@@ -46,9 +47,9 @@ def extend_table(cfgfrom, cfgto, verbose=False, noplot=False):
         If True, skip plotting once done copying.
 
     """
-    config_to = redpy.Config(cfgto[0], verbose)
-    detector = redpy.Detector(cfgfrom[0], verbose)
-    detector.expand(config_to, update_outputs=(not noplot))
+    config_to = Config(cfgto[0], verbose)
+    detector = Detector(cfgfrom[0], verbose)
+    detector.expand(config_to, update_outputs=not noplot)
     detector.close()
 
 

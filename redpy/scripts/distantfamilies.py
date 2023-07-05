@@ -28,7 +28,7 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def distant_families(configfile='settings.cfg', verbose=False, findphrase='',
@@ -53,7 +53,7 @@ def distant_families(configfile='settings.cfg', verbose=False, findphrase='',
         90% by default.
 
     """
-    detector = redpy.Detector(configfile, verbose)
+    detector = Detector(configfile, verbose)
     _ = detector.locate('distant', findphrase, percent)
     # Returns a dictionary that contains the families that match the criteria
     # as numpy arrays that could be fed to detector.remove() directly.

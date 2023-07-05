@@ -34,7 +34,7 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def force_plot(configfile='settings.cfg', verbose=False, plotall=False,
@@ -79,7 +79,7 @@ def force_plot(configfile='settings.cfg', verbose=False, plotall=False,
         timelines = False
         html = htmlonly
         images = famplot
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     detector.output('force', plotall=plotall, resetlp=resetlp, html=html,
                     images=images, catalogs=catalogs, timelines=timelines,
                     startfam=startfam, endfam=endfam)

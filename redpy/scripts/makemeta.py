@@ -22,7 +22,8 @@ optional arguments:
                         to same path
 """
 import argparse
-import os
+
+import redpy.outputs.html
 
 
 def make_meta(runs='', path='./runs', topath='.', verbose=False):

@@ -40,7 +40,7 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def create_pdf_overview(
@@ -79,7 +79,7 @@ def create_pdf_overview(
         'plotformat' in config; defaults to 'eqrate,fi,occurrence,longevity'.
 
     """
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     detector.output('pdf_timeline', starttime=starttime, endtime=endtime,
                     binsize=binsize, usehrs=usehrs, minmembers=minmembers,
                     occurheight=occurheight, plotformat=plotformat)

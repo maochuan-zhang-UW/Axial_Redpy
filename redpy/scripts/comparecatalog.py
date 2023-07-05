@@ -43,7 +43,7 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
@@ -85,7 +85,7 @@ def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose)
+    detector = Detector(configfile, verbose)
     _ = detector.locate('catalog', catfile, arrival, delimiter,
                         include_missing, junk, maxdtoffset, name, outfile)
     # Returns the matched catalog as a pandas DataFrame.

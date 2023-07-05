@@ -14,9 +14,8 @@ optional arguments:
                         default settings.cfg
 """
 import argparse
-import os
 
-import redpy
+from redpy.detector import Detector
 
 
 def plot_junk(configfile='settings.cfg', verbose=False):
@@ -34,31 +33,9 @@ def plot_junk(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     detector.output('junk')
     detector.close()
-
-
-def create_junk_folder(config):
-    """
-    Create folder structure for outputs.
-
-    Parameters
-    ----------
-    config : Config object
-        Describes the run parameters.
-
-    """
-    if config.get('verbose'):
-        print('Creating folder to store junk images...')
-    subfolder = os.path.join(config.get('output_folder'), 'junk')
-    if config.get('verbose'):
-        print(subfolder)
-    try:
-        os.mkdir(subfolder)
-    except OSError as exc:
-        if config.get('verbose'):
-            print(exc)
 
 
 def main():

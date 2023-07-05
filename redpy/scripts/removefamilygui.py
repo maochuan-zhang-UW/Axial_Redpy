@@ -37,7 +37,7 @@ import tkinter as tk
 from collections import defaultdict
 from PIL import Image
 
-import redpy
+from redpy.detector import Detector
 
 
 class RemoveFamilyGUI(tk.Tk):
@@ -62,7 +62,7 @@ class RemoveFamilyGUI(tk.Tk):
 
         """
         tk.Tk.__init__(self)
-        self.detector = redpy.Detector(configfile, verbose, opened=True)
+        self.detector = Detector(configfile, verbose, opened=True)
         self.params = {'ncols': ncols, 'minfam': minfam,
                        'maxfam': 250*ncols-minfam}
         self.objdict = defaultdict(list)  # Will hold images, check, and var

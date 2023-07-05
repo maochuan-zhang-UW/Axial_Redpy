@@ -37,7 +37,7 @@ optional arguments:
 import argparse
 import time
 
-import redpy
+from redpy.detector import Detector
 
 
 def backfill(configfile='settings.cfg', verbose=False, starttime=None,
@@ -67,7 +67,7 @@ def backfill(configfile='settings.cfg', verbose=False, starttime=None,
 
     """
     t_start = time.time()
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     detector.update('backfill', starttime, endtime, nsec=nsec)
     detector.close()
     print(f'Total time spent: {time.time()-t_start:.2f} seconds')

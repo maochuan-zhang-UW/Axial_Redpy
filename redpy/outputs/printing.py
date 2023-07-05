@@ -15,7 +15,7 @@ import matplotlib.dates as mdates
 import numpy as np
 from obspy import UTCDateTime
 
-import redpy.correlation
+from redpy.correlation import subset_matrix
 
 
 def catalog_cores(detector):
@@ -213,9 +213,9 @@ def catalog_verbose(detector):
             fam = fam[np.argsort(catalog)]
             catalog = np.sort(catalog)
             spacing = np.concatenate(([np.nan], np.diff(catalog)*24))
-            ccc_max = redpy.correlation.subset_matrix(
+            ccc_max = subset_matrix(
                 ids[fam], ccc_sparse, return_type='maxrow')
-            ccc_core = redpy.correlation.subset_matrix(
+            ccc_core = subset_matrix(
                 ids[fam], ccc_sparse, return_type='indrow', ind=np.where(
                     fam == detector.get('ftable', 'core', fnum))[0][0])
             for i, member in enumerate(fam):

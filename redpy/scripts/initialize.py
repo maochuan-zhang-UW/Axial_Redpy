@@ -19,13 +19,12 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def initialize(configfile='settings.cfg', verbose=False):
     """
-    Initialize tables defined in configfile, overwriting any existing
-    tables.
+    Initialize tables defined in configfile, overwriting existing tables.
 
     Additionally, create folder structure for outputs.
 
@@ -37,7 +36,7 @@ def initialize(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose)
+    detector = Detector(configfile, verbose)
     detector.initialize()
     detector.close()
 

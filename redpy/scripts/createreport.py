@@ -28,9 +28,8 @@ optional arguments:
                         default settings.cfg
 """
 import argparse
-import os
 
-import redpy
+from redpy.detector import Detector
 
 
 def create_report(fam_list, configfile='settings.cfg', verbose=False,
@@ -54,7 +53,7 @@ def create_report(fam_list, configfile='settings.cfg', verbose=False,
         If True, skip recalculating the full correlation matrix.
 
     """
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     detector.output('report', fnum=fam_list, ordered=ordered,
                     skip_recalculate_ccc=skip, matrixtofile=matrixtofile)
     detector.close()

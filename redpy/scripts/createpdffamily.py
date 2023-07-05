@@ -28,7 +28,7 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def create_pdf_family(fam_list, configfile='settings.cfg', verbose=False,
@@ -54,7 +54,7 @@ def create_pdf_family(fam_list, configfile='settings.cfg', verbose=False,
         Latest time to plot; defaults to last event.
 
     """
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     detector.output(
         'pdf_family', fnum=fam_list, starttime=starttime, endtime=endtime)
     detector.close()

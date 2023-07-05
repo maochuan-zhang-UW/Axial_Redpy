@@ -30,7 +30,7 @@ optional arguments:
 import argparse
 import os
 
-import redpy
+from redpy.detector import Detector
 
 
 def write_family_locations(configfile='settings.cfg', outfile='famlocs.csv',
@@ -53,7 +53,7 @@ def write_family_locations(configfile='settings.cfg', outfile='famlocs.csv',
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose)
+    detector = Detector(configfile, verbose)
     df = detector.locate('median', regional, distant)
     outfile = os.path.join(detector.get('output_folder'), outfile)
     df.to_csv(outfile)

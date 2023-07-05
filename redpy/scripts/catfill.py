@@ -52,9 +52,12 @@ optional arguments:
 import argparse
 import time
 
-import redpy
+from redpy.detector import Detector
+from redpy.locate import event_times_from_catalog
 
 
+# pylint: disable=R0913
+# Function requires >10 input arguments.
 def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
             arrival=False, force=False, query=False, expire=False,
             delimiter=',', name='Time', starttime=None, endtime=None):
@@ -95,11 +98,11 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
 
     """
     t_start = time.time()
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     if query:
         detector.locate('arrivals', starttime, endtime, outfile=csvfile)
     try:
-        event_list = redpy.locate.event_times_from_catalog(
+        event_list = event_times_from_catalog(
             detector, csvfile, name, starttime, endtime,
             arrival, delimiter)
     except KeyError as exc:
@@ -110,6 +113,7 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
         'catfill', starttime, endtime, event_list, force, expire)
     detector.close()
     print(f'Total time spent: {time.time()-t_start:.2f} seconds')
+# pylint: enable=R0913
 
 
 def main():

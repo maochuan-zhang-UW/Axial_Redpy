@@ -15,7 +15,7 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def clear_junk(configfile='settings.cfg', verbose=False):
@@ -32,7 +32,7 @@ def clear_junk(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     detector.remove('junk')
     detector.close()
 

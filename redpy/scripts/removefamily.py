@@ -24,7 +24,7 @@ optional arguments:
 """
 import argparse
 
-import redpy
+from redpy.detector import Detector
 
 
 def remove_family(fam_list, configfile='settings.cfg', verbose=False):
@@ -44,7 +44,7 @@ def remove_family(fam_list, configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector = Detector(configfile, verbose, opened=True)
     detector.remove('family', fam_list)
     detector.output()
     detector.close()
