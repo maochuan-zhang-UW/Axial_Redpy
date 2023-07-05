@@ -80,5 +80,5 @@ def run_optics(detector, members, distance_matrix=None):
     with warnings.catch_warnings():
         # Every once in a while, OPTICS() throws an EfficiencyWarning
         warnings.simplefilter("ignore")
-        return OPTICS(metric='precomputed', min_samples=0, max_eps=1).fit(
+        return OPTICS(metric='precomputed', min_samples=2, max_eps=1).fit(
             distance_matrix), members
