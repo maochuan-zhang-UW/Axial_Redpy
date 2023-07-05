@@ -76,6 +76,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-distant-families',
         description='Find families with distant catalog matches.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help=('increase written print statements, including '

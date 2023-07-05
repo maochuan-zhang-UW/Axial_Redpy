@@ -109,6 +109,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-compare-catalog',
         description='Compare REDPy catalog with external catalog.')
     parser.add_argument('catfile', help='catalog file')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,

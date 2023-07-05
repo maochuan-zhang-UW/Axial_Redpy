@@ -1,10 +1,13 @@
 # REDPy - Repeating Earthquake Detector in Python
-# Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
+# Copyright (C) 2016-2018  Alicia Hotovec-Ellis (ahotovec@gmail.com)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 """
-Clear contents of the "junk" table.
+Initialize and overwrite hdf5 table using configuration.
 
-usage: redpy-clear-junk [-h] [-v] [-c CONFIGFILE]
+Running this script will overwrite an existing table with the same name
+defined by filename in the .cfg file!
+
+usage: redpy-initialize [-h] [-v] [-c CONFIGFILE]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -12,17 +15,19 @@ optional arguments:
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
+
 """
 import argparse
 
 import redpy
 
 
-def clear_junk(configfile='settings.cfg', verbose=False):
+def initialize(configfile='settings.cfg', verbose=False):
     """
-    Remove all "junk" from hdf5 file defined in configuration file.
+    Initialize tables defined in configfile, overwriting any existing
+    tables.
 
-    Closes file when done.
+    Additionally, create folder structure for outputs.
 
     Parameters
     ----------
@@ -32,15 +37,15 @@ def clear_junk(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose, opened=True)
-    detector.remove('junk')
+    detector = redpy.Detector(configfile, verbose)
+    detector.initialize()
     detector.close()
 
 
 def main():
     """Handle run from the command line."""
     args = parse()
-    clear_junk(**vars(args))
+    initialize(**vars(args))
     print('Done')
 
 
@@ -50,11 +55,12 @@ def parse():
 
     Returns
     -------
-    ArgumentParser Object
+    ArgumentParser object
 
     """
     parser = argparse.ArgumentParser(
-        description='Clear contents of the "junk" table.')
+        prog='redpy-initialize',
+        description='Initialize and overwrite hdf5 table using configuration.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
     parser.add_argument('-c', '--configfile', default='settings.cfg',

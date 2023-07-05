@@ -78,6 +78,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-write-family-locations',
         description='Write median family locations to file.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')

@@ -239,6 +239,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='remove-family-gui',
         description='Manually remove one or more families using a GUI.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')

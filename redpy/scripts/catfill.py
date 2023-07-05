@@ -129,6 +129,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-catfill',
         description='Fill tables with data using a catalog.')
     parser.add_argument('csvfile',
                         help=('catalog csv file with a column of event times '

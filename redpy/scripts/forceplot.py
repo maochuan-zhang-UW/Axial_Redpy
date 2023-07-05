@@ -102,7 +102,9 @@ def parse():
     ArgumentParser object
 
     """
-    parser = argparse.ArgumentParser(description='Update plots by force.')
+    parser = argparse.ArgumentParser(
+        prog='redpy-force-plot',
+        description='Update plots by force.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
     parser.add_argument('-a', '--plotall', action='store_true', default=False,

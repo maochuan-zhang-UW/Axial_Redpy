@@ -68,6 +68,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-make-meta',
         description='Make "meta.html" to hold multiple meta overview pages.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')

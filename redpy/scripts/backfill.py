@@ -90,6 +90,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-backfill',
         description='Fill tables using continuous data.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')

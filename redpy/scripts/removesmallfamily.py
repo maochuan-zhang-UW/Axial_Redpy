@@ -102,6 +102,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-remove-small-family',
         description='Remove "small" families with few members.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')

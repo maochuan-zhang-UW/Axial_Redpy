@@ -77,6 +77,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-create-pdf-family',
         description=('Create publication-quality, editable .pdf versions of '
                      'family images.'))
     parser.add_argument('fam_list', metavar='N', type=int, nargs='+',

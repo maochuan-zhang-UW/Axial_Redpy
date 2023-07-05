@@ -103,6 +103,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-create-pdf-overview',
         description=('Create a publication-quality, editable .pdf version of '
                      'overview page.'))
     parser.add_argument('-v', '--verbose', action='store_true', default=False,

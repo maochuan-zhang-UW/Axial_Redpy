@@ -77,6 +77,7 @@ def parse():
 
     """
     parser = argparse.ArgumentParser(
+        prog='redpy-create-report',
         description=('Produce a detailed "report" page for one or more '
                      'families.'))
     parser.add_argument('fam_list', metavar='N', type=int, nargs='+',

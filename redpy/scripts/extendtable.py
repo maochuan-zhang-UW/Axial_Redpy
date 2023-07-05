@@ -68,8 +68,10 @@ def parse():
     ArgumentParser Object
 
     """
-    parser = argparse.ArgumentParser(description=(
-        'Copy data from existing table into a new, larger table.'))
+    parser = argparse.ArgumentParser(
+        prog='redpy-extend-table',
+        description=(
+            'Copy data from existing table into a new, larger table.'))
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help="increase written print statements")
     parser.add_argument('-n', '--noplot', action='store_true', default=False,

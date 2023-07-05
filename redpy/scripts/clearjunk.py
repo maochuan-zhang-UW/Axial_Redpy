@@ -1,13 +1,10 @@
 # REDPy - Repeating Earthquake Detector in Python
-# Copyright (C) 2016-2018  Alicia Hotovec-Ellis (ahotovec@gmail.com)
+# Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
 # Licensed under GNU GPLv3 (see LICENSE.txt)
 """
-Initialize and overwrite hdf5 table using configuration.
+Clear contents of the "junk" table.
 
-Running this script will overwrite an existing table with the same name
-defined by filename in the .cfg file!
-
-usage: redpy-initialize [-h] [-v] [-c CONFIGFILE]
+usage: redpy-clear-junk [-h] [-v] [-c CONFIGFILE]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -15,19 +12,17 @@ optional arguments:
   -c CONFIGFILE, --configfile CONFIGFILE
                         use configuration file named CONFIGFILE instead of
                         default settings.cfg
-
 """
 import argparse
 
 import redpy
 
 
-def initialize(configfile='settings.cfg', verbose=False):
+def clear_junk(configfile='settings.cfg', verbose=False):
     """
-    Initialize tables defined in configfile, overwriting any existing
-    tables.
+    Remove all "junk" from hdf5 file defined in configuration file.
 
-    Additionally, create folder structure for outputs.
+    Closes file when done.
 
     Parameters
     ----------
@@ -37,15 +32,15 @@ def initialize(configfile='settings.cfg', verbose=False):
         Enable additional print statements.
 
     """
-    detector = redpy.Detector(configfile, verbose)
-    detector.initialize()
+    detector = redpy.Detector(configfile, verbose, opened=True)
+    detector.remove('junk')
     detector.close()
 
 
 def main():
     """Handle run from the command line."""
     args = parse()
-    initialize(**vars(args))
+    clear_junk(**vars(args))
     print('Done')
 
 
@@ -55,11 +50,12 @@ def parse():
 
     Returns
     -------
-    ArgumentParser object
+    ArgumentParser Object
 
     """
     parser = argparse.ArgumentParser(
-        description='Initialize and overwrite hdf5 table using configuration.')
+        prog='redpy-clear-junk',
+        description='Clear contents of the "junk" table.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='increase written print statements')
     parser.add_argument('-c', '--configfile', default='settings.cfg',
