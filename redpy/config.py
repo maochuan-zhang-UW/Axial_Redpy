@@ -293,5 +293,7 @@ class Config():
                 if key == 'always_verbose' and value:
                     setattr(self, 'verbose', True)
             else:
-                raise ValueError(f'Unrecognized setting {item[0]}; aborting!')
+                raise ValueError(
+                    f'Unrecognized or deprecated setting "{item[0]}"; '
+                    f'aborting! Please check {self.configfile}.')
         self._enforce()
