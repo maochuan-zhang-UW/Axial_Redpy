@@ -286,10 +286,10 @@ class Waveform():
                 window_start >= self.times['preload_end']):
             sub_list = self.event_list[
                 (self.event_list > window_start) & (
-                    self.event_list < window_end + detector.get('nsec'))]
+                    self.event_list < window_start + detector.get('nsec'))]
             if len(sub_list) > 1:
                 self.times['preload_end'] = (
-                    window_end + (sub_list[-1] - sub_list[0])
+                    window_start + (sub_list[-1] - sub_list[0])
                     + 5*detector.get('atrig'))
                 self.times['preload_start'] = (window_start
                                                - 4*detector.get('atrig'))
