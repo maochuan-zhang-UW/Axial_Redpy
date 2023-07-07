@@ -92,8 +92,7 @@ def catalog_junk(detector):
         file.write('Trigger Time (UTC)\tJunk Type\n')
         for i in np.argsort(start_times):
             format_time = (UTCDateTime(start_times[i])
-                           + detector.get('ptrig') / detector.get('samprate')
-                           ).isoformat()
+                           + detector.get('ptrig')).isoformat()
             file.write(f'{format_time}\t{type_strings[jtype[i]]}\n')
 
 
