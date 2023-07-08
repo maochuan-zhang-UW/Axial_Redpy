@@ -111,10 +111,11 @@ def catalog_orphans(detector):
     outfile = os.path.join(detector.get('output_folder'), 'orphancatalog.txt')
     with open(outfile, 'w', encoding='utf-8') as file:
         file.write('Trigger Time (UTC)\n')
+        if len(detector.get('otable')) == 1:
+            detector.get('otable').forget('all')
         for time in np.sort(detector.get('otable', 'startTime')):
             format_time = (
-                UTCDateTime(time) + detector.get('ptrig')
-                / detector.get('samprate')).isoformat()
+                UTCDateTime(time) + detector.get('ptrig')).isoformat()
             file.write(f'{format_time}\n')
 
 
