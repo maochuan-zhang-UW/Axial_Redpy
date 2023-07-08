@@ -298,7 +298,7 @@ class Waveform():
                     self.times['preload_end'])
             else:
                 self.times['preload_start'] = window_start
-                self.times['preload_end'] = window_end
+                self.times['preload_end'] = window_start
                 self.preload = None
 
 
