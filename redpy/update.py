@@ -27,8 +27,7 @@ def clean_junk(detector, trig_list):
     Specifically, it attempts to weed out spikes and analog calibration
     pulses using kurtosis and outlier ratios; checks for teleseisms that
     have very low frequency index. If force triggering with a specific
-    event, a warning will be shown if the event would normally be
-    categorized as junk, but otherwise is allowed to pass the tests.
+    event, it is allowed to pass the tests.
 
     Parameters
     ----------
