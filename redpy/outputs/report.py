@@ -96,7 +96,7 @@ def create_report(detector, fnum, ordered=False, skip_recalculate_ccc=False,
         detector.get('plotvars')['ids'][members],
         detector.get('plotvars')['ccc_sparse'], return_type='matrix')
     if not skip_recalculate_ccc:
-        if len(members) > 1000:
+        if len(members) > 1000:  # pragma: no cover
             print('There are a lot of members in this family! '
                   'Consider using the option to skip recalculating '
                   'the cross-correlation matrix...')

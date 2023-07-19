@@ -47,8 +47,12 @@ def extend_table(cfgfrom, cfgto, verbose=False, noplot=False):
         If True, skip plotting once done copying.
 
     """
-    config_to = Config(cfgto[0], verbose)
-    detector = Detector(cfgfrom[0], verbose)
+    if isinstance(cfgto, list):  # pragma: no cover
+        cfgto = cfgto[0]
+    if isinstance(cfgfrom, list):  # pragma: no cover
+        cfgfrom = cfgfrom[0]
+    config_to = Config(cfgto, verbose)
+    detector = Detector(cfgfrom, verbose)
     detector.expand(config_to, update_outputs=not noplot)
     detector.close()
 

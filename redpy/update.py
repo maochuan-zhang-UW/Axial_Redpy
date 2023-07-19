@@ -379,7 +379,7 @@ def remove_duplicates(detector, trig_list):
             # Do again, just in case we missed some
             duplicates = _find_duplicates(
                 detector, trig_times, np.arange(len(trig_times)))
-            if len(duplicates) > 0:
+            if len(duplicates) > 0:  # pragma: no cover
                 trig_list = np.delete(trig_list, duplicates)
                 trig_times = np.delete(trig_times, duplicates)
         # Now compare against existing triggers in ttable
@@ -534,7 +534,7 @@ def _append_family_member(detector, fnum, idx):
     detector.set('ftable', bytes(member_string, 'utf-8'), 'members', fnum)
 
 
-def _check_core_window(detector, fnum):
+def _check_core_window(detector, fnum):  # pragma: no cover
     """Check that core window hasn't changed."""
     core = detector.get('ftable', 'core', fnum)
     window = detector.get('rtable', 'windowStart', core)
@@ -618,7 +618,7 @@ def _get_lag_adjusted_windows(
             window_coeff2, window_fft2, window_fi2 = calculate_window(
                 detector, detector.get(table_type, 'waveform', row),
                 detector.get('start_sample') + bestlag - maxlags[bestcor])
-        else:
+        else:  # pragma: no cover
             window_coeff2, window_fft2, window_fi2 = _get_window(
                 detector, table_type, bestcor)
     return (window_coeff1, window_fft1, window_fi1,

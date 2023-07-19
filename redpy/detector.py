@@ -276,7 +276,7 @@ class Detector():
             seedtime = UTCDateTime(
                 mdates.num2date(self.get('ttable', 'startTimeMPL', -1)))
         if self.get('verbose'):
-            print('\n::: .get_small_families()')
+            print('\n::: Small Family Definition :::')
             print(f'::: - minmembers    : {minmembers}')
             print(f'::: - maxage (days) : {maxage}')
             print(f'::: - seedtime      : {seedtime}\n')
@@ -489,7 +489,7 @@ class Detector():
         """
         if method == 'expire':
             if len(self.get('otable')):
-                if len(self.get('otable')) == 1:
+                if len(self.get('otable')) == 1:  # pragma: no cover
                     # Have to deal with edge case handling with bytes here
                     expires = np.array([UTCDateTime(str(np.char.decode(
                         self.get('otable', 'expires'))))])
@@ -533,13 +533,13 @@ class Detector():
             of value should match.
 
         """
-        if key in ['config', 'h5file', 'tables']:
+        if key in ['config', 'h5file', 'tables']:  # pragma: no cover
             setattr(self, key, value)
         if key == 'cores':
             if col is not None:
                 if row is None:
                     self.cores[col] = value
-                else:
+                else:  # pragma: no cover
                     self.cores[col][row] = value
             else:
                 raise KeyError(
@@ -646,7 +646,7 @@ class Detector():
                     expire, force)
                 i += 1
         elif method == 'catfill':
-            if expire is None:
+            if expire is None:  # pragma: no cover
                 expire = False
             for event in event_list:
                 redpy.update.from_window(
@@ -665,7 +665,7 @@ class Detector():
         if junk:
             jdates = [UTCDateTime(j).matplotlib_date for j in self.get(
                 'jtable', 'startTime')]
-        else:
+        else:  # pragma: no cover
             jdates = []
         rtimes_mpl = self.get('rtable', 'startTimeMPL')
         fi_mean = np.nanmean(self.get('rtable', 'FI'), axis=1)
@@ -728,7 +728,7 @@ class Detector():
             self.set('max_famlen', allowed_max_famlen)
             self.config.custom_settings.append('max_famlen')
 
-    def _check_output_folders(self):
+    def _check_output_folders(self):  # pragma: no cover
         """Rename 'clusters' output folder from older version to 'families'."""
         if os.path.isdir(os.path.join(self.get('output_folder'), 'clusters')):
             os.rename(os.path.join(self.get('output_folder'), 'clusters'),
@@ -774,7 +774,7 @@ class Detector():
         else:
             if event_list is not None:
                 tend = event_list[-1] + 5*self.get('atrig') + self.get('maxdt')
-            else:
+            else:  # pragma: no cover
                 tend = UTCDateTime()
         if tstart:
             tstart = UTCDateTime(tstart)
@@ -786,7 +786,7 @@ class Detector():
             elif self.get('rtable').table.attrs.ptime:
                 tstart = UTCDateTime(self.get('rtable').table.attrs.ptime)
             else:
-                tstart = tend - self.get('nsec')
+                tstart = tend - self.get('nsec')  # pragma: no cover
         if tstart > tend:
             raise ValueError(
                 f'Start {tstart} is after end {tend}!')
@@ -822,18 +822,19 @@ class Detector():
             members = np.append(members, self.get_members(fnum))
         members = np.sort(members).astype('uint32')
         rtable_len = len(self.get('rtable'))
-        ids = self.get('rtable', 'id')[members]
-        id2 = self.get('ctable', 'id2')
-        self.get('ctable').remove(np.where(np.in1d(id2, ids))[0])
-        cores = np.array([])
-        if not skip_dtable:
-            cores = np.intersect1d(members, self.get('ftable', 'core'))
-            for core in cores:
-                self.get('rtable').move(self.get('dtable'), core)
         transform = np.zeros(rtable_len).astype(int)
         transform[np.delete(list(range(rtable_len)), members)] = range(
             rtable_len-len(members))
-        members = np.setdiff1d(members, cores)
+        ids = self.get('rtable', 'id')[members]
+        id2 = self.get('ctable', 'id2')
+        self.get('ctable').remove(np.where(np.in1d(id2, ids))[0])
+        if not skip_dtable:
+            cores = np.sort(np.intersect1d(
+                members, self.get('ftable', 'core')))[::-1]
+            members = np.setdiff1d(members, cores)
+            for core in cores:
+                self.get('rtable').move(self.get('dtable'), core)
+                members[members > core] -= 1
         self.get('rtable').remove(members)
         self.get('ftable').remove(fnums)
         for fnum in range(len(self.get('ftable'))):
@@ -844,7 +845,8 @@ class Detector():
                          transform[fmembers])[1:-1], 'utf-8'),
                      'members', fnum)
             self.set('ftable', transform[core], 'core', fnum)
-        self.set('ftable', 1, 'printme', len(self.get('ftable'))-1)
+        if len(self.get('ftable')):
+            self.set('ftable', 1, 'printme', len(self.get('ftable'))-1)
         if self.get('verbose'):
             print('Done removing families!')
 

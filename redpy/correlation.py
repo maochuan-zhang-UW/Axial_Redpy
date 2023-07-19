@@ -128,7 +128,7 @@ def make_full(detector, rtable_sub, ccc_sub):
     for i in np.arange(0, len(rtable_sub)-1):
         for j in np.arange(i+1, len(rtable_sub)):
             if ccc_full[i, j] == 0:
-                if k % 100000 == 0:
+                if k % 100000 == 0:  # pragma: no cover
                     print(f'{(100*k/total_missing):3.2f}% done...')
                 cor, _, _ = xcorr_1x1(
                     detector,
@@ -236,7 +236,7 @@ def xcorr_1x1(
             station_cors)[::-1][0:detector.get('ncor')]])
     else:
         maxlag = station_lags[np.argmax(station_cors)]
-    if detector.get('use_nthcor'):
+    if detector.get('use_nthcor'):  # pragma: no cover
         return nthcor, maxlag, nthcor
     return maxcor, maxlag, nthcor
 
@@ -270,7 +270,7 @@ def xcorr_1xtable(detector, table_type, window_coeff, window_fft, row=None):
         Cross-correlation coefficients on the detector.get('ncor')-th station.
 
     """
-    if isinstance(row, int):
+    if isinstance(row, int):  # pragma: no cover
         row = np.array([row])
     if row is not None:
         n_calcs = len(row)

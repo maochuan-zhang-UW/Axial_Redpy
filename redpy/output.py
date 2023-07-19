@@ -302,7 +302,7 @@ def set_print_cols(detector, resetlp=True, plotall=False, startfam=0,
             endfam = len(detector) + endfam
         if (startfam > endfam) and endfam:
             raise ValueError('startfam is larger than endfam!')
-        if startfam >= len(detector)-1:
+        if startfam > len(detector)-1:
             raise ValueError('startfam is larger than the number of available '
                              f'families ({len(detector)})!')
         if endfam > len(detector):

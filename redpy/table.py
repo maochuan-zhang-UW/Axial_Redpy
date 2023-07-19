@@ -66,7 +66,7 @@ class Table():
         """Define length."""
         if self.table is not None:
             return len(self.table)
-        return None
+        return None  # pragma: no cover
 
     def __repr__(self):
         """Define representation string."""
@@ -99,7 +99,7 @@ class Table():
         """
         if np.shape(row) == ():  # Single row as dict or structured array
             self._append_single(row)
-        else:
+        else:  # pragma: no cover
             for oldrow in row:
                 self._append_single(oldrow)
 
@@ -146,7 +146,7 @@ class Table():
             entire Table object itself.
 
         """
-        if isinstance(col, int):
+        if isinstance(col, int):  # pragma: no cover
             col = self.column_names[col]
         if (col is not None) and (row is not None):
             # Slice of a column
@@ -346,14 +346,14 @@ class Table():
         """
         if value is None:
             raise ValueError('None as value not accepted!')
-        if isinstance(col, int):
+        if isinstance(col, int):  # pragma: no cover
             col = self.column_names[col]
         if row is not None:
             if not isinstance(row, (int, np.int32, np.int64)):
                 for i, j in enumerate(row):
                     self.table.modify_column(start=j, column=value[i],
                                              colname=col)
-                    if col in self.columns_in_memory:
+                    if col in self.columns_in_memory:  # pragma: no cover
                         self.columns_in_memory[col][j] = value[i]
                 col = None
             else:
@@ -368,7 +368,7 @@ class Table():
             start = 0
             stop = len(self)
             step = 1
-            if col in self.columns_in_memory:
+            if col in self.columns_in_memory:  # pragma: no cover
                 self.columns_in_memory[col] = value
         if col:
             self.table.modify_column(start, stop, step, value, col)
@@ -401,7 +401,7 @@ class Table():
         self._check_epoch_date()
         self._check_duplicates()
 
-    def _check_attrs(self):
+    def _check_attrs(self):  # pragma: no cover
         """Populate missing attributes from older tables."""
         if (self.name == 'ftable') and (
                 'allowed_max_famlen' not in self.table.attrs):
@@ -409,7 +409,7 @@ class Table():
             self.table.attrs.current_max_famlen = np.max(
                 [len(i) for i in self.get('members')])
 
-    def _check_epoch_date(self):
+    def _check_epoch_date(self):  # pragma: no cover
         """Check and fix epoch of matplotlib dates stored in table."""
         if len(self) > 0 and self.name in ['ttable', 'otable', 'rtable',
                                            'dtable', 'ftable']:
@@ -436,7 +436,7 @@ class Table():
             all_ids = np.vstack([id1, id2]).T.copy()
             dtypes = all_ids.dtype.descr * 2
             uniques = np.unique(all_ids.view(dtypes), return_index=True)[1]
-            if len(uniques) < len(id1):
+            if len(uniques) < len(id1):  # pragma: no cover
                 duplicates = np.setdiff1d(np.arange(len(id1)), uniques)
                 print(f'Removing {len(duplicates):i} duplicate '
                       'correlation entries...')

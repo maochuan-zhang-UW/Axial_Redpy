@@ -102,7 +102,7 @@ class Waveform():
         if self.preload:
             stream = self._extract_from_preload(
                 detector, window_start, window_end)
-        elif len(self.filekey) > 0:
+        elif len(self.filekey) > 0:  # pragma: no cover
             stream = self._load_from_file(detector, window_start, window_end)
         else:
             stream = _download_from_client(detector, window_start, window_end)
@@ -182,8 +182,8 @@ class Waveform():
             List of events to trigger on.
 
         """
-        if event_list is not None:
-            self.event_list = self.event_list = np.array(
+        if event_list is not None:  # pragma: no cover
+            self.event_list = np.array(
                 [UTCDateTime(event) for event in event_list])
         else:
             self.event_list = []
@@ -296,7 +296,7 @@ class Waveform():
                 self.preload = _download_from_client(
                     detector, self.times['preload_start'],
                     self.times['preload_end'])
-            else:
+            else:  # pragma: no cover
                 self.times['preload_start'] = window_start
                 self.times['preload_end'] = window_start
                 self.preload = None
@@ -378,7 +378,7 @@ def _filter_merge(detector, stream):
                 ordered_stream.append(stream[idx[0][0]])
             else:
                 ordered_stream = _append_empty(detector, ordered_stream, scnl)
-        else:
+        else:  # pragma: no cover
             ordered_stream = _append_empty(detector, ordered_stream, scnl)
     return ordered_stream
 

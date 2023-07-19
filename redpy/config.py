@@ -127,7 +127,7 @@ class Config():
             'dybin': 1.,
             'hrbin': 1.,
             'mhrbin': 1.,
-            'occurbin': 1.,  # convert to decimal days
+            'occurbin': 1.,
             'recbin': 1.,  # convert to decimal days
             'mrecbin': 1.,  # convert to decimal days
             'fixedheight': False,
@@ -218,7 +218,7 @@ class Config():
 
     def _convert_to_days(self):
         """Convert keys given in hours to decimal days."""
-        for key in ['occurbin', 'recbin', 'mrecbin']:
+        for key in ['recbin', 'mrecbin']:
             self.set(key, self.get(key)/24)
 
     def _enforce(self):
@@ -291,7 +291,7 @@ class Config():
                     self.set(key, value)
                     self.custom_settings.append(key)
                 if key == 'always_verbose' and value:
-                    setattr(self, 'verbose', True)
+                    self.set('verbose', True)
             else:
                 raise ValueError(
                     f'Unrecognized or deprecated setting "{item[0]}"; '

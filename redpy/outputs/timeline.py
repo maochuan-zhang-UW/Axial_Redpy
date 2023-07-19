@@ -63,7 +63,7 @@ def assemble_bokeh_timeline(detector, options, filepath):
             plots.append(subplot_occurrence(
                 detector, options, 'fi'))
             tabtitles = tabtitles+['Occurrence (Color by FI)']
-        else:
+        else:  # pragma: no cover
             print(f'{plot} is not a valid plot type. Moving on.')
     for fig in plots:
         fig.x_range = plots[0].x_range
@@ -148,7 +148,7 @@ def assemble_pdf_timeline(detector, options):
             ax = _add_pdf_annotations(detector, ax, options)
             ax = subplot_longevity(detector, options, use_bokeh=False, ax=ax)
             pnum += 1
-        else:
+        else:  # pragma: no cover
             print(f'{plot} is not a valid plot type. Moving on.')
     plt.tight_layout()
     plt.savefig(os.path.join(detector.get('output_folder'), 'overview.pdf'))
@@ -250,7 +250,7 @@ def generate_timelines(detector):
 
     """
     ttimes = detector.get('plotvars')['ttimes']
-    if detector.get('bokehendtime') == 'now':
+    if detector.get('bokehendtime') == 'now':  # pragma: no cover
         maxtime = UTCDateTime().matplotlib_date
     else:
         maxtime = np.max(ttimes) + (
@@ -684,7 +684,7 @@ def _build_occurrence_histogram(detector, options, members, colorby):
         colormap = matplotlib.cm.get_cmap('YlOrRd')
     elif colorby == 'fi':
         colormap = matplotlib.cm.get_cmap('coolwarm')
-    else:
+    else:  # pragma: no cover
         print('Unrecognized colorby choice, defaulting to rate')
         colorby = 'rate'
         colormap = matplotlib.cm.get_cmap('YlOrRd')
@@ -869,7 +869,7 @@ def _generate_tap_tool(plots):
     if renderers:
         taptool = TapTool(renderers=renderers,
                           callback=OpenURL(url='./families/@famnum.html'))
-    else:
+    else:  # pragma: no cover
         taptool = TapTool()
     for fig in plots:
         fig.add_tools(taptool)

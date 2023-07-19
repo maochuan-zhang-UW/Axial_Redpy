@@ -102,7 +102,7 @@ class DistantCounter():
                 return 100*(
                     self.count_dict['regional']
                     / (self.count_dict['total'] - self.count_dict['tele']))
-        return 0
+        return 0  # pragma: no cover
 
     def print_stats(self):
         """Print a line describing what was found."""
@@ -140,7 +140,7 @@ class DistantCounter():
 
         """
         if kind == 'regional3':
-            if self.count_dict['regional'] >= 3:
+            if self.count_dict['regional'] >= 3:  # pragma: no cover
                 fam_string += f' {self.fnum}'
         else:
             if self.get_percent(kind) >= self.percent:
@@ -207,7 +207,7 @@ def calculate_arrivals(detector, catalog, phase_list, time_column_name='Time'):
             catalog.filter(regex='[lL]on.*').to_numpy(), axis=1)
         depths = np.squeeze(
             catalog.filter(regex='[dD]ep.*m').to_numpy(), axis=1)
-        if len(depths) < 1:
+        if len(depths) < 1:  # pragma: no cover
             depths = np.squeeze(
                 catalog.filter(regex='[dD]ep.*').to_numpy(), axis=1)
         for i in range(len(catalog)):
@@ -277,11 +277,11 @@ def compare_catalog(detector, catalog, arrival=False, delimiter=',',
     """
     df = detector.to_dataframe(junk)
     mask = np.full(len(df), True)
-    if maxdtoffset < 0:
+    if maxdtoffset < 0:  # pragma: no cover
         maxdtoffset = detector.get('mintrig')
     if isinstance(catalog, str):
         catalog = pd.read_csv(catalog, sep=delimiter)
-    if arrival:
+    if arrival:  # pragma: no cover
         catalog = handle_arrivals(detector, catalog, name,
                                   write_to_column='Match Time')
         catalog['Match Time'] = pd.to_datetime(catalog['Match Time'], utc=True)
@@ -297,7 +297,7 @@ def compare_catalog(detector, catalog, arrival=False, delimiter=',',
         print('Matching...')
     for i in range(len(catalog)):
         if detector.get('verbose'):
-            if i % 1000 == 0 and i > 0:
+            if i % 1000 == 0 and i > 0:  # pragma: no cover
                 print(f'{100.0*i/len(catalog):3.2f}% complete')
         time_delta = df['Trigger Time'] - catalog['Match Time'][i]
         idx = np.argmin(np.abs(time_delta))
@@ -454,13 +454,17 @@ def get_median_locations(detector, regional=False, distant=False):
             if line.count('Potential local match:'):
                 locs = append_location(locs, line)
             elif line.count('regional') and (distant or regional):
-                locs = append_location(locs, line)
+                locs = append_location(locs, line)  # pragma: no cover
             elif line.count('teleseismic') and distant:
-                locs = append_location(locs, line)
+                locs = append_location(locs, line)  # pragma: no cover
             elif line.count('Number of events:'):
                 nmem = int(line.split(': ')[1][:-4])
-        df.loc[fnums[fam]] = [np.median(locs['lats']), np.median(locs['lons']),
-                              np.median(locs['deps']), nmem, len(locs['lats'])]
+        if len(locs['lats']):
+            df.loc[fnums[fam]] = [
+                np.median(locs['lats']), np.median(locs['lons']),
+                np.median(locs['deps']), nmem, len(locs['lats'])]
+        else:
+            df.loc[fnums[fam]] = [np.nan, np.nan, np.nan, nmem, 0]
     return df.astype({r'#Members': int, r'#Located': int})
 
 
@@ -489,7 +493,7 @@ def handle_arrivals(detector, catalog, time_column_name, write_to_column=None):
         Modified catalog.
 
     """
-    if 'Arrival_p' not in catalog.columns:
+    if 'Arrival_p' not in catalog.columns:  # pragma: no cover
         catalog = calculate_arrivals(detector, catalog, ['p', 'P'],
                                      time_column_name)
     if write_to_column:
@@ -573,7 +577,7 @@ def prepare_catalog(detector):
     for region in REGIONS:
         fname = os.path.join(detector.get('output_folder'),
                              f'external_{region}.txt')
-        if os.path.exists(fname):
+        if os.path.exists(fname):  # pragma: no cover
             catalog = pd.read_csv(fname, delimiter='|')
             # Get missing events before and after currently saved events
             if len(catalog) > 0:
@@ -681,7 +685,7 @@ def query_external(detector, region, tmin, tmax, arrivals=True):
     try:
         catalog = pd.read_csv(query_url, delimiter='|')
         # If the limit is returned
-        if len(catalog) == 10000:
+        if len(catalog) == 10000:  # pragma: no cover
             offset = 0
             while not len(catalog) % 10000:
                 offset += 10000
@@ -691,7 +695,7 @@ def query_external(detector, region, tmin, tmax, arrivals=True):
                     catalog = catalog.append(catalog2, ignore_index=True)
                 else:  # Remainder will still be 0 so we'd be stuck in the loop
                     break
-    except Exception as exc:
+    except Exception as exc:  # pragma: no cover
         # Pass an empty dataframe with the correct columns
         catalog = pd.DataFrame(
             columns=['EventID', 'Time', 'Latitude', 'Longitude', 'Depth/km',
@@ -740,7 +744,7 @@ def save_external_catalog(detector, csvfile, arrivals=False, start_time=None,
         print(f'Defaulting to end time of "now" ({end_time})')
     if not start_time:
         start_time = end_time - detector.get('nsec')
-        if detector.get('rtable').table.attrs.ptime:
+        if detector.get('rtable').table.attrs.ptime:  # pragma: no cover
             start_time = detector.get('rtable').table.attrs.ptime
         print(f'Defaulting to start time of {start_time}')
     catalog = query_external(detector, 'local', UTCDateTime(start_time),

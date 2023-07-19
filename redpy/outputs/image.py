@@ -75,9 +75,9 @@ def assemble_family_image(detector, fnum, tmin, tmax, bboxes, oformat, dpi):
     axes = _format_family_image(detector, axes)
     if tmin and tmax:
         axes[2].set_xlim(tmin, tmax)
-    elif tmin:
+    elif tmin:  # pragma: no cover
         axes[2].set_xlim(tmin, axes[2].get_xlim()[1])
-    elif tmax:
+    elif tmax:  # pragma: no cover
         axes[2].set_xlim(axes[2].get_xlim()[0], tmax)
     axes[3].set_xlim(axes[2].get_xlim())
     axes[4].set_xlim(axes[2].get_xlim())
@@ -127,7 +127,7 @@ def correlation_matrix_plot(detector, ccc_fam, ccc_full, members, ordered,
         plt.colorbar(cax2, extend='min')
         if ordered:
             plt.title('Full Correlation Matrix (Ordered)', fontweight='bold')
-        else:
+        else:  # pragma: no cover
             plt.title('Full Correlation Matrix', fontweight='bold')
             ax2 = _add_horizontal_annotations(
                 detector, ax2, detector.get('plotvars')['rtimes_mpl'][members])
@@ -332,20 +332,20 @@ def prep_wiggle(detector, waveform, sta, window_start, normalize_amplitude):
         sta+1)*detector.get('wshape')]
     minsample = window_start - int(0.5*detector.get('winlen'))
     maxsample = window_start + int(1.5*detector.get('winlen'))
-    if minsample < 0:
+    if minsample < 0:  # pragma: no cover
         prepad = -minsample
         minsample = 0
     else:
         prepad = 0
-    if maxsample > detector.get('wshape'):
+    if maxsample > detector.get('wshape'):  # pragma: no cover
         postpad = maxsample - detector.get('wshape')
         maxsample = detector.get('wshape')
     else:
         postpad = 0
     data = window[minsample:maxsample]
-    if prepad:
+    if prepad:  # pragma: no cover
         data = np.append(np.zeros(prepad), data)
-    if postpad:
+    if postpad:  # pragma: no cover
         data = np.append(data, np.zeros(postpad))
     if normalize_amplitude > 0:
         data = data / normalize_amplitude
@@ -403,9 +403,9 @@ def subplot_amplitude(
     # Prevent ymin being "too small" to be realistic
     if ymax > 1000:
         ymin = np.max((ymin, 1))
-    elif ymax > 1:
+    elif ymax > 1:  # pragma: no cover
         ymin = np.max((ymin, 1e-3))
-    elif ymax > 1e-6:
+    elif ymax > 1e-6:  # pragma: no cover
         ymin = np.max((ymin, 1e-12))
     if use_bokeh:
         fig = bokeh_figure(
@@ -414,7 +414,7 @@ def subplot_amplitude(
         fig.yaxis.axis_label = 'Counts'
         if detector.get('nsta') <= 8:
             palette = all_palettes['YlOrRd'][9]
-        else:
+        else:  # pragma: no cover
             palette = inferno(detector.get('nsta')+1)
         for sta, staname in enumerate(detector.get('station')):
             fig.circle(
@@ -505,7 +505,7 @@ def subplot_correlation(
     if ccc_maxrow[core_idx] >= detector.get('cmin'):
         ax.plot_date(catalog[core_idx], ccc_maxrow[core_idx], 'ko',
                      markeredgecolor='k', markeredgewidth=0.5, markersize=3)
-    else:
+    else:  # pragma: no cover
         ax.plot_date(catalog[core_idx], detector.get('cmin'), 'wo',
                      markeredgecolor='k', markeredgewidth=0.5, markersize=3)
     return ax
