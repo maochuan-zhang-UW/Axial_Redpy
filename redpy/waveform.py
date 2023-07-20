@@ -102,7 +102,7 @@ class Waveform():
         if self.preload:
             stream = self._extract_from_preload(
                 detector, window_start, window_end)
-        elif len(self.filekey) > 0:  # pragma: no cover
+        elif detector.get('server') == 'file':
             stream = self._load_from_file(detector, window_start, window_end)
         else:
             stream = _download_from_client(detector, window_start, window_end)
@@ -378,7 +378,7 @@ def _filter_merge(detector, stream):
                 ordered_stream.append(stream[idx[0][0]])
             else:
                 ordered_stream = _append_empty(detector, ordered_stream, scnl)
-        else:  # pragma: no cover
+        else:
             ordered_stream = _append_empty(detector, ordered_stream, scnl)
     return ordered_stream
 

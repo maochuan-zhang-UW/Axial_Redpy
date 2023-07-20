@@ -627,7 +627,7 @@ def query_arrivals(detector, tmin, tmax, outfile=None):
     catalog = query_external(detector, 'local', tmin, tmax, True)
     catalog = handle_arrivals(detector, catalog, 'Time', 'Arrival')
     if outfile:
-        catalog.to_csv(outfile)
+        catalog.to_csv(outfile, index=False)
     return list(catalog['Arrival'])
 
 

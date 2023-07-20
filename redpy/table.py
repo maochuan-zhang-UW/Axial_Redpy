@@ -64,25 +64,19 @@ class Table():
 
     def __len__(self):
         """Define length."""
-        if self.table is not None:
-            return len(self.table)
-        return None  # pragma: no cover
+        return len(self.table)
 
     def __repr__(self):
         """Define representation string."""
-        if self.table is not None:
-            return f'redpy.Table("{self.name}") -> {self.table}'
-        return f'redpy.Table("{self.name}") -> not open'
+        return f'redpy.Table("{self.name}") -> {self.table}'
 
     def __str__(self):
         """Define print string."""
-        if self.table is not None:
-            if self.name == 'ctable':
-                return f'Number of {self.long_name} pairs : {len(self.table)}'
-            if self.name in ['jtable', 'dtable']:
-                return f'Number of {self.long_name} events : {len(self.table)}'
-            return f'Number of {self.long_name:<10s}: {len(self.table)}'
-        return f'{self.name} is not open'
+        if self.name == 'ctable':
+            return f'Number of {self.long_name} pairs : {len(self.table)}'
+        if self.name in ['jtable', 'dtable']:
+            return f'Number of {self.long_name} events : {len(self.table)}'
+        return f'Number of {self.long_name:<10s}: {len(self.table)}'
 
     def append(self, row):
         """
@@ -100,8 +94,8 @@ class Table():
         if np.shape(row) == ():  # Single row as dict or structured array
             self._append_single(row)
         else:  # pragma: no cover
-            for oldrow in row:
-                self._append_single(oldrow)
+            for i in row:
+                self._append_single(i)
 
     def forget(self, col='all'):
         """
