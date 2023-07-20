@@ -1,0 +1,16 @@
+[report]
+exclude_also =
+    def __repr__
+    def __str__
+    raise ValueError
+    raise KeyError
+    except KeyError as exc
+    except obspy.clients.fdsn.header.FDSNException as exc
+    if __name__ == '__main__'
+    def main
+    def parse
+    def _get_client
+[run]
+omit =
+    # Not testing coverage for GUI
+    */removefamilygui.py

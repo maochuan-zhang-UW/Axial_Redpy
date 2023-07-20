@@ -1,0 +1,4 @@
+#IRISDMC: http://ds.iris.edu
+#net|sta|loc|chan|lat|lon|elev|depth|azimuth|dip|instrument|scale|scalefreq|scaleunits|samplerate|start|end
+UW|HSR|--|EHZ|46.17428|-122.18065|1720.0|0.0|0.0|-90.0|S-13,Velocity Sensor,GEOTECH|1.38672E8|1|m/s|100|2002-09-05T00:00:00.0000|2004-10-04T23:59:59.0000
+UW|HSR|--|EHZ|46.17428|-122.18065|1720.0|0.0|0.0|-90.0|S-13,Velocity Sensor,GEOTECH|1.38672E7|1|m/s|100|2004-10-05T00:00:00.0000|2007-07-10T00:00:00.0000
