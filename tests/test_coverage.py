@@ -1,10 +1,18 @@
+# REDPy - Repeating Earthquake Detector in Python
+# Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
+# Licensed under GNU GPLv3 (see LICENSE.txt)
 """
-Here be tests.
+Tests for coverage checking and script functionality.
+
+Currently, this is intended to be run with 'coverage run -m pytest -s ...' and
+should result in all passing tests and 100% coverage (minus excludes in
+.coveragerc and 'pragma: no cover' in-line comments). The tests cover a
+known dataset and behaviors that should be invariant to future changes. The
+only major script that is not currently covered is redpy-remove-family-gui.
 """
 
 import os
 import shutil
-import time
 
 import pandas as pd
 
@@ -12,10 +20,32 @@ import redpy
 
 
 def check_table_lengths(detector=None, configfile=None, lengths=0):
+    """
+    Check the lengths of tables with a known set of lengths.
+
+    Parameters
+    ----------
+    detector : Detector object, optional
+        Primary interface for handling detections.
+    configfile : str, optional
+        Name of configuration file to read.
+    lengths : int, int list
+        If a list, specify the expected lengths of the tables in the order
+        listed upon opening (i.e., [triggers, orphans, repeaters, families,
+        junk, deleted, correlation pairs]). If an integer, set all expected
+        lengths to be the value given (e.g., 0 for all empty).
+
+    Returns
+    -------
+    bool
+        True only if all lengths specify match the contents of the file
+        given by either detector or configfile.
+
+    """
     if detector is None:
         detector = redpy.Detector(configfile, verbose=False, opened=True)
-    if lengths == 0:
-        lengths = [0, 0, 0, 0, 0, 0, 0]
+    if isinstance(lengths, int):
+        lengths = [lengths]*7
     all_same = True
     print('\nTesting if tables have expected lengths:')
     for i, table in enumerate(detector.get('tables')):
@@ -32,7 +62,7 @@ def clean():  # pragma: no cover
     if os.path.exists('./tests/out'):
         shutil.rmtree('./tests/out')
     if os.path.exists('./.cache'):
-       shutil.rmtree('./.cache')
+        shutil.rmtree('./.cache')
     os.mkdir('./tests/out')
 
 
@@ -41,47 +71,20 @@ def print_section_header(header):
     print(f'\n{header:-^84s}')
 
 
-def main():  # pragma: no cover
-    """Run the full suite of tests; should result in 100% coverage."""
-    test_settings()
-    test_testing_settings()
-    test_make_meta()
-    test_initialize()
-    test_catfill_junk()
-    test_plot_junk()
-    test_clear_junk()
-    test_catfill_force()
-    test_compare_catalog()
-    test_remove_family()
-    test_backfill_deleted()
-    test_backfill_from_file()
-    test_backfill_updates()
-    test_backfill_empty()
-    test_distant_families()
-    test_create_report()
-    test_create_pdf_family()
-    test_create_pdf_overview()
-    test_remove_small_family()
-    test_extend_table()
-    test_force_plot()
-    test_overwrite_empty()
-    test_save_external()
-
-
 def test_settings():
     """Confirm settings.cfg matches default settings."""
     clean()  # Clean up first
     print_section_header('confirm default settings')
     detector = redpy.Detector(configfile='settings.cfg')
     assert ('with all default settings' in str(repr(detector)))
-    assert detector.stats() == None
+    assert detector.stats() is None
 
 
 def test_testing_settings():
     """Confirm test*.cfg match expectations."""
     print_section_header('confirm test settings')
     detector = redpy.Detector(configfile='tests/test0.cfg')
-    assert ("""with custom settings:
+    assert """with custom settings:
   title=TEST
   groupname=test
   filename=./tests/out/testtable.h5
@@ -111,9 +114,9 @@ def test_testing_settings():
   always_verbose=True
   stalats=[46.20955 46.17428 46.19347 46.19717 46.14706]
   stalons=[-122.18899 -122.18065 -122.23635 -122.15121 -122.15243]
-  matchmax=10""") in str(repr(detector))
+  matchmax=10""" in str(repr(detector))
     detector = redpy.Detector(configfile='tests/test1.cfg')
-    assert ("""with custom settings:
+    assert """with custom settings:
   title=TEST
   groupname=test
   filename=./tests/out/testtable.h5
@@ -146,9 +149,9 @@ def test_testing_settings():
   checkcomcat=True
   stalats=[46.20955 46.17428 46.19347 46.19717 46.14706]
   stalons=[-122.18899 -122.18065 -122.23635 -122.15121 -122.15243]
-  matchmax=10""") in str(repr(detector))
+  matchmax=10""" in str(repr(detector))
     detector = redpy.Detector(configfile='tests/test2.cfg')
-    assert("""with custom settings:
+    assert """with custom settings:
   title=TEST
   groupname=test
   filename=./tests/out/testtable.h5
@@ -183,7 +186,7 @@ def test_testing_settings():
   always_verbose=True
   stalats=[46.20955 46.17428 46.19347 46.19717 46.14706 46.24386]
   stalons=[-122.18899 -122.18065 -122.23635 -122.15121 -122.15243 -122.13787]
-  matchmax=10""") in str(repr(detector))
+  matchmax=10""" in str(repr(detector))
 
 
 def test_make_meta():
@@ -294,8 +297,8 @@ def test_backfill_updates():
     detector.close()
 
 
-def test_backfill_empty():
-    """ """
+def test_backfill_empty_forget():
+    """Confirm behavior with no data and forgetting remembered columns."""
     print_section_header('Detector.update() past mseed end date + forgetting')
     detector = redpy.Detector(
         configfile='tests/test1.cfg', verbose=True, opened=True)
@@ -312,7 +315,7 @@ def test_backfill_empty():
 
 
 def test_distant_families(capsys):
-    """ """
+    """Confirm output for distant families."""
     with capsys.disabled():
         print_section_header('redpy-distant-families')
     redpy.distant_families(
@@ -321,26 +324,26 @@ def test_distant_families(capsys):
     captured = capsys.readouterr()
     assert ('Family    4 : L  2 | R  0 | T  0 | F  2 | Distant   0.0% | '
             '"Amboy" 100.0%') in captured.out
-    assert('Family    6 : L  1 | R  0 | T  0 | F  1 | Distant   0.0% | '
+    assert ('Family    6 : L  1 | R  0 | T  0 | F  1 | Distant   0.0% | '
            '"Amboy" 100.0%') in captured.out
-    assert('Family    7 : L  0 | R  0 | T  1 | F  0 | Distant 100.0% | '
+    assert ('Family    7 : L  0 | R  0 | T  1 | F  0 | Distant 100.0% | '
            '"Amboy"   0.0%') in captured.out
-    assert('Family   10 : L  1 | R  0 | T  0 | F  1 | Distant   0.0% | '
+    assert ('Family   10 : L  1 | R  0 | T  0 | F  1 | Distant   0.0% | '
            '"Amboy" 100.0%') in captured.out
-    assert('Family   15 : L  1 | R  0 | T  0 | F  1 | Distant   0.0% | '
+    assert ('Family   15 : L  1 | R  0 | T  0 | F  1 | Distant   0.0% | '
            '"Amboy" 100.0%') in captured.out
-    assert ('90%+ Teleseismic:\n 7\n\n') in captured.out
-    assert('90%+ Regional+Teleseismic:\n 7\n\n') in captured.out
-    assert('90%+ Regional:\n\n\n90%+ Regional (ignore Teleseisms):\n\n\n'
-        ) in captured.out
-    assert('3+ Regional Matches: \n\n\n') in captured.out
-    assert('90%+ Containing Phrase "Amboy": \n 4 6 10 15\n\n') in captured.out
+    assert '90%+ Teleseismic:\n 7\n\n' in captured.out
+    assert '90%+ Regional+Teleseismic:\n 7\n\n' in captured.out
+    assert ('90%+ Regional:\n\n\n90%+ Regional (ignore Teleseisms):\n\n\n'
+            ) in captured.out
+    assert '3+ Regional Matches: \n\n\n' in captured.out
+    assert '90%+ Containing Phrase "Amboy": \n 4 6 10 15\n\n' in captured.out
     with capsys.disabled():
         print(captured.out)
 
 
 def test_write_family_locations():
-    """ """
+    """Confirm output for family locations."""
     print_section_header('redpy-write-family-locations')
     redpy.write_family_locations(
         configfile='tests/test1.cfg', outfile='famlocs.csv',
@@ -353,7 +356,7 @@ def test_write_family_locations():
 
 
 def test_create_report():
-    """ """
+    """Confirm reports created."""
     print_section_header('redpy-create-report 1')
     redpy.create_report(
         0, configfile='tests/test1.cfg', verbose=True,
@@ -369,7 +372,7 @@ def test_create_report():
 
 
 def test_create_pdf_family():
-    """ """
+    """Confirm pdf family created."""
     print_section_header('redpy-create-pdf-family')
     redpy.create_pdf_family(
         7, configfile='tests/test1.cfg', verbose=True,
@@ -378,6 +381,7 @@ def test_create_pdf_family():
 
 
 def test_create_pdf_overview():
+    """Confirm pdf overview created."""
     print_section_header('redpy-create-pdf-overview')
     redpy.create_pdf_overview(
         configfile='tests/test1.cfg', verbose=True, usehrs=True, binsize=2,
@@ -391,15 +395,16 @@ def test_create_pdf_overview():
 
 
 def test_remove_small_family(capsys):
+    """Confirm behavior of small family removal."""
     with capsys.disabled():
         print_section_header('redpy-remove-small-family')
     redpy.remove_small_family(
         configfile='tests/test1.cfg', minmembers=5, maxage=0,
         seedtime='2004-10-10', listonly=True, verbose=True)
     captured = capsys.readouterr()
-    assert ("""Small families : 0 1 3 6 9 10 11 12 15 16 17 18 19 20 21 22
+    assert """Small families : 0 1 3 6 9 10 11 12 15 16 17 18 19 20 21 22
 # Families     : 16/23
-# Repeaters    : 37/131 (28.2%)""") in captured.out
+# Repeaters    : 37/131 (28.2%)""" in captured.out
     assert check_table_lengths(
         configfile='tests/test1.cfg', lengths=[270, 55, 131, 23, 17, 1, 356])
     with capsys.disabled():
@@ -412,6 +417,7 @@ def test_remove_small_family(capsys):
 
 
 def test_extend_table():
+    """Confirm table can be extended."""
     print_section_header('redpy-extend-table')
     detector = redpy.Detector('tests/test1.cfg', opened=True)
     assert len(detector.get('rtable', 'windowFFT', 0)) == 2560
@@ -424,6 +430,7 @@ def test_extend_table():
 
 
 def test_force_plot():
+    """Confirm behavior of force plotting."""
     print_section_header('redpy-force-plot')
     shutil.rmtree('./tests/out/test/families')
     os.mkdir('./tests/out/test/families')
@@ -439,7 +446,8 @@ def test_force_plot():
     assert not os.path.exists('tests/out/test/families/6.html')
     assert os.path.getsize('tests/out/test/families/6.png')
     redpy.force_plot(
-        configfile='tests/test2.cfg', htmlonly=True, resetlp=True, plotall=True)
+        configfile='tests/test2.cfg', htmlonly=True, resetlp=True,
+        plotall=True)
     assert os.path.getsize('tests/out/test/families/0.html')
     assert not os.path.exists('tests/out/test/families/0.png')
     redpy.force_plot(configfile='tests/test2.cfg', verbose=True, plotall=True)
@@ -447,14 +455,17 @@ def test_force_plot():
 
 
 def test_overwrite_empty():
+    """Confirm initialize overwrites with empty h5 file."""
     print_section_header('overwrite with empty')
     detector = redpy.Detector(configfile='tests/test2.cfg', verbose=True)
     detector.initialize()
     detector.output('force', plotall=True)
     assert check_table_lengths(configfile='tests/test2.cfg')
+    detector.close()
 
 
 def test_save_external():
+    """Confirm save external writes empty catalog with header."""
     print_section_header('confirm save catalog')
     detector = redpy.Detector('tests/test2.cfg')
     detector.set('nsec', 1)
@@ -462,8 +473,4 @@ def test_save_external():
         detector, 'tests/out/emptycat.csv')
     assert len(catalog) == 0
     assert os.path.getsize('tests/out/emptycat.csv')
-
-
-
-if __name__ == '__main__':
-    main()
+    detector.close()

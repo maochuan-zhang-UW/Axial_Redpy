@@ -2,6 +2,8 @@
 !redpy/
 !redpy/outputs/
 !redpy/scripts/
+!tests/
+!tests/data/
 !h5/
 !runs/
 *.pyc
@@ -13,4 +15,5 @@
 *.txt
 *.html
 *.new
+.coverage
 .DS_Store
