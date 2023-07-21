@@ -19,7 +19,8 @@ import pandas as pd
 import redpy
 
 
-def check_table_lengths(detector=None, configfile=None, lengths=0):
+def check_table_lengths(detector=None, configfile='tests/test0.cfg',
+                        lengths=0):
     """
     Check the lengths of tables with a known set of lengths.
 
