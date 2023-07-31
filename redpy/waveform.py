@@ -332,22 +332,30 @@ def _append_empty(detector, stream, scnl):
 def _download_from_client(detector, window_start, window_end):
     """Download window of data from a Client (e.g., FDSN webservice)."""
     stream = Stream()
-    client = _get_client(detector)
+    try:
+        client = _get_client(detector)
+    except Exception as exc:
+        print('\nClient is unavailable, aborting...\n')
+        raise SystemExit(exc)
     for nslc in _nslc_list_from_config(detector):
         try:
             stmp = client.get_waveforms(
                 *nslc.split('.'), window_start,
                 window_end+detector.get('maxdt'))
-        except obspy.clients.fdsn.header.FDSNException as exc:
+        except Exception as exc:
             if 'client does not have a dataselect service' in str(exc):
-                raise exc  # Case where service is down rather than no data
-            # Try querying one more time
+                print('\nClient is unavailable, aborting...\n')
+                raise SystemExit(exc)
+            # Try querying one more time for other exceptions
             try:
                 stmp = client.get_waveforms(
                     *nslc.split('.'), window_start,
                     window_end+detector.get('maxdt'))
-            except Exception:
-                stmp = []
+            except Exception as exc:
+                if 'nodename nor servname provided, or not known' in str(exc):
+                    print('\nClient is unavailable, aborting...\n')
+                    raise SystemExit(exc)
+                stmp = []  # Data likely missing instead; move on
         if stmp:
             for trace in stmp:
                 trace.stats.location = nslc.split('.')[2]
