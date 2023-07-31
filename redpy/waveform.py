@@ -276,7 +276,7 @@ class Waveform():
                 self.times['preload_end'] = (np.min((
                     self.times['run_end'],
                     window_start + detector.get('preload')*86400))
-                    + detector.get('atrig') + detector.get('maxdt'))
+                    + 2*detector.get('atrig') + detector.get('maxdt'))
                 self.times['preload_start'] = (window_start
                                                - detector.get('atrig'))
                 self.preload = self._load_from_file(
