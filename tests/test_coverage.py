@@ -105,7 +105,7 @@ def test_testing_settings():
   ncor=3
   maxorph=0.5
   occurbin=2.0
-  anotfile=annotation.csv
+  anotfile=example_annotation.csv
   printsta=3
   max_famlen=100
   corr_nrecent=5
@@ -138,7 +138,7 @@ def test_testing_settings():
   ncor=3
   maxorph=0.5
   mrecplot=0.5
-  anotfile=annotation.csv
+  anotfile=example_annotation.csv
   printsta=3
   verbosecatalog=True
   max_famlen=100
@@ -173,7 +173,7 @@ def test_testing_settings():
   maxorph=0.5
   occurbin=7.0
   mrecbin=1.0
-  anotfile=annotation.csv
+  anotfile=example_annotation.csv
   printsta=3
   bokehendtime=now
   timeline_vs=triggers
