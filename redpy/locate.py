@@ -206,10 +206,7 @@ def calculate_arrivals(detector, catalog, phase_list, time_column_name='Time'):
         longitudes = np.squeeze(
             catalog.filter(regex='[lL]on.*').to_numpy(), axis=1)
         depths = np.squeeze(
-            catalog.filter(regex='[dD]ep.*m').to_numpy(), axis=1)
-        if len(depths) < 1:  # pragma: no cover
-            depths = np.squeeze(
-                catalog.filter(regex='[dD]ep.*').to_numpy(), axis=1)
+            catalog.filter(regex='[dD]ep.*').to_numpy(), axis=1)
         for i in range(len(catalog)):
             deg = locations2degrees(latitudes[i], longitudes[i],
                                     detector.get('latitude_center'),
