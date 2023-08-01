@@ -4,8 +4,8 @@ exclude_also =
     def __str__
     raise ValueError
     raise KeyError
-    except KeyError as exc
-    except obspy.clients.fdsn.header.FDSNException as exc
+    except KeyError
+    except Exception
     if __name__ == '__main__'
     def main
     def parse

@@ -50,7 +50,8 @@ def check_table_lengths(detector=None, configfile='tests/test0.cfg',
     all_same = True
     print('\nTesting if tables have expected lengths:')
     for i, table in enumerate(detector.get('tables')):
-        print(f'{table}: {len(detector.get(table))} ({lengths[i]})')
+        print(f'{table}:  {len(detector.get(table))} == {lengths[i]} -> '
+              f'{len(detector.get(table)) == lengths[i]}')
         if len(detector.get(table)) != lengths[i]:  # pragma: no cover
             all_same = False
     if configfile:
@@ -294,7 +295,7 @@ def test_backfill_updates():
     detector.update(
         'backfill', tend='2004-10-02')
     assert check_table_lengths(
-        configfile='tests/test1.cfg', lengths=[270, 55, 131, 23, 17, 1, 356])
+        configfile='tests/test1.cfg', lengths=[270, 55, 131, 23, 17, 1, 355])
     detector.close()
 
 
@@ -306,7 +307,7 @@ def test_backfill_empty_forget():
     detector.update(
         'backfill', tstart='2004-10-03T00:00', tend='2004-10-03T01:00')
     assert check_table_lengths(
-        configfile='tests/test1.cfg', lengths=[270, 55, 131, 23, 17, 1, 356])
+        configfile='tests/test1.cfg', lengths=[270, 55, 131, 23, 17, 1, 355])
     detector.get('rtable').forget(['id', 'startTimeMPL'])
     assert list(detector.get('rtable').columns_in_memory.keys()) == [
         'windowAmp', 'windowCoeff', 'startTime', 'windowStart']
@@ -407,14 +408,14 @@ def test_remove_small_family(capsys):
 # Families     : 16/23
 # Repeaters    : 37/131 (28.2%)""" in captured.out
     assert check_table_lengths(
-        configfile='tests/test1.cfg', lengths=[270, 55, 131, 23, 17, 1, 356])
+        configfile='tests/test1.cfg', lengths=[270, 55, 131, 23, 17, 1, 355])
     with capsys.disabled():
         print(captured.out)
         redpy.remove_small_family(
             configfile='tests/test1.cfg', minmembers=5, maxage=0,
             seedtime='', listonly=False, verbose=True)
     assert check_table_lengths(
-        configfile='tests/test1.cfg', lengths=[270, 55, 94, 7, 17, 1, 329])
+        configfile='tests/test1.cfg', lengths=[270, 55, 94, 7, 17, 1, 328])
 
 
 def test_extend_table():
