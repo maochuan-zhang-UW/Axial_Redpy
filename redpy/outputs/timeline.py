@@ -21,7 +21,7 @@ import pandas as pd
 from bokeh.models import Arrow, ColorBar, ColumnDataSource, Div
 from bokeh.models import HoverTool, Label, LinearColorMapper, LogColorMapper
 from bokeh.models import LogTicker, OpenURL, TabPanel, Range1d, Span, Tabs
-from bokeh.models import TapTool, VeeHead
+from bokeh.models import TapTool, VeeHead, CategoricalColorMapper
 from bokeh.models.glyphs import Line
 from bokeh.models.formatters import LogTickFormatter
 from bokeh.plotting import figure, gridplot, output_file, save
@@ -335,10 +335,15 @@ def subplot_fi(detector, options, use_bokeh=True, ax=None):
     idxs = np.where(
         (detector.get('plotvars')['rtimes_mpl'] >= options['mintime']) & (
             detector.get('plotvars')['rtimes_mpl'] <= options['maxtime']))[0]
-    colors = matplotlib.cm.get_cmap('YlOrRd', lut=detector.get('nsta')+2)
+    colors = matplotlib.cm.get_cmap(
+        'YlOrRd', lut=detector.get('nsta')-detector.get('nstac')+4)
     palette = [matplotlib.colors.rgb2hex(i) for i in colors(
-        np.arange(colors.N))][1:detector.get('nsta')+1]
-    colors = np.array([palette[i] for i in nstas[idxs]-1])  # overwrite
+        np.arange(colors.N))][1:detector.get('nsta')-detector.get('nstac')+3]
+    colors = np.array(
+        [palette[np.max((i, 0))] for i in nstas[idxs]-detector.get('nstac')+1])
+    labels = np.arange(
+            detector.get('nstac')-1, detector.get('nsta')+1).astype(str)
+    labels[0] = '≤'+labels[0]
     if use_bokeh:
         fig = bokeh_figure(
             title='Frequency Index',
@@ -370,10 +375,9 @@ def subplot_fi(detector, options, use_bokeh=True, ax=None):
             nonselection_line_alpha=0)
         hovertool = fig.select(type=HoverTool)[0]
         hovertool.renderers.append(renderer)
-        color_bar = ColorBar(color_mapper=LinearColorMapper(
-                palette=palette, low=0.5, high=detector.get('nsta')+0.5),
-            border_line_color='#eeeeee', location=(7, 85),
-            orientation='horizontal', width=110, height=15,
+        color_bar = ColorBar(color_mapper=CategoricalColorMapper(
+            palette=palette, factors=labels), border_line_color='#eeeeee',
+            location=(7, 85), orientation='horizontal', width=110, height=15,
             title='#Channels', padding=15,
             major_tick_line_alpha=0)
         fig.add_layout(color_bar)
@@ -383,15 +387,15 @@ def subplot_fi(detector, options, use_bokeh=True, ax=None):
     cax = ax.inset_axes([0.025, 0.75, 0.175, 0.075])
     cax.set_title('#Channels', loc='left', style='italic')
     cax.get_yaxis().set_visible(False)
-    color_bar = np.linspace(0, 1, detector.get('nsta'))
+    color_bar = np.linspace(0, 1, detector.get('nsta')-detector.get('nstac')+2)
     color_bar = np.vstack((color_bar, color_bar))
     palette = matplotlib.colors.LinearSegmentedColormap.from_list(
         'nstas', [matplotlib.colors.to_rgb(i) for i in palette],
         N=len(palette))
     cax.imshow(color_bar, aspect='auto', cmap=palette,
                interpolation='nearest')
-    cax.set_xticks(np.arange(0, detector.get('nsta')))
-    cax.set_xticklabels(np.arange(1, detector.get('nsta')+1))
+    cax.set_xticks(np.arange(0, detector.get('nsta')-detector.get('nstac')+2))
+    cax.set_xticklabels(labels)
     cax.set_frame_on(False)
     cax.tick_params(length=0)
     _ = ax.get_ylim()  # Need to call or y-limits sometimes freaks out
