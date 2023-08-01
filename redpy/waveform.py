@@ -332,6 +332,8 @@ def _append_empty(detector, stream, scnl):
 def _download_from_client(detector, window_start, window_end):
     """Download window of data from a Client (e.g., FDSN webservice)."""
     stream = Stream()
+    # pylint: disable=W0707
+    # I am using SystemExit() to suppress full traceback here
     try:
         client = _get_client(detector)
     except Exception as exc:
@@ -351,16 +353,17 @@ def _download_from_client(detector, window_start, window_end):
                 stmp = client.get_waveforms(
                     *nslc.split('.'), window_start,
                     window_end+detector.get('maxdt'))
-            except Exception as exc:
-                if 'nodename nor servname provided, or not known' in str(exc):
+            except Exception as exc_retry:
+                if 'nodename nor servname provided' in str(exc_retry):
                     print('\nClient is unavailable, aborting...\n')
-                    raise SystemExit(exc)
+                    raise SystemExit(exc_retry)
                 stmp = []  # Data likely missing instead; move on
         if stmp:
             for trace in stmp:
                 trace.stats.location = nslc.split('.')[2]
             stream.extend(stmp.copy())
     return stream
+    # pylint: enable=W0707
 
 
 def _filter_merge(detector, stream):
