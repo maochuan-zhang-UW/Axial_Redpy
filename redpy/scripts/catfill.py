@@ -53,29 +53,28 @@ import argparse
 import time
 
 from redpy.detector import Detector
-from redpy.locate import event_times_from_catalog
 
 
 # pylint: disable=R0913
 # Function requires >10 input arguments.
-def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
+def catfill(csvfile, configfile='settings.cfg', verbose=False,
             arrival=False, force=False, query=False, expire=False,
             delimiter=',', name='Time', starttime=None, endtime=None):
     """
     Update tables defined in configfile with a catalog of known events.
 
     This catalog can be a local .csv-like file, or you may query from an
-    FDSN webservice, which will save locally to 'catalog.csv' by default.
+    FDSN webservice, which will save locally to the path specified.
     If you wish to calculate arrivals, a location must be provided in the
     catalog (i.e., columns for Latitude, Longitude, and Depth). You may
     specify custom names for the 'Time' column and delimiter.
 
     Parameters
     ----------
+    csvfile : str
+        Name of catalog csv file to read or save to.
     configfile : str, optional
         Name of configuration file to read.
-    csvfile : str, optional
-        Name of catalog csv file to read or save to.
     verbose : bool, optional
         Enable additional print statements.
     arrival : bool, optional
@@ -99,16 +98,9 @@ def catfill(configfile='settings.cfg', csvfile='catalog.csv', verbose=False,
     """
     t_start = time.time()
     detector = Detector(configfile, verbose, opened=True)
-    if query:
-        detector.locate('arrivals', starttime, endtime, outfile=csvfile)
-    try:
-        event_list = event_times_from_catalog(
-            detector, csvfile, name, starttime, endtime,
-            arrival, delimiter)
-    except KeyError as exc:
-        raise KeyError(
-            f'Could not find "{name}" column in {csvfile}. Check file, '
-            'column name, and delimiter! Use -h for help.') from exc
+    event_list = detector.locate(
+        'catalog', csvfile, arrival, query, delimiter, name, starttime,
+        endtime)
     detector.update(
         'catfill', starttime, endtime, event_list, force, expire)
     detector.close()

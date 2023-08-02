@@ -239,7 +239,7 @@ def compare_catalog(detector, catalog, arrival=False, delimiter=',',
     repeaters, the frequency index and amplitudes. The combined catalog may
     be saved.
 
-    Called by redpy.Detector.locate('catalog', ...)
+    Called by redpy.Detector.locate('compare', ...)
 
     Parameters
     ----------
@@ -406,6 +406,52 @@ def event_times_from_catalog(
         event_list = event_list[event_list >= start_time]
     if end_time:
         event_list = event_list[event_list <= end_time]
+    return event_list
+
+
+def get_catalog(detector, csvfile, arrival=False, query=False,
+                delimiter=',', name='Time', starttime=None, endtime=None):
+    """
+    Get a catalog of event times from a local file or query from the web.
+
+    Always saves the file from the web locally, and can optionally calculate
+    arrival times.
+
+    Parameters
+    ----------
+    detector : Detector object
+        Primary interface for handling detections.
+    csvfile : str
+        Name of catalog csv file to read or save to.
+    arrival : bool, optional
+        Calculate and use P-wave arrival to center of network.
+    query : bool, optional
+        Query an external webservice with parameters in configfile.
+    delimiter : str, optional
+        Custom delimiter between columns in csvfile.
+    name : str, optional
+        Custom name of event time column.
+    starttime : str, optional
+        Subsets catalog to begin at this time.
+    endtime : str, optional
+        Subsets catalog to end at this time.
+
+    Returns
+    -------
+    ndarray of UTCDateTime objects
+        List of event times.
+
+    """
+    if query:
+        query_arrivals(detector, starttime, endtime, outfile=csvfile)
+    try:
+        event_list = event_times_from_catalog(
+            detector, csvfile, name, starttime, endtime,
+            arrival, delimiter)
+    except KeyError as exc:
+        raise KeyError(
+            f'Could not find "{name}" column in {csvfile}. Check file, '
+            'column name, and delimiter!') from exc
     return event_list
 
 

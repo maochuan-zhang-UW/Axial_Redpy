@@ -86,7 +86,7 @@ def compare_catalog(catfile, arrival=False, configfile='settings.cfg',
 
     """
     detector = Detector(configfile, verbose)
-    _ = detector.locate('catalog', catfile, arrival, delimiter,
+    _ = detector.locate('compare', catfile, arrival, delimiter,
                         include_missing, junk, maxdtoffset, name, outfile)
     # Returns the matched catalog as a pandas DataFrame.
     detector.close()

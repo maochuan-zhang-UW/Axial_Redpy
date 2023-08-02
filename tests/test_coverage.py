@@ -208,9 +208,8 @@ def test_initialize():
 def test_catfill_junk():
     """Confirm redpy-catfill with known and forced junk."""
     print_section_header('redpy-catfill with junk')
-    redpy.catfill(configfile='tests/test0.cfg', verbose=True,
-                  csvfile='tests/data/known_junk.txt',
-                  delimiter='\t', name='Trigger Time (UTC)')
+    redpy.catfill('tests/data/known_junk.txt', configfile='tests/test0.cfg',
+                  verbose=True, delimiter='\t', name='Trigger Time (UTC)')
     assert check_table_lengths(
         configfile='tests/test0.cfg', lengths=[2, 2, 0, 0, 3, 0, 0])
 
@@ -237,9 +236,8 @@ def test_catfill_force():
     """Confirm redpy-catfill properly forces triggers from catalog."""
     print_section_header('redpy-catfill with force')
     redpy.initialize(configfile='tests/test0.cfg')
-    redpy.catfill(configfile='tests/test0.cfg', verbose=True,
-                  arrival=True, force=True, query=True,
-                  csvfile='./tests/out/testcat.csv',
+    redpy.catfill('./tests/out/testcat.csv', configfile='tests/test0.cfg',
+                  verbose=True, arrival=True, force=True, query=True,
                   starttime='2004-09-23T23:00', endtime='2004-09-24T00:00')
     assert os.path.getsize('tests/out/testcat.csv')
     assert check_table_lengths(

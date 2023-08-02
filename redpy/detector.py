@@ -332,13 +332,13 @@ class Detector():
         """
         Associate REDPy detections with locations from an external catalog.
 
-        Currently, three methods are supported, of which two rely on the
+        Currently, four methods are supported, of which two rely on the
         configuration parameter 'checkcomcat' to be True, as they parse the
         .html output files.
 
-        'arrivals':
-            calls redpy.locate.query_arrivals()
         'catalog':
+            calls redpy.locate.get_catalog()
+        'compare':
             calls redpy.locate.compare_catalog()
         'distant':
             calls redpy.locate.distant_families()
@@ -369,16 +369,16 @@ class Detector():
             If method is not recognized.
 
         """
-        if method == 'arrivals':
-            return redpy.locate.query_arrivals(self, *args, **kwargs)
         if method == 'catalog':
+            return redpy.locate.get_catalog(self, *args, **kwargs)
+        if method == 'compare':
             return redpy.locate.compare_catalog(self, *args, **kwargs)
         if method == 'distant':
             return redpy.locate.distant_families(self, *args, **kwargs)
         if method == 'median':
             return redpy.locate.get_median_locations(self, *args, **kwargs)
         raise ValueError(_UNKNOWN_METHOD.format(
-            "'arrivals', 'catalog', 'distant', or 'median'"))
+            "'catalog', 'compare', 'distant', or 'median'"))
 
     def open(self):
         """Open connection to hdf5 file and populate Table links."""
