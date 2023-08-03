@@ -11,9 +11,13 @@ similar earthquakes ('repeaters') often occur in both repose and unrest.
 
 # !!! Documentation and reference here!
 """
+from importlib.metadata import version
+
 from redpy.config import Config
 from redpy.detector import Detector
 from redpy.scripts import *
 from redpy.table import Table
 from redpy.trigger import Trigger
 from redpy.waveform import Waveform
+
+__version__ = version('redpy')
