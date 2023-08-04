@@ -332,8 +332,8 @@ def subplot_fi(detector, options, use_bokeh=True, ax=None):
     idxs = np.where(
         (detector.get('plotvars')['rtimes_mpl'] >= options['mintime']) & (
             detector.get('plotvars')['rtimes_mpl'] <= options['maxtime']))[0]
-    colors = matplotlib.cm.get_cmap(
-        'YlOrRd', lut=detector.get('nsta')-detector.get('nstac')+4)
+    colors = matplotlib.colormaps['YlOrRd'].resampled(
+        detector.get('nsta')-detector.get('nstac')+4)
     palette = [matplotlib.colors.rgb2hex(i) for i in colors(
         np.arange(colors.N))][1:detector.get('nsta')-detector.get('nstac')+3]
     colors = np.array(
@@ -353,25 +353,26 @@ def subplot_fi(detector, options, use_bokeh=True, ax=None):
         ax.set_ylabel('Mean FI', style='italic')
         ax.set_xlabel('Date', style='italic')
     if use_bokeh:
-        source = ColumnDataSource(data={
-            'x': detector.get('plotvars')['rtimes'][idxs],
-            'y': detector.get('plotvars')['mean_fi'][idxs],
-            'mean_fi': np.array([f'{i:.2f}' for i in detector.get(
-                'plotvars')['mean_fi'][idxs]]),
-            'nstas': nstas[idxs],
-            'famnum': detector.get('plotvars')['famnum'][idxs],
-            'datestr': np.array(
-                [UTCDateTime(i).isoformat()[:23] for i in detector.get(
-                    'plotvars')['rtimes'][idxs]]),
-            'colors': colors
-            })
-        renderer = fig.circle(
-            'x', 'y', source=source, fill_color='colors', fill_alpha=1,
-            line_alpha=0, size=4, selection_fill_alpha=1,
-            selection_line_alpha=0, nonselection_fill_alpha=1,
-            nonselection_line_alpha=0)
-        hovertool = fig.select(type=HoverTool)[0]
-        hovertool.renderers.append(renderer)
+        if len(idxs):
+            source = ColumnDataSource(data={
+                'x': detector.get('plotvars')['rtimes'][idxs],
+                'y': detector.get('plotvars')['mean_fi'][idxs],
+                'mean_fi': np.array([f'{i:.2f}' for i in detector.get(
+                    'plotvars')['mean_fi'][idxs]]),
+                'nstas': nstas[idxs],
+                'famnum': detector.get('plotvars')['famnum'][idxs],
+                'datestr': np.array(
+                    [UTCDateTime(i).isoformat()[:23] for i in detector.get(
+                        'plotvars')['rtimes'][idxs]]),
+                'colors': colors
+                })
+            renderer = fig.circle(
+                'x', 'y', source=source, fill_color='colors', fill_alpha=1,
+                line_alpha=0, size=4, selection_fill_alpha=1,
+                selection_line_alpha=0, nonselection_fill_alpha=1,
+                nonselection_line_alpha=0)
+            hovertool = fig.select(type=HoverTool)[0]
+            hovertool.renderers.append(renderer)
         color_bar = ColorBar(color_mapper=CategoricalColorMapper(
             palette=palette, factors=labels), border_line_color='#eeeeee',
             location=(7, 85), orientation='horizontal', width=110, height=15,
@@ -616,7 +617,7 @@ def _add_pdf_colorbar(detector, ax, colorby, options):
         Width (in days) of time bins for occurrence plot histogram.
 
     """
-    cax = ax.inset_axes([0.025, 0.925, 0.25, 0.025])
+    cax = ax.inset_axes([0.025, 0.75, 0.175, 0.075])
     if colorby == 'rate':
         cax.set_title(f'Events per {_determine_legend_text(options)}',
                       loc='left', style='italic')
@@ -682,13 +683,13 @@ def _build_occurrence_histogram(detector, options, members, colorby):
             / (detector.get('fispanhigh') - detector.get('fispanlow'))
             ), 0)) for i in fisum/hist]
     if colorby == 'rate':
-        colormap = matplotlib.cm.get_cmap('YlOrRd')
+        colormap = matplotlib.colormaps['YlOrRd']
     elif colorby == 'fi':
-        colormap = matplotlib.cm.get_cmap('coolwarm')
+        colormap = matplotlib.colormaps['coolwarm']
     else:  # pragma: no cover
         print('Unrecognized colorby choice, defaulting to rate')
         colorby = 'rate'
-        colormap = matplotlib.cm.get_cmap('YlOrRd')
+        colormap = matplotlib.colormaps['YlOrRd']
     palette = [matplotlib.colors.rgb2hex(i) for i in colormap(
         np.arange(colormap.N)[::-1])]
     colors = np.array([palette[i] for i in ind])
@@ -713,7 +714,7 @@ def _build_patch(patch, y_pos, left, right, fnum,
 
 def _determine_color_mapper(options):
     """Determine LogColorMapper for occurrence plot."""
-    colormap = matplotlib.cm.get_cmap('YlOrRd')
+    colormap = matplotlib.colormaps['YlOrRd']
     bokehpalette = [matplotlib.colors.rgb2hex(m) for m in colormap(
         np.arange(colormap.N)[::-1])]
     if options['binsize_occur'] >= 1:
@@ -723,7 +724,7 @@ def _determine_color_mapper(options):
 
 def _determine_color_mapper_fi(detector):
     """Determine LinearColorMapper for occurrencefi plot."""
-    colormap = matplotlib.cm.get_cmap('coolwarm')
+    colormap = matplotlib.colormaps['coolwarm']
     bokehpalette = [matplotlib.colors.rgb2hex(m) for m in colormap(
         np.arange(colormap.N)[::-1])]
     return LinearColorMapper(palette=bokehpalette,
