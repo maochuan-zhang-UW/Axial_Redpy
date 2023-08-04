@@ -54,3 +54,15 @@ redpy-write-family-locations = "redpy.scripts.writefamilylocations:main"
 
 [tool.setuptools]
 packages = ["redpy"]
+
+[tool.pytest.ini_options]
+testpaths = ["./tests"]
+addopts = "-v -s"
+filterwarnings = [
+    "ignore::DeprecationWarning:.*bokeh.*",
+    "ignore::DeprecationWarning:.*cartopy.*",
+    "ignore::DeprecationWarning:.*obspy.*",
+    "ignore::DeprecationWarning:.*pkg_resources.*",
+    "ignore::DeprecationWarning:.*pyproj.*",
+    "ignore::DeprecationWarning:.*scipy.*",
+    "ignore::DeprecationWarning:.*tables.*"]
