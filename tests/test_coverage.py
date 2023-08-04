@@ -67,7 +67,7 @@ def clean():  # pragma: no cover
 
 def print_section_header(header):
     """Make section headers for tests look nice."""
-    print(f'\n{header:-^84s}')
+    print(f'\n{header:-^80s}')
 
 
 def test_settings():
