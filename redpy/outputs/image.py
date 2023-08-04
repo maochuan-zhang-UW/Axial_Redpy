@@ -575,9 +575,9 @@ def subplot_spacing(
     spacing = np.diff(catalog)*24
     if use_bokeh:
         fig = bokeh_figure(
-            title='Time since Previous Event',
+            title='Time Since Previous Event',
             y_axis_type='log', y_range=[1e-3, 2*np.max(spacing)])
-        fig.yaxis.axis_label = 'Interval (hr)'
+        fig.yaxis.axis_label = 'Interval (Hours)'
         fig.circle(
             detector.get('plotvars')['rtimes'][members[1:]], spacing,
             color='red', line_alpha=0, size=4, fill_alpha=0.5)
@@ -821,10 +821,10 @@ def _format_family_image(detector, axes):
     axes[3].margins(0.05)
     axes[3].set_yscale('log')
     axes[3].set_xlabel('Date', style='italic')
-    axes[3].set_ylabel('Time since previous event (hours)', style='italic')
+    axes[3].set_ylabel('Time Since Previous Event (Hours)', style='italic')
     axes[4].xaxis.set_major_formatter(date_format)
     axes[4].margins(0.05)
     axes[4].set_ylim(detector.get('cmin')-0.02, 1.02)
     axes[4].set_xlabel('Date', style='italic')
-    axes[4].set_ylabel('Cross-correlation coefficient', style='italic')
+    axes[4].set_ylabel('Cross-Correlation Coefficient', style='italic')
     return axes
