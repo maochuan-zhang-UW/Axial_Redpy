@@ -1,6 +1,3 @@
-# REDPy - Repeating Earthquake Detector in Python
-# Copyright (C) 2016-2020  Alicia Hotovec-Ellis (ahotovec-ellis@usgs.gov)
-# Licensed under GNU GPLv3 (see LICENSE.txt)
 """
 Module for handling functions related to creating text catalogs.
 
