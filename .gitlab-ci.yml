@@ -13,7 +13,7 @@ test-coverage:
         - pip install coverage pytest
         - pip install pycodestyle pydocstyle pylint
     script:
-        - coverage -m pytest
+        - coverage run -m pytest
         - coverage report
         - pycodestyle redpy
         - pydocstyle redpy
