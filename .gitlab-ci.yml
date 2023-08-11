@@ -13,7 +13,7 @@ build-environment:
         - pip install coverage pytest
         - pip install .
     after_script:
-        - source deactivate
+        - conda deactivate
 
 coverage-test-job:
     stage: test
@@ -24,7 +24,7 @@ coverage-test-job:
         - coverage report
     coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
     after_script:
-        - source deactivate
+        - conda deactivate
 
 lint-test-job:
     stage: test
@@ -35,4 +35,4 @@ lint-test-job:
         - pydocstyle redpy
         - pylint redpy
     after_script:
-        - source deactivate
+        - conda deactivate
