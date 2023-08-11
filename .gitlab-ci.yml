@@ -7,8 +7,8 @@ stages:
 build-environment:
     stage: build
     script:
-        - cat environment.yml
-        - conda env create -f environment.yml
+        - conda config --add channels conda-forge
+        - conda create -n redpy bokeh cartopy obspy pandas pytables scikit-learn
         - source activate redpy
         - pip install -e .
         - echo 'Installed REDPy...'
