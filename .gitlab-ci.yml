@@ -1,31 +1,21 @@
 image: continuumio/miniconda:latest
 
 stages:
-  - build
-  - test
+    - test
 
-build-environment:
-    stage: build
-    script:
+test-coverage:
+    stage: test
+    before_script:
         - conda config --add channels conda-forge
         - conda create -n redpy bokeh cartopy obspy pandas pytables scikit-learn
         - source activate redpy
         - pip install -e .
-        - echo 'Installed REDPy...'
-        - redpy-initialize -v
-
-coverage-test-job:
-    stage: test
-    script:
         - pip install coverage pytest
+        - pip install pycodestyle pydocstyle pylint
+    script:
         - coverage -m pytest
         - coverage report
-    coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-
-lint-test-job:
-    stage: test
-    script:
-        - pip install pycodestyle pydocstyle pylint
         - pycodestyle redpy
         - pydocstyle redpy
         - pylint redpy
+    coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
