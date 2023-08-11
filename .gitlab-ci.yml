@@ -8,31 +8,31 @@ build-environment:
     stage: build
     script:
         - conda env create -f environment.yml
-        - conda activate redpy
+        - source activate redpy
         - pip install pycodestyle pydocstyle pylint
         - pip install coverage pytest
         - pip install .
     after_script:
-        - conda deactivate
+        - source deactivate
 
 coverage-test-job:
     stage: test
     before_script:
-        - conda activate redpy
+        - source activate redpy
     script:
         - coverage -m pytest
         - coverage report
     coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
     after_script:
-        - conda deactivate
+        - source deactivate
 
 lint-test-job:
     stage: test
     before_script:
-        - conda activate redpy
+        - source activate redpy
     script:
         - pycodestyle redpy
         - pydocstyle redpy
         - pylint redpy
     after_script:
-        - conda deactivate
+        - source deactivate
