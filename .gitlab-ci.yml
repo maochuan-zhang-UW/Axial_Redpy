@@ -7,15 +7,17 @@ stages:
 build-environment:
     stage: build
     script:
+        - cat environment.yml
         - conda env create -f environment.yml
         - source activate redpy
-        - pip install pycodestyle pydocstyle pylint
-        - pip install coverage pytest
-        - pip install .
+        - pip install -e .
+        - echo 'Installed REDPy...'
+        - redpy-initialize -v
 
 coverage-test-job:
     stage: test
     script:
+        - pip install coverage pytest
         - coverage -m pytest
         - coverage report
     coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
@@ -23,6 +25,7 @@ coverage-test-job:
 lint-test-job:
     stage: test
     script:
+        - pip install pycodestyle pydocstyle pylint
         - pycodestyle redpy
         - pydocstyle redpy
         - pylint redpy
