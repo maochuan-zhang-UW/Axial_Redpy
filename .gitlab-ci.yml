@@ -3,7 +3,7 @@ image: continuumio/miniconda:latest
 stages:
     - test
 
-test-coverage:
+test-coverage-style:
     stage: test
     before_script:
         - conda config --add channels conda-forge
@@ -11,11 +11,21 @@ test-coverage:
         - source activate redpy
         - pip install -e .
         - pip install coverage pytest
-        - pip install pycodestyle pydocstyle pylint
+        - pip install pycodestyle pydocstyle
+        - pip install pylint pylint-exit anybadge
     script:
         - coverage run -m pytest
         - coverage report
+        - coverage html
+        - mkdir ./pylint
+        - pylint --output-format=text . | tee ./pylint/pylint.log || pylint-exit $?
+        - PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint/pylint.log)
+        - anybadge --label=pylint score --file=pylint/pylint.svg --value=$PYLINT_SCORE 2=red 4=orange 8=yellow 10=green
+        - echo "Your code has been rated at $PYLINT_SCORE"
         - pycodestyle redpy
         - pydocstyle redpy
-        - pylint redpy
     coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+    artifacts:
+        paths:
+            - ./pylint/
+            - ./htmlcov/
