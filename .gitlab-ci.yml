@@ -16,7 +16,6 @@ test-coverage-style:
     script:
         - coverage run -m pytest
         - coverage report
-        - coverage html
         - mkdir ./pylint
         - pylint --output-format=text redpy | tee ./pylint/pylint.log || pylint-exit $?
         - PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint/pylint.log)
@@ -28,4 +27,3 @@ test-coverage-style:
     artifacts:
         paths:
             - ./pylint/
-            - ./htmlcov/
