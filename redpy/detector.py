@@ -576,7 +576,7 @@ class Detector():
         return self._build_dataframe(junk)
 
     def update(self, method, tstart='', tend='', event_list=None, force=False,
-               expire=None, nsec=None):
+               expire=None, nsec=None, outputs=True):
         """
         Update based on data from a time period of interest, then plot.
 
@@ -585,7 +585,7 @@ class Detector():
             - Create event triggers from those data
             - Sort into a matching family, or create new orphan
             - Optionally, expire old orphans
-            - Update outputs
+            - Optionally, update outputs
 
         Currently, two methods are supported:
 
@@ -616,6 +616,8 @@ class Detector():
         nsec : int, optional
             Temporarily overwrite the number of seconds of data processed
             per time step.
+        outputs : bool, optional
+            If True, creates updated outputs at the end of the process.
 
         Raises
         ------
@@ -653,7 +655,8 @@ class Detector():
         else:
             raise ValueError(_UNKNOWN_METHOD.format(
                 "'backfill' or 'catfill'"))
-        self.output()
+        if outputs:
+            self.output()
 
     def _build_dataframe(self, junk):
         """Build the dataframe representation of the detector."""
