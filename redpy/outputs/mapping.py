@@ -6,7 +6,6 @@ Detector() objects. The .output() method generates various images and .html
 files so the user may easily browse and export the contents of REDPy's
 detections.
 """
-import glob
 import os
 
 import cartopy
@@ -39,7 +38,9 @@ def create_local_map(detector, fnum, local):
     if len(local['deps']) > 0:
         plate_carree = ccrs.PlateCarree()
         cartopy.config['cache_dir'] = os.path.join('.', '.cache')
-        background_tile = cimgt.Stamen(style='terrain-background', cache=True)
+        background_tile = cimgt.GoogleTiles(cache=True, url=(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/'
+            'World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}.jpg'))
         extent = [np.median(local['lons']) - detector.get('locdeg')/2,
                   np.median(local['lons']) + detector.get('locdeg')/2,
                   np.median(local['lats']) - detector.get('locdeg')/4,
@@ -98,13 +99,15 @@ def get_tiles(detector):
     """
     if not os.path.exists('.cache'):
         os.mkdir(os.path.join('.', '.cache'))
-        os.mkdir(os.path.join('.', '.cache', 'Stamen'))
+        os.mkdir(os.path.join('.', '.cache', 'GoogleTiles'))
         with open(os.path.join('.', '.cache', 'processed.txt'),
                   'w', encoding='utf-8') as file:
             file.write('')
     plate_carree = ccrs.PlateCarree()
     cartopy.config['cache_dir'] = os.path.join('.', '.cache')
-    background_tile = cimgt.Stamen(style='terrain-background', cache=True)
+    background_tile = cimgt.GoogleTiles(cache=True, url=(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/'
+        'World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}.jpg'))
     extent = [np.median(detector.get('stalons')) - 1.5*detector.get('locdeg'),
               np.median(detector.get('stalons')) + 1.5*detector.get('locdeg'),
               np.median(detector.get('stalats')) - 1.5*detector.get('locdeg'),
@@ -115,47 +118,3 @@ def get_tiles(detector):
     ax.add_image(background_tile, 11)
     plt.savefig(os.path.join('.', '.cache', 'tmp.png'))
     plt.close()
-    to_process = glob.glob(os.path.join('.', '.cache', 'Stamen', '*.npy'))
-    with open(os.path.join('.', '.cache', 'processed.txt'),
-              'r', encoding='utf-8') as file:
-        processed = [line.rstrip() for line in file]
-    to_process = list(np.setdiff1d(to_process, processed))
-    if len(to_process) > 0:
-        tile_desaturate(to_process)
-        with open(os.path.join('.', '.cache', 'processed.txt'),
-                  'a', encoding='utf-8') as file:
-            file.writelines([item + '\n' for item in to_process])
-
-
-def tile_desaturate(to_process):
-    """
-    Desaturate a list of map tiles (RGB in .npy files), preserving water.
-
-    Basically, we want to remove most of the color from the tiles (greens,
-    browns, yellows) but keep water features in blue to have a less
-    distracting base map for our location dots. Saves in place when done.
-
-    Parameters
-    ----------
-    to_process : list
-        List of .npy files to open and process.
-
-    """
-    for filename in to_process:
-        tile = np.load(filename)
-        not_water = np.where(
-            np.sum(np.abs(tile - np.array([153, 179, 204])), 2) > 6)
-        # Value is the green channel + 30 brightness
-        value = tile[not_water][:, 1].copy().astype(int) + 30
-        # Lighten more, but don't touch what's already bright
-        val1 = 220
-        val2 = 240
-        mids = np.where((value > val1) & (value < val2))
-        darks = np.where(value <= val1)
-        value[mids] = value[mids] + 20 - (value[mids]-val1)
-        value[darks] += 20
-        # Ensure we aren't above maximum brightness
-        value[value > 255] = 255
-        tile[not_water] = np.array([value, value, value]).T
-        with open(filename, 'wb') as file:
-            np.save(file, tile)
