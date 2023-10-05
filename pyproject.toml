@@ -53,7 +53,7 @@ redpy-remove-small-family = "redpy.scripts.removesmallfamily:main"
 redpy-write-family-locations = "redpy.scripts.writefamilylocations:main"
 
 [tool.setuptools]
-packages = ["redpy"]
+packages = ["redpy", "redpy.outputs", "redpy.scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["./tests"]
