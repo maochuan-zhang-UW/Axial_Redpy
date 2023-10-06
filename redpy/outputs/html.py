@@ -52,7 +52,7 @@ def make_meta(runs='', path='./runs', topath='.', verbose=False):
     """
     Make "meta.html" to hold multiple meta overview pages.
 
-    This page gathers the 'meta_recent.html' tabbed overviews within the
+    This page gathers the 'overview_meta.html' tabbed overviews within the
     output directories into a single page. This is intended to be used
     to monitor several runs simultaneously.
 
@@ -81,7 +81,7 @@ def make_meta(runs='', path='./runs', topath='.', verbose=False):
         file.write(r'<html><head><title>REDPy Meta Overview</title></head>')
         file.write(r'<body style="padding:0;margin:0">')
         for run in runs.split(','):
-            runpath = r'/'.join([topath, run.strip(), 'meta_recent.html'])
+            runpath = r'/'.join([topath, run.strip(), 'overview_meta.html'])
             file.write(rf"""
                 <iframe src="{runpath}" title="{run}"
                     style="height:350px;width:1300px;border:none;"></iframe>

@@ -29,7 +29,7 @@ def catalog_cores(detector):
         Primary interface for handling detections.
 
     """
-    outfile = os.path.join(detector.get('output_folder'), 'cores.txt')
+    outfile = os.path.join(detector.get('output_folder'), 'catalog_cores.txt')
     with open(outfile, 'w', encoding='utf-8') as file:
         file.write('Family\tEvent Time (UTC)\n')
         for fnum in range(len(detector)):
@@ -79,7 +79,7 @@ def catalog_junk(detector):
         Primary interface for handling detections.
 
     """
-    outfile = os.path.join(detector.get('output_folder'), 'junk.txt')
+    outfile = os.path.join(detector.get('output_folder'), 'catalog_junk.txt')
     type_strings = ['freq', 'kurt', 'both']
     if detector.get('verbose'):
         print(f'Writing junk catalog to {outfile}...')
@@ -105,7 +105,8 @@ def catalog_orphans(detector):
         Primary interface for handling detections.
 
     """
-    outfile = os.path.join(detector.get('output_folder'), 'orphancatalog.txt')
+    outfile = os.path.join(
+        detector.get('output_folder'), 'catalog_orphans.txt')
     with open(outfile, 'w', encoding='utf-8') as file:
         file.write('Trigger Time (UTC)\n')
         if len(detector.get('otable')) == 1:  # pragma: no cover
@@ -146,7 +147,7 @@ def catalog_swarm(detector):
             f"{detector.get('location')[detector.get('printsta')]}")
     catalogfile = os.path.join(detector.get('output_folder'), 'swarm.csv')
     triggerfile = os.path.join(detector.get('output_folder'),
-                               'triggerswarm.csv')
+                               'swarm_triggers.csv')
     with open(catalogfile, 'w', encoding='utf-8') as file:
         for fnum in range(len(detector)):
             fam = detector.get_members(fnum)
@@ -173,7 +174,8 @@ def catalog_triggers(detector):
         Primary interface for handling detections.
 
     """
-    outfile = os.path.join(detector.get('output_folder'), 'triggers.txt')
+    outfile = os.path.join(
+        detector.get('output_folder'), 'catalog_triggers.txt')
     with open(outfile, 'w', encoding='utf-8') as file:
         file.write('Trigger Time (UTC)\n')
         for ttime in np.sort(detector.get('plotvars')['ttimes']):

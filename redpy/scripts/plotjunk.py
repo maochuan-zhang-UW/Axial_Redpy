@@ -19,8 +19,8 @@ def plot_junk(configfile='settings.cfg', verbose=False):
     """
     Output the contents of the junk table for troubleshooting.
 
-    Creates images in a folder "junk" as well as a flat catalog "junk.txt"
-    both in the main outputs directory for the run.
+    Creates images in a folder "junk" as well as a flat catalog
+    "catalog_junk.txt" both in the main outputs directory for the run.
 
     Parameters
     ----------

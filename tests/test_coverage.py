@@ -232,7 +232,7 @@ def test_plot_junk():
         os.path.join(RUN_PATH, 'junk', '20040923232730-both.png'))
     assert os.path.exists(
         os.path.join(RUN_PATH, 'junk', '20040923233515-freq.png'))
-    assert os.path.getsize(os.path.join(RUN_PATH, 'junk.txt'))
+    assert os.path.getsize(os.path.join(RUN_PATH, 'catalog_junk.txt'))
 
 
 def test_clear_junk():
