@@ -235,7 +235,7 @@ def generate_pdf_timeline(
 
 def generate_timelines(detector):
     """
-    Create Bokeh timelines: overview, overview_recent, and meta_recent.
+    Create Bokeh timelines: overview, overview_recent, and overview_meta.
 
     The primary purpose of this function is to sort out the differences in
     the unique behavior of each Bokeh timeline type.
@@ -252,7 +252,7 @@ def generate_timelines(detector):
     else:
         maxtime = np.max(ttimes) + (
             2 * detector.get('winlen') / detector.get('samprate') / 86400)
-    for file in ['overview', 'overview_recent', 'meta_recent']:
+    for file in ['overview', 'overview_recent', 'overview_meta']:
         # Set parameters unique to each timeline type
         if file == 'overview':
             mintime = np.min(ttimes) - (
@@ -282,7 +282,7 @@ def generate_timelines(detector):
                               f'{detector.get("recplot"):.1f} Days'),
                 'divtitle': (f'<h1>{detector.get("title")} - Last '
                              f'{detector.get("recplot"):.1f} Days</h1>')}
-        else:  # meta_recent.html
+        else:  # overview_meta.html
             options = {
                 'mintime': maxtime - detector.get('mrecplot'),
                 'maxtime': maxtime,
