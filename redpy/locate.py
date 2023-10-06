@@ -625,10 +625,14 @@ def prepare_catalog(detector):
                 tmax_catalog = UTCDateTime(np.max(catalog['Time']))+1
                 catalog_before = query_external(detector, region, tmin,
                                                 tmin_catalog)
+                if len(catalog_before) > 0:
+                    catalog = pd.concat([catalog_before, catalog],
+                                        axis=0, ignore_index=True)
                 catalog_after = query_external(detector, region, tmax_catalog,
                                                tmax)
-                catalog = pd.concat([catalog_before, catalog, catalog_after],
-                                    axis=0, ignore_index=True)
+                if len(catalog_after) > 0:
+                    catalog = pd.concat([catalog, catalog_after],
+                                        axis=0, ignore_index=True)
             else:
                 catalog = query_external(detector, region, tmin, tmax)
         else:

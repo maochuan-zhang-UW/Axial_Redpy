@@ -24,7 +24,7 @@ optional arguments:
                         minimum family size to keep; 5 by default
   -a MAXAGE, --maxage MAXAGE
                         maximum age of a family to be saved in days; 0 by
-                        default removes every small family that began before
+                        default removes every small family that ended before
                         SEEDTIME
   -t SEEDTIME, --seedtime SEEDTIME
                         time from which to compute family age times (yyyy-
@@ -58,7 +58,7 @@ def remove_small_family(configfile='settings.cfg', minmembers=5, maxage=0,
         difference between 'seedtime' and the most recent member. This
         allows recent small families time to grow and removes truly "stale"
         families. 0 by default, which removes all small families that
-        began before 'seedtime.'
+        ended before 'seedtime.'
     seedtime : str, optional
         Reference date for age calculation; defaults to last trigger time.
     listonly : bool, optional
@@ -114,7 +114,7 @@ def parse():
     parser.add_argument('-a', '--maxage', type=float, default=0,
                         help=('maximum age of a family to be saved in days; '
                               '0 by default removes every small family '
-                              'that began before SEEDTIME'))
+                              'that ended before SEEDTIME'))
     parser.add_argument('-t', '--seedtime', default='',
                         help=('time from which to compute family age '
                               'times (yyyy-mm-dd or yyyy-mm-ddTHH:MM:SS); '
