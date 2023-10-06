@@ -21,7 +21,7 @@ optional arguments:
                         default settings.cfg
   -o OUTFILE, --outfile OUTFILE
                         define custom output file OUTFILE instead of default
-                        famlocs.csv
+                        family_locations.csv
 
 """
 import argparse
@@ -30,8 +30,9 @@ import os
 from redpy.detector import Detector
 
 
-def write_family_locations(configfile='settings.cfg', outfile='famlocs.csv',
-                           distant=False, regional=False, verbose=False):
+def write_family_locations(configfile='settings.cfg',
+                           outfile='family_locations.csv', distant=False,
+                           regional=False, verbose=False):
     """
     Write median family locations to a .csv file.
 
@@ -90,7 +91,7 @@ def parse():
                               'instead of default settings.cfg'))
     parser.add_argument('-o', '--outfile', default='famlocs.csv',
                         help=('define custom output file OUTFILE instead of '
-                              'default famlocs.csv'))
+                              'default family_locations.csv'))
     args = parser.parse_args()
     return args
 
