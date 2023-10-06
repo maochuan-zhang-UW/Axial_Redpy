@@ -2,7 +2,7 @@ r"""
 Make "meta.html" to hold multiple meta overview pages.
 
 Run this script to generate a file "meta.html" in a specified directory and
-with a list of runs. This page gathers the 'meta_recent.html' tabbed
+with a list of runs. This page gathers the "overview_meta.html" tabbed
 overviews within the output directories into a single page.
 
 usage: redpy-make-meta [-h] [-v] [-r RUNS] [-p PATH] [-t TOPATH]
