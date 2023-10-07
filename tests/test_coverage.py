@@ -391,8 +391,8 @@ def test_create_report():
     redpy.create_report(
         7, configfile=os.path.join(TEST_PATH, 'test1.cfg'), verbose=True,
         ordered=True, matrixtofile=True, skip=False)
-    assert os.path.getsize(os.path.join(RUN_PATH, 'reports', '7-ccc_full.npy'))
-    assert os.path.getsize(os.path.join(RUN_PATH, 'reports', '7-evTimes.npy'))
+    assert os.path.getsize(os.path.join(RUN_PATH, 'reports', '7-cmatrix.npy'))
+    assert os.path.getsize(os.path.join(RUN_PATH, 'reports', '7-evtimes.npy'))
     assert os.path.getsize(os.path.join(RUN_PATH, 'reports', '7-report.html'))
 
 

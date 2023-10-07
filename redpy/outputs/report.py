@@ -110,8 +110,8 @@ def create_report(detector, fnum, ordered=False, skip_recalculate_ccc=False,
         members, rtable_fam, ccc_fam, ccc_full = _reorder_by_optics(
             members, rtable_fam, ccc_fam, ccc_full)
     if matrixtofile:
-        np.save(os.path.join(rpath, f'{fnum}-ccc_full.npy'), ccc_full)
-        np.save(os.path.join(rpath, f'{fnum}-evTimes.npy'), detector.get(
+        np.save(os.path.join(rpath, f'{fnum}-cmatrix.npy'), ccc_full)
+        np.save(os.path.join(rpath, f'{fnum}-evtimes.npy'), detector.get(
             'plotvars')['rtimes'][members])
     redpy.outputs.image.correlation_matrix_plot(
         detector, ccc_fam, ccc_full, members, ordered, skip_recalculate_ccc,
