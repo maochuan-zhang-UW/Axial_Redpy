@@ -399,9 +399,9 @@ def event_times_from_catalog(
     event_list = np.array(
         [UTCDateTime(event) for event in catalog[time_column_name]])
     event_list.sort()
-    if start_time:
+    if start_time and len(event_list):
         event_list = event_list[event_list >= start_time]
-    if end_time:
+    if end_time and len(event_list):
         event_list = event_list[event_list <= end_time]
     return event_list
 
