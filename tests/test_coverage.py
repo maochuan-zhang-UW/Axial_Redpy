@@ -13,6 +13,7 @@ import os
 import shutil
 
 import pandas as pd
+from obspy import UTCDateTime
 
 import redpy
 
@@ -243,6 +244,19 @@ def test_clear_junk():
     assert check_table_lengths(
         configfile=os.path.join(TEST_PATH, 'test0.cfg'),
         lengths=[2, 2, 0, 0, 0, 0, 0])
+
+
+def test_catfill_force_empty():
+    """Confirm triggers forced during known gap are not added."""
+    print_section_header('redpy-catfill with force during gap')
+    detector = redpy.Detector(configfile=os.path.join(TEST_PATH, 'test0.cfg'),
+                              verbose=True)
+    detector.initialize()
+    event_list = [UTCDateTime('2000-01-01T00:00:00')]  # Known data gap
+    detector.update(
+        'catfill', event_list=event_list, force=True, outputs=False)
+    detector.close()
+    assert check_table_lengths(configfile=os.path.join(TEST_PATH, 'test0.cfg'))
 
 
 def test_catfill_force():

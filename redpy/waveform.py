@@ -138,17 +138,8 @@ class Waveform():
         # Remove triggers from coincident gaps
         triggers = _gap_check(detector, triggers, stream)
         if force:
-            trig_times = self.event_list[(self.event_list > start_time) & (
-                self.event_list < end_time)]
-            ratios = np.zeros(len(trig_times))
-            for i, event in enumerate(trig_times):
-                bestmatch = detector.get('mintrig')
-                ratios[i] = 0
-                for trig in triggers:
-                    if np.abs(trig['time']-event) < bestmatch:
-                        bestmatch = np.abs(trig['time']-event)
-                        ratios[i] = np.max(
-                            trig['cft_peaks'])-detector.get('trigoff')
+            trig_times, ratios = self._check_forced(
+                detector, stream, triggers, start_time, end_time)
         else:
             trig_times = np.array([trig['time'] for trig in triggers])
             ratios = np.array([np.max(trig['cft_peaks'])-detector.get(
@@ -189,6 +180,31 @@ class Waveform():
         self._get_filekey(detector)
         self._preload_check(
             detector, self.times['run_start'], self.times['run_end'])
+
+    def _check_forced(self, detector, stream, triggers, start_time, end_time):
+        """Check forced triggers don't occur in data gap and set ratio."""
+        trig_times = self.event_list[(self.event_list > start_time) & (
+            self.event_list < end_time)]
+        ratios = np.zeros(len(trig_times))
+        for i, event in enumerate(trig_times):
+            # Check that we have data on cmin channels
+            window = stream.copy().trim(
+                event-0.1*detector.get('winlen')/detector.get('samprate'),
+                event+0.9*detector.get('winlen')/detector.get('samprate'))
+            nonzeros = np.array([np.count_nonzero(
+                window[j].data) for j in range(len(window))])
+            # Ensure at least half of window has nonzero data
+            nonzeros = nonzeros[nonzeros > detector.get('winlen')/2]
+            if len(nonzeros) < detector.get('cmin'):
+                ratios[i] = np.nan
+            else:
+                bestmatch = detector.get('mintrig')
+                for trig in triggers:
+                    if np.abs(trig['time']-event) < bestmatch:
+                        bestmatch = np.abs(trig['time']-event)
+                        ratios[i] = np.max(
+                            trig['cft_peaks'])-detector.get('trigoff')
+        return trig_times[np.isfinite(ratios)], ratios[np.isfinite(ratios)]
 
     def _extract_from_preload(self, detector, window_start, window_end):
         """Extract waveforms from preload."""
