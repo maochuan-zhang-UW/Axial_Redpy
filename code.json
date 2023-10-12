@@ -1,0 +1,51 @@
+[
+  {
+    "name": "REDPy",
+    "organization": "U.S. Geological Survey",
+    "description": "Automated repeating earthquake detection and clustering",
+    "version": "1.0.0",
+    "status": "private",
+
+    "permissions": {
+      "usageType": "openSource",
+      "licenses": [
+        {
+          "name": "Public Domain, CC0-1.0",
+          "URL": "https://code.usgs.gov/ahotovec-ellis/REDPy/-/blob/main/LICENSE.md"
+        }
+      ]
+    },
+
+    "homepageURL": "https://code.usgs.gov/ahotovec-ellis/REDPy",
+    "downloadURL": "https://code.usgs.gov/ahotovec-ellis/REDPy/-/archive/main/REDPy-main.zip",
+    "disclaimerURL": "https://code.usgs.gov/ahotovec-ellis/REDPy/-/blob/main/DISCLAIMER.md",
+    "repositoryURL": "https://code.usgs.gov/ahotovec-ellis/REDPy",
+    "vcs": "git",
+
+    "laborHours": 0,
+
+    "tags": [
+      "volcanoes",
+      "volcano seismology",
+      "seismology",
+      "earthquakes",
+      "multiplets",
+      "earthquake swarms",
+      "repeating earthquakes"
+    ],
+
+    "languages": [
+      "Python"
+    ],
+
+    "contact": {
+      "name": "Alicia Hotovec-Ellis",
+      "email": "ahotovec-ellis@usgs.gov"
+    },
+
+    "date": {
+      "metadataLastUpdated": "2023-10-12"
+    }
+  }
+]
+
