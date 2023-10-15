@@ -489,7 +489,7 @@ class Detector():
                 if len(self.get('otable')) == 1:  # pragma: no cover
                     # Have to deal with edge case handling with bytes here
                     expires = np.array([UTCDateTime(str(np.char.decode(
-                        self.get('otable', 'expires'))))])
+                        self.get('otable', 'expires')[0])))])
                 else:
                     expires = np.array(
                         [UTCDateTime(i) for i in self.get(
