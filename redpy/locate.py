@@ -733,10 +733,11 @@ def query_external(detector, region, tmin, tmax, arrivals=True):
             offset = 0
             while not len(catalog) % 10000:
                 offset += 10000
-                catalog2 = pd.read_csv(query_url+f'&offset={offset}',
+                catalog_add = pd.read_csv(query_url+f'&offset={offset}',
                                        delimiter='|')
-                if len(catalog2) > 0:
-                    catalog = catalog.append(catalog2, ignore_index=True)
+                if len(catalog_add) > 0:
+                    catalog = pd.concat([catalog, catalog_add],
+                                        axis=0, ignore_index=True)
                 else:  # Remainder will still be 0 so we'd be stuck in the loop
                     break
     except Exception as exc:  # pragma: no cover
