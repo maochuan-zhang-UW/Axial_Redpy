@@ -11,15 +11,15 @@
       "licenses": [
         {
           "name": "Public Domain, CC0-1.0",
-          "URL": "https://code.usgs.gov/ahotovec-ellis/REDPy/-/blob/main/LICENSE.md"
+          "URL": "https://code.usgs.gov/vsc/REDPy/-/blob/main/LICENSE.md"
         }
       ]
     },
 
-    "homepageURL": "https://code.usgs.gov/ahotovec-ellis/REDPy",
-    "downloadURL": "https://code.usgs.gov/ahotovec-ellis/REDPy/-/archive/main/REDPy-main.zip",
-    "disclaimerURL": "https://code.usgs.gov/ahotovec-ellis/REDPy/-/blob/main/DISCLAIMER.md",
-    "repositoryURL": "https://code.usgs.gov/ahotovec-ellis/REDPy",
+    "homepageURL": "https://code.usgs.gov/vsc/REDPy",
+    "downloadURL": "https://code.usgs.gov/vsc/REDPy/-/archive/main/REDPy-main.zip",
+    "disclaimerURL": "https://code.usgs.gov/vsc/REDPy/-/blob/main/DISCLAIMER.md",
+    "repositoryURL": "https://code.usgs.gov/vsc/REDPy",
     "vcs": "git",
 
     "laborHours": 0,
@@ -44,7 +44,7 @@
     },
 
     "date": {
-      "metadataLastUpdated": "2023-10-12"
+      "metadataLastUpdated": "2023-10-16"
     }
   }
 ]
