@@ -734,7 +734,7 @@ def query_external(detector, region, tmin, tmax, arrivals=True):
             while not len(catalog) % 10000:
                 offset += 10000
                 catalog_add = pd.read_csv(query_url+f'&offset={offset}',
-                                       delimiter='|')
+                                          delimiter='|')
                 if len(catalog_add) > 0:
                     catalog = pd.concat([catalog, catalog_add],
                                         axis=0, ignore_index=True)
