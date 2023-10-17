@@ -246,6 +246,21 @@ def test_clear_junk():
         lengths=[2, 2, 0, 0, 0, 0, 0])
 
 
+def test_one_orphan():
+    """Confirm proper behavior when otable has one entry."""
+    print_section_header('single orphan behavior')
+    redpy.initialize(configfile=os.path.join(TEST_PATH, 'test0.cfg'))
+    redpy.backfill(configfile=os.path.join(TEST_PATH, 'test0.cfg'),
+                   verbose=True, starttime='2004-09-15T00:00',
+                   endtime='2004-09-15T01:00', nsec=3600)
+    redpy.backfill(configfile=os.path.join(TEST_PATH, 'test0.cfg'),
+                   verbose=True, starttime='2004-09-15T13:00',
+                   endtime='2004-09-15T14:00', nsec=3600)
+    assert check_table_lengths(
+        configfile=os.path.join(TEST_PATH, 'test0.cfg'),
+        lengths=[1, 0, 0, 0, 2, 0, 0])
+
+
 def test_catfill_force_empty():
     """Confirm triggers forced during known gap are not added."""
     print_section_header('redpy-catfill with force during gap')
