@@ -60,7 +60,7 @@ class Config():
             'filepattern': '*',
             'preload': 10.,
 
-            #  SCNL Paramters  #
+            #  Sensor Metadata Parameters  #
             'nsta': 8,
             'station': 'SEP,YEL,HSR,SHW,EDM,STD,JUN,SOS',
             'channel': 'EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ',
