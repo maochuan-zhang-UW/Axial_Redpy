@@ -6,7 +6,8 @@ root 'REDPy' directory, and should result in all passing tests and 100%
 coverage (minus excludes in .coveragerc and 'pragma: no cover' in-line
 comments). The tests cover a known dataset and behaviors that should be
 invariant to future changes. The only major script that is not currently
-covered is redpy-remove-family-gui.
+covered is redpy-remove-family-gui. If you want to run the tests yourself,
+you will need to install the 'coverage' and 'pytest' packages via pip.
 """
 
 import os
