@@ -499,4 +499,3 @@ def _nslc_list_from_config(detector):
     chas = detector.get('channel')
     return [
         f'{nets[i]}.{sta}.{locs[i]}.{chas[i]}' for i, sta in enumerate(stas)]
-
