@@ -1,5 +1,3 @@
-# Copyright (C) 2016-2018  Alicia Hotovec-Ellis (ahotovec@gmail.com)
-# Licensed under GNU GPLv3 (see LICENSE.txt)
 """
 Initialize and overwrite hdf5 table using configuration.
 
