@@ -15,13 +15,28 @@ import shutil
 
 import pandas as pd
 from obspy import UTCDateTime
+from obspy.clients.fdsn import Client
 
 import redpy
 
 
 TEST_PATH = os.path.join('.','tests')
+DATA_PATH = os.path.join(TEST_PATH, 'data')
 OUT_PATH = os.path.join(TEST_PATH, 'out')
 RUN_PATH = os.path.join(OUT_PATH, 'test')
+
+
+def check_mseed_files():  # pragma: no cover
+    """Check that .mseed files exist in /data and download if missing."""
+    client = Client('IRIS')
+    start_time = UTCDateTime('2004-09-30T23:00')
+    end_time = UTCDateTime('2004-10-02T01:00')
+    for sta in ['EDM', 'HSR', 'SHW', 'YEL']:
+        filename = os.path.join(DATA_PATH, f'{sta}.UW.mseed')
+        if not os.path.exists(filename):
+            client.get_waveforms(
+                'UW', sta, '--', 'EHZ', start_time, end_time,
+                filename=filename)
 
 
 def check_table_lengths(
@@ -82,6 +97,7 @@ def print_section_header(header):
 def test_settings():
     """Confirm settings.cfg matches default settings."""
     clean()  # Clean up first
+    check_mseed_files()  # Confirm test data exist
     print_section_header('confirm default settings')
     detector = redpy.Detector(configfile='settings.cfg')
     assert ('with all default settings' in str(repr(detector)))
