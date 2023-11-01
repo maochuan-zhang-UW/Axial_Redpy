@@ -60,7 +60,7 @@ class Config():
             'filepattern': '*',
             'preload': 10.,
 
-            #  SCNL Paramters  #
+            #  Sensor Metadata Parameters  #
             'nsta': 8,
             'station': 'SEP,YEL,HSR,SHW,EDM,STD,JUN,SOS',
             'channel': 'EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ,EHZ',
@@ -82,8 +82,8 @@ class Config():
             #  Triggering Parameters  #
             'trigalg': 'classicstalta',
             'nstac': 5,
-            'swin': 0.7,  # 0.8
-            'lwin': 8.,  # 7
+            'swin': 0.7,
+            'lwin': 8.,
             'trigon': 3.,
             'trigoff': 2.,
 
@@ -91,26 +91,26 @@ class Config():
             'kurtwin': 5.,
             'kurtmax': 80.,
             'kurtfmax': 150.,
-            'oratiomax': 0.20,  # 0.15
-            'telefi': -1.5,  # -1
-            'teleok': 2,  # 1
+            'oratiomax': 0.20,
+            'telefi': -1.5,
+            'teleok': 2,
 
             #  Correlation Parameters  #
             'winlen': 1024,
             'cmin': 0.7,
             'ncor': 4,
             'use_nthcor': False,
-            'corr_permit': 0.05,  # 0.1? 0.15?
-            'corr_nrecent': 0,  # 25?
-            'corr_nyoungest': 0,  # 25?
-            'corr_nlargest': 0,  # 50?
+            'corr_permit': 0.05,
+            'corr_nrecent': 0,
+            'corr_nyoungest': 0,
+            'corr_nlargest': 0,
 
             #  Run Parameters  #
             'minorph': 0.05,
             'maxorph': 7.0,
             'nsec': 3600,
-            'max_famlen': 30000,  # 1000000
-            'merge_ratio': 0.,  # 0.6?
+            'max_famlen': 30000,
+            'merge_ratio': 0.,
             'always_verbose': False,
 
             #  Timeline Parameters  #

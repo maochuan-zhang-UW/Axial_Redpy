@@ -197,7 +197,7 @@ def calculate_arrivals(detector, catalog, phase_list, time_column_name='Time'):
         catalog[f'Arrival_{phase}'] = 'NaN'
     if len(catalog) > 0:
         taupymodel_runs = 0
-        model = TauPyModel(model='iasp91')
+        model = TauPyModel(model='iasp91', cache=False)
         latitudes = np.squeeze(
             catalog.filter(regex='[lL]at.*').to_numpy(), axis=1)
         longitudes = np.squeeze(

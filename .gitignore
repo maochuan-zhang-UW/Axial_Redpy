@@ -15,5 +15,6 @@
 *.txt
 *.html
 *.new
+*.mseed
 .coverage
 .DS_Store

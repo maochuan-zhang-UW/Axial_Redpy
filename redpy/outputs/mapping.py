@@ -100,9 +100,6 @@ def get_tiles(detector):
     if not os.path.exists('.cache'):
         os.mkdir(os.path.join('.', '.cache'))
         os.mkdir(os.path.join('.', '.cache', 'GoogleTiles'))
-        with open(os.path.join('.', '.cache', 'processed.txt'),
-                  'w', encoding='utf-8') as file:
-            file.write('')
     plate_carree = ccrs.PlateCarree()
     cartopy.config['cache_dir'] = os.path.join('.', '.cache')
     background_tile = cimgt.GoogleTiles(cache=True, url=(

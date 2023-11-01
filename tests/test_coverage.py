@@ -6,7 +6,8 @@ root 'REDPy' directory, and should result in all passing tests and 100%
 coverage (minus excludes in .coveragerc and 'pragma: no cover' in-line
 comments). The tests cover a known dataset and behaviors that should be
 invariant to future changes. The only major script that is not currently
-covered is redpy-remove-family-gui.
+covered is redpy-remove-family-gui. If you want to run the tests yourself,
+you will need to install the 'coverage' and 'pytest' packages via pip.
 """
 
 import os
@@ -14,13 +15,28 @@ import shutil
 
 import pandas as pd
 from obspy import UTCDateTime
+from obspy.clients.fdsn import Client
 
 import redpy
 
 
 TEST_PATH = os.path.join('.','tests')
+DATA_PATH = os.path.join(TEST_PATH, 'data')
 OUT_PATH = os.path.join(TEST_PATH, 'out')
 RUN_PATH = os.path.join(OUT_PATH, 'test')
+
+
+def check_mseed_files():  # pragma: no cover
+    """Check that .mseed files exist in /data and download if missing."""
+    client = Client('IRIS')
+    start_time = UTCDateTime('2004-09-30T23:00')
+    end_time = UTCDateTime('2004-10-02T01:00')
+    for sta in ['EDM', 'HSR', 'SHW', 'YEL']:
+        filename = os.path.join(DATA_PATH, f'{sta}.UW.mseed')
+        if not os.path.exists(filename):
+            client.get_waveforms(
+                'UW', sta, '--', 'EHZ', start_time, end_time,
+                filename=filename)
 
 
 def check_table_lengths(
@@ -81,6 +97,7 @@ def print_section_header(header):
 def test_settings():
     """Confirm settings.cfg matches default settings."""
     clean()  # Clean up first
+    check_mseed_files()  # Confirm test data exist
     print_section_header('confirm default settings')
     detector = redpy.Detector(configfile='settings.cfg')
     assert ('with all default settings' in str(repr(detector)))

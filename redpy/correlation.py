@@ -7,7 +7,7 @@ for similarity to be sorted into families. This module also has functions
 for handling cross-correlation matrices.
 """
 import numpy as np
-from scipy.fftpack import fft, ifft
+from scipy.fft import fft, ifft
 
 
 def calculate_window(detector, waveform, trigger_sample):
@@ -87,10 +87,9 @@ def get_correlation_function(detector, window_fft1, window_fft2, sta):
         Unscaled correlation function.
 
     """
-    win1 = window_fft1[
-        sta*detector.get('winlen'):(sta+1)*detector.get('winlen')]
-    win2 = window_fft2[
-        sta*detector.get('winlen'):(sta+1)*detector.get('winlen')]
+    winlen = detector.get('winlen')
+    win1 = window_fft1[sta*winlen:(sta+1)*winlen]
+    win2 = window_fft2[sta*winlen:(sta+1)*winlen]
     correlation_function = np.real(ifft(win1 * np.conj(win2)))
     return correlation_function
 

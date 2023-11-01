@@ -211,9 +211,9 @@ class Waveform():
         stream = Stream()
         preload = self.preload.slice(
             starttime=window_start, endtime=window_end+detector.get('maxdt'))
-        for scnl in _scnl_list_from_config(detector):
+        for nscl in _nscl_list_from_config(detector):
             for trace in preload:
-                if scnl == _scnl_from_trace(trace):
+                if nscl == _nscl_from_trace(trace):
                     stream.append(trace.copy())
         return stream
 
@@ -221,9 +221,10 @@ class Waveform():
         """
         Read/generate table that keys file names to a subset of metadata.
 
-        Specifically, the metadata of importance are SCNL code, start time,
-        and end time. This drastically improves local file read import
-        times by reading the headers only once.
+        Specifically, the metadata of importance are sensor metadata (i.e.,
+        network, station, channel, location), start time, and end time. This
+        drastically improves local file read import times by reading the
+        headers only once.
 
         Parameters
         ----------
@@ -245,14 +246,14 @@ class Waveform():
                     os.path.join(root, detector.get('filepattern'))
                     ) for root, _, _ in os.walk(detector.get('searchdir'))))
                 filekey = pd.DataFrame(columns=[
-                    'filename', 'scnl', 'starttime', 'endtime'], index=range(
+                    'filename', 'nscl', 'starttime', 'endtime'], index=range(
                         len(flist)))
                 for i, file in enumerate(flist):
                     if detector.get('verbose'):
                         print(file)
                     stmp = obspy.read(file, headonly=True)
                     filekey['filename'][i] = file
-                    filekey['scnl'][i] = _scnl_from_trace(stmp[0])
+                    filekey['nscl'][i] = _nscl_from_trace(stmp[0])
                     filekey['starttime'][i] = stmp[0].stats.starttime
                     filekey['endtime'][i] = stmp[-1].stats.endtime
                 filekey.to_csv(path_or_buf=flname, index=False)
@@ -268,9 +269,9 @@ class Waveform():
     def _load_from_file(self, detector, window_start, window_end):
         """Load data from file."""
         stream = Stream()
-        for scnl in _scnl_list_from_config(detector):
+        for nscl in _nscl_list_from_config(detector):
             flist_sub = self.filekey.query(
-                f"scnl == '{scnl}' and starttime < '{window_end}' "
+                f"nscl == '{nscl}' and starttime < '{window_end}' "
                 f"and endtime > '{window_start}'")['filename'].to_list()
             if len(flist_sub) > 0:
                 for file in flist_sub:
@@ -315,9 +316,9 @@ class Waveform():
                 self.preload = None
 
 
-def _append_empty(detector, stream, scnl):
+def _append_empty(detector, stream, nscl):
     """
-    Append a Trace to the end of a Stream with SCNL information but no data.
+    Append a Trace to the end of a Stream with metadata but no data.
 
     Parameters
     ----------
@@ -325,8 +326,8 @@ def _append_empty(detector, stream, scnl):
         Primary interface for handling detections.
     stream : Stream object
         Stream that will contain Traces for each channel.
-    scnl : str
-        SCNL information to add.
+    nscl : str
+        Sensor metadata ('network.station.channel.location') to add.
 
     Returns
     -------
@@ -334,11 +335,11 @@ def _append_empty(detector, stream, scnl):
         Input Stream with empty Trace appended.
 
     """
-    print(f'No data found for {scnl}')
+    print(f'No data found for {nscl}')
     trace = Trace()
     trace.stats.sampling_rate = detector.get('samprate')
     (trace.stats.network, trace.stats.station,
-     trace.stats.channel, trace.stats.location) = scnl.split('.')
+     trace.stats.channel, trace.stats.location) = nscl.split('.')
     return stream.append(trace)
 
 
@@ -393,17 +394,17 @@ def _filter_merge(detector, stream):
         trace.data[zeros[i]] = 0
         if trace.stats.sampling_rate != detector.get('samprate'):
             trace = trace.resample(detector.get('samprate'))
-    stream_scnls = np.array([_scnl_from_trace(trace) for trace in stream])
+    stream_nscls = np.array([_nscl_from_trace(trace) for trace in stream])
     ordered_stream = Stream()
-    for scnl in _scnl_list_from_config(detector):
-        if len(stream_scnls) > 0:
-            idx = np.where(stream_scnls == scnl)
+    for nscl in _nscl_list_from_config(detector):
+        if len(stream_nscls) > 0:
+            idx = np.where(stream_nscls == nscl)
             if len(idx[0]) > 0:
                 ordered_stream.append(stream[idx[0][0]])
             else:
-                ordered_stream = _append_empty(detector, ordered_stream, scnl)
+                ordered_stream = _append_empty(detector, ordered_stream, nscl)
         else:
-            ordered_stream = _append_empty(detector, ordered_stream, scnl)
+            ordered_stream = _append_empty(detector, ordered_stream, nscl)
     return ordered_stream
 
 
@@ -474,27 +475,27 @@ def _get_client(detector):
     raise ValueError(f'Unrecognized server: {detector.get("server")}')
 
 
+def _nscl_from_trace(trace):
+    """Define NSCL metadata string from Trace header."""
+    return (f'{trace.stats.network}.{trace.stats.station}.'
+            f'{trace.stats.channel}.{trace.stats.location}')
+
+
+def _nscl_list_from_config(detector):
+    """Define list of NSCL metadata strings from configuration."""
+    nets = detector.get('network')
+    stas = detector.get('station')
+    chas = detector.get('channel')
+    locs = detector.get('location')
+    return [
+        f'{nets[i]}.{sta}.{chas[i]}.{locs[i]}' for i, sta in enumerate(stas)]
+
+
 def _nslc_list_from_config(detector):
-    """Define list of NSLCs from configuration."""
+    """Define list of NSLC metadata strings from configuration."""
     nets = detector.get('network')
     stas = detector.get('station')
     locs = detector.get('location')
     chas = detector.get('channel')
     return [
         f'{nets[i]}.{sta}.{locs[i]}.{chas[i]}' for i, sta in enumerate(stas)]
-
-
-def _scnl_from_trace(trace):
-    """Define SCNL from Trace header."""
-    return (f'{trace.stats.network}.{trace.stats.station}.'
-            f'{trace.stats.channel}.{trace.stats.location}')
-
-
-def _scnl_list_from_config(detector):
-    """Define list of SCNLs from configuration."""
-    nets = detector.get('network')
-    stas = detector.get('station')
-    locs = detector.get('location')
-    chas = detector.get('channel')
-    return [
-        f'{nets[i]}.{sta}.{chas[i]}.{locs[i]}' for i, sta in enumerate(stas)]
