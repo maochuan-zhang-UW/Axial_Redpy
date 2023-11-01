@@ -1,3 +1,0 @@
-#IRISDMC: http://ds.iris.edu
-#net|sta|loc|chan|lat|lon|elev|depth|azimuth|dip|instrument|scale|scalefreq|scaleunits|samplerate|start|end
-UW|SHW|--|EHZ|46.19347|-122.236351|1425.0|0.0|0.0|-90.0|L-4C VERTICAL,Velocity Sensor,SERCEL|1.62181E8|1|m/s|100|1997-06-26T00:00:00.0000|2008-04-01T00:00:00.0000
