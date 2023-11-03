@@ -78,10 +78,16 @@ of the various outputs REDPy generates.
 If you would like to reference REDPy in your paper, please cite the following
 abstract until the *Electronic Seismologist* paper is published:
 
-> Hotovec-Ellis, A.J., and Jeffries, C., 2016. Near Real-time Detection,
+> Hotovec-Ellis, A.J., and Jeffries, C. (2016) Near Real-time Detection,
 Clustering, and Analysis of Repeating Earthquakes: Application to Mount St.
 Helens and Redoubt Volcanoes – *Invited*, presented at Seismological Society
 of America Annual Meeting, Reno, Nevada, 20 Apr.
+
+The code may also be cited directly as:
+
+> Hotovec-Ellis, A.J. (2023) REDPy – Repeating Earthquake Detector in
+Python (Version 1.0.0), U.S. Geological Survey Software Release,
+https://doi.org/10.5066/P94I4HRI.
 
 ## License and Disclaimer
 [License](https://code.usgs.gov/vsc/REDPy/-/blob/main/LICENSE.md):
