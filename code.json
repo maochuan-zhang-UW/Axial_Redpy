@@ -11,15 +11,15 @@
       "licenses": [
         {
           "name": "Public Domain, CC0-1.0",
-          "URL": "https://code.usgs.gov/vsc/REDPy/-/raw/1.0.0/LICENSE.md"
+          "URL": "https://code.usgs.gov/vsc/redpy/-/raw/1.0.0/LICENSE.md"
         }
       ]
     },
 
-    "homepageURL": "https://code.usgs.gov/vsc/REDPy",
-    "downloadURL": "https://code.usgs.gov/vsc/REDPy/-/archive/1.0.0/REDPy-1.0.0.zip",
-    "disclaimerURL": "https://code.usgs.gov/vsc/REDPy/-/raw/1.0.0/DISCLAIMER.md",
-    "repositoryURL": "https://code.usgs.gov/vsc/REDPy.git",
+    "homepageURL": "https://code.usgs.gov/vsc/redpy",
+    "downloadURL": "https://code.usgs.gov/vsc/redpy/-/archive/1.0.0/redpy-1.0.0.zip",
+    "disclaimerURL": "https://code.usgs.gov/vsc/redpy/-/raw/1.0.0/DISCLAIMER.md",
+    "repositoryURL": "https://code.usgs.gov/vsc/redpy.git",
     "vcs": "git",
 
     "laborHours": 0,
@@ -44,7 +44,7 @@
     },
 
     "date": {
-      "metadataLastUpdated": "2023-11-03"
+      "metadataLastUpdated": "2023-11-06"
     }
   }
 ]
