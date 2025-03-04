@@ -1,10 +1,11 @@
 [
   {
+  
     "name": "REDPy",
     "organization": "U.S. Geological Survey",
     "description": "Automated repeating earthquake detection and clustering",
     "version": "1.0.0",
-    "status": "Development",
+    "status": "Production",
 
     "permissions": {
       "usageType": "openSource",
@@ -44,8 +45,9 @@
     },
 
     "date": {
-      "metadataLastUpdated": "2023-11-06"
+      "metadataLastUpdated": "2025-03-04"
     }
   }
-]
 
+
+]
