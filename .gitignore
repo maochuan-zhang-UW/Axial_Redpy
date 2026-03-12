@@ -8,7 +8,9 @@
 !runs/
 *.pyc
 *.csv
+!axial_catalog.csv
 *.cfg
+!axial_settings.cfg
 *.h5
 *.out
 *.sh
