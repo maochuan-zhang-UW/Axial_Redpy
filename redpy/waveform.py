@@ -252,10 +252,10 @@ class Waveform():
                     if detector.get('verbose'):
                         print(file)
                     stmp = obspy.read(file, headonly=True)
-                    filekey['filename'][i] = file
-                    filekey['nscl'][i] = _nscl_from_trace(stmp[0])
-                    filekey['starttime'][i] = stmp[0].stats.starttime
-                    filekey['endtime'][i] = stmp[-1].stats.endtime
+                    filekey.loc[i, 'filename'] = file
+                    filekey.loc[i, 'nscl'] = _nscl_from_trace(stmp[0])
+                    filekey.loc[i, 'starttime'] = stmp[0].stats.starttime
+                    filekey.loc[i, 'endtime'] = stmp[-1].stats.endtime
                 filekey.to_csv(path_or_buf=flname, index=False)
                 print('Done indexing!')
                 print(f'To force this index to update, remove {flname}')
@@ -385,6 +385,11 @@ def _filter_merge(detector, stream):
     for trace in stream:
         trace.data = np.where(trace.data == -2**31, 0, trace.data)
     stream = stream.detrend()
+    # Resample before merge to avoid failure when traces have slightly
+    # different sample rates (e.g. 200.00003 vs 200.0 from .mat conversion)
+    for trace in stream:
+        if trace.stats.sampling_rate != detector.get('samprate'):
+            trace.resample(detector.get('samprate'))
     stream = stream.merge(method=1, fill_value=0)
     zeros = [np.where(stream[i].data == 0)[0] for i in range(len(stream))]
     stream = stream.filter('bandpass', freqmin=detector.get('fmin'),
