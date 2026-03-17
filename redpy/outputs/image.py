@@ -414,7 +414,7 @@ def subplot_amplitude(
         else:  # pragma: no cover
             palette = inferno(detector.get('nsta')+1)
         for sta, staname in enumerate(detector.get('station')):
-            fig.circle(
+            fig.scatter(
                 detector.get('plotvars')['rtimes'][members],
                 rtable_fam['windowAmp'][:, sta],
                 color=palette[sta], line_alpha=0, size=4, fill_alpha=0.5,
@@ -481,9 +481,9 @@ def subplot_correlation(
             y_range=[-0.02, 1.02],
             title='Cross-Correlation Coefficient with Core Event')
         fig.yaxis.axis_label = 'CCC'
-        fig.circle(detector.get('plotvars')['rtimes'][members],
-                   ccc_full[core_idx, :].tolist()[0], color='red',
-                   line_alpha=0, size=4, fill_alpha=0.5)
+        fig.scatter(detector.get('plotvars')['rtimes'][members],
+                    ccc_full[core_idx, :].tolist()[0], color='red',
+                    line_alpha=0, size=4, fill_alpha=0.5)
         return fig
     # Get correlation values for row with highest sum
     ccc_maxrow = redpy.correlation.subset_matrix(
@@ -578,7 +578,7 @@ def subplot_spacing(
             title='Time Since Previous Event',
             y_axis_type='log', y_range=[1e-3, 2*np.max(spacing)])
         fig.yaxis.axis_label = 'Interval (Hours)'
-        fig.circle(
+        fig.scatter(
             detector.get('plotvars')['rtimes'][members[1:]], spacing,
             color='red', line_alpha=0, size=4, fill_alpha=0.5)
         return fig

@@ -346,8 +346,8 @@ def subplot_fi(detector, options, use_bokeh=True, ax=None):
             title='Frequency Index',
             tools=[_fi_hover_tool(), 'pan,box_zoom,reset'])
         fig.yaxis.axis_label = 'Mean FI'
-        fig.circle(mdates.num2date(options['maxtime']), 0, line_alpha=0,
-                   fill_alpha=0)  # Always plot at least one invisible point
+        fig.scatter(mdates.num2date(options['maxtime']), 0, line_alpha=0,
+                    fill_alpha=0)  # Always plot at least one invisible point
     else:
         ax.set_title('Frequency Index', loc='left', fontweight='bold')
         ax.set_ylabel('Mean FI', style='italic')
@@ -366,7 +366,7 @@ def subplot_fi(detector, options, use_bokeh=True, ax=None):
                         'plotvars')['rtimes'][idxs]]),
                 'colors': colors
                 })
-            renderer = fig.circle(
+            renderer = fig.scatter(
                 'x', 'y', source=source, fill_color='colors', fill_alpha=1,
                 line_alpha=0, size=4, selection_fill_alpha=1,
                 selection_line_alpha=0, nonselection_fill_alpha=1,
@@ -431,8 +431,8 @@ def subplot_longevity(detector, options, use_bokeh=True, ax=None):
             title='Family Longevity')
         fig.yaxis.axis_label = 'Days'
         # Always plot at least one invisible point
-        fig.circle(mdates.num2date(options['maxtime']), 1,
-                   line_alpha=0, fill_alpha=0)
+        fig.scatter(mdates.num2date(options['maxtime']), 1,
+                    line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Family Longevity', loc='left', fontweight='bold')
         ax.set_ylabel('Days', style='italic')
@@ -484,7 +484,7 @@ def subplot_occurrence(detector, options, colorby, use_bokeh=True, ax=None):
             f' ({options["minplot"]}+ Members)' if options[
                 'minplot'] > 2 else '')
         # Always plot at least one invisible point
-        fig.circle(mdates.num2date(
+        fig.scatter(mdates.num2date(
             options['maxtime']), 0, line_alpha=0, fill_alpha=0)
     else:
         ax.set_title('Occurrence Timeline', loc='left', fontweight='bold')

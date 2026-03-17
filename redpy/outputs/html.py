@@ -15,7 +15,11 @@ import redpy.locate
 import redpy.outputs.mapping
 
 
-def generate_html(detector):
+FM_MAT_PATH = ('/Users/mczhang/Documents/GitHub/FM3/02-data/G_FM/'
+               'G_2015_HASH_Po_Clu_FM.mat')
+
+
+def generate_html(detector, catalog_csv='axial_catalog_dd.csv'):
     """
     Write the .html files for the individual family pages.
 
@@ -26,6 +30,8 @@ def generate_html(detector):
     ----------
     detector : Detector object
         Primary interface for handling detections.
+    catalog_csv : str, optional
+        Path to DD catalog CSV for location maps.
 
     """
     if detector.get('checkcomcat'):
@@ -33,10 +39,24 @@ def generate_html(detector):
         redpy.outputs.mapping.get_tiles(detector)
     else:
         external_catalogs = []
+
+    # Load FM catalog once for all families
+    fm_catalog = {}
+    if os.path.exists(FM_MAT_PATH):
+        fm_catalog = redpy.outputs.mapping.load_fm_catalog(FM_MAT_PATH)
+
     printme = detector.get('ftable', 'printme')
     lastprint = detector.get('ftable', 'lastprint')
     for fnum in range(len(detector)):
         if printme[fnum] != 0 or lastprint[fnum] != fnum:
+            # Generate Axial location map
+            if os.path.exists(catalog_csv):
+                redpy.outputs.mapping.create_axial_map(
+                    detector, fnum, catalog_csv)
+            # Generate focal mechanism plot
+            if fm_catalog and os.path.exists(catalog_csv):
+                redpy.outputs.mapping.create_axial_fm_plot(
+                    detector, fnum, catalog_csv, fm_catalog)
             with open(os.path.join(detector.get('output_folder'), 'families',
                       f'{fnum}.html'), 'w', encoding='utf-8') as file:
                 write_html_header(detector, fnum, file)
@@ -194,7 +214,15 @@ def write_html_header(detector, fnum, file, report=False):
         topline = f'{prevlink} &nbsp; | &nbsp; {nextlink}'
         header = f'Family {fnum}'
         coreimg = fnum
-        body = f'<img src="fam{fnum}.png"></br>'
+        families_path = os.path.abspath(os.path.join(
+            detector.get('output_folder'), 'families', f'{fnum}.html'))
+        file_url = f'file://{families_path}'
+        body = (f'<img src="fam{fnum}.png"></br>'
+                f'<small><a href="{file_url}">{file_url}</a></small></br>'
+                f'<img src="map{fnum}.png" onerror="this.style.display=\'none\'">'
+                f'</br>'
+                f'<img src="fm{fnum}.png" onerror="this.style.display=\'none\'">'
+                f'</br>')
     file.write(
         f"""</title>
         </head>

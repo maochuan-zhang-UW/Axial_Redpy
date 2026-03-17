@@ -12,6 +12,7 @@ import time
 import numpy as np
 import obspy
 import pandas as pd
+import scipy.io as sio
 from obspy import UTCDateTime
 from obspy.clients.earthworm import Client as EWClient
 from obspy.clients.fdsn import Client as FDSNClient
@@ -19,6 +20,95 @@ from obspy.clients.seedlink import Client as SeedLinkClient
 from obspy.core.stream import Stream
 from obspy.core.trace import Trace
 from obspy.signal.trigger import coincidence_trigger
+
+# MATLAB serial datenum → Unix epoch offset (days)
+_MATLAB_EPOCH_DAYS = 719529.0
+
+
+def _mat_to_stream(filepath, window_start, window_end):
+    """
+    Read a MATLAB .mat waveform file directly into an ObsPy Stream.
+
+    Each .mat file is expected to contain a 'trace' struct array with fields:
+    network, station, location, channel, sampleRate, startTime, data.
+    Only traces whose time range overlaps [window_start, window_end] are loaded.
+    """
+    try:
+        mat = sio.loadmat(filepath, squeeze_me=True)
+    except Exception:
+        return Stream()
+
+    if 'trace' not in mat:
+        return Stream()
+
+    traces = mat['trace']
+    if traces.ndim == 0:
+        traces = traces.reshape(1)
+
+    stream = Stream()
+    for t in traces:
+        try:
+            network = str(t['network']).strip()
+            station = str(t['station']).strip()
+            channel = str(t['channel']).strip()
+            loc_raw = t['location']
+            location = ('' if (hasattr(loc_raw, '__len__') and len(loc_raw) == 0)
+                        else str(loc_raw).strip())
+            sample_rate = float(t['sampleRate'])
+            start_dn = float(t['startTime'])
+            starttime = UTCDateTime((start_dn - _MATLAB_EPOCH_DAYS) * 86400.0)
+            raw_data = np.array(t['data'], dtype=np.float64)
+        except Exception:
+            continue
+
+        endtime = starttime + len(raw_data) / sample_rate
+        if starttime > window_end or endtime < window_start:
+            continue
+
+        tr = Trace(data=raw_data)
+        tr.stats.network = network
+        tr.stats.station = station
+        tr.stats.location = location
+        tr.stats.channel = channel
+        tr.stats.sampling_rate = sample_rate
+        tr.stats.starttime = starttime
+        stream.append(tr)
+
+    if len(stream) > 0:
+        stream.trim(window_start, window_end)
+        stream.detrend('demean')
+        stream.detrend('linear')
+    return stream
+
+
+def _mat_file_timerange(filepath):
+    """
+    Return (starttime, endtime) as UTCDateTime for a .mat waveform file,
+    using only the first valid trace. Returns None, None on failure.
+    """
+    try:
+        mat = sio.loadmat(filepath, squeeze_me=True)
+    except Exception:
+        return None, None
+
+    if 'trace' not in mat:
+        return None, None
+
+    traces = mat['trace']
+    if traces.ndim == 0:
+        traces = traces.reshape(1)
+
+    for t in traces:
+        try:
+            sample_rate = float(t['sampleRate'])
+            start_dn = float(t['startTime'])
+            npts = int(t['sampleCount'])
+            starttime = UTCDateTime((start_dn - _MATLAB_EPOCH_DAYS) * 86400.0)
+            endtime = starttime + npts / sample_rate
+            return starttime, endtime
+        except Exception:
+            continue
+    return None, None
 
 from redpy.trigger import Trigger
 
@@ -248,14 +338,24 @@ class Waveform():
                 filekey = pd.DataFrame(columns=[
                     'filename', 'nscl', 'starttime', 'endtime'], index=range(
                         len(flist)))
+                is_mat = detector.get('filepattern', '').endswith('.mat')
                 for i, file in enumerate(flist):
                     if detector.get('verbose'):
                         print(file)
-                    stmp = obspy.read(file, headonly=True)
-                    filekey.loc[i, 'filename'] = file
-                    filekey.loc[i, 'nscl'] = _nscl_from_trace(stmp[0])
-                    filekey.loc[i, 'starttime'] = stmp[0].stats.starttime
-                    filekey.loc[i, 'endtime'] = stmp[-1].stats.endtime
+                    if is_mat:
+                        starttime, endtime = _mat_file_timerange(file)
+                        if starttime is None:
+                            continue
+                        filekey.loc[i, 'filename'] = file
+                        filekey.loc[i, 'nscl'] = 'mat'
+                        filekey.loc[i, 'starttime'] = str(starttime)
+                        filekey.loc[i, 'endtime'] = str(endtime)
+                    else:
+                        stmp = obspy.read(file, headonly=True)
+                        filekey.loc[i, 'filename'] = file
+                        filekey.loc[i, 'nscl'] = _nscl_from_trace(stmp[0])
+                        filekey.loc[i, 'starttime'] = stmp[0].stats.starttime
+                        filekey.loc[i, 'endtime'] = stmp[-1].stats.endtime
                 filekey.to_csv(path_or_buf=flname, index=False)
                 print('Done indexing!')
                 print(f'To force this index to update, remove {flname}')
@@ -269,14 +369,25 @@ class Waveform():
     def _load_from_file(self, detector, window_start, window_end):
         """Load data from file."""
         stream = Stream()
-        for nscl in _nscl_list_from_config(detector):
-            flist_sub = self.filekey.query(
-                f"nscl == '{nscl}' and starttime < '{window_end}' "
-                f"and endtime > '{window_start}'")['filename'].to_list()
-            if len(flist_sub) > 0:
-                for file in flist_sub:
-                    stream = stream.extend(obspy.read(
-                        file, starttime=window_start, endtime=window_end))
+        is_mat = detector.get('filepattern', '').endswith('.mat')
+        if is_mat:
+            # For .mat files: query by time only (all stations in one file),
+            # read each file once and extract all traces
+            flist_sub = self.filekey.dropna(subset=['filename']).query(
+                f"starttime < '{window_end}' and endtime > '{window_start}'"
+            )['filename'].drop_duplicates().to_list()
+            for file in flist_sub:
+                stream = stream.extend(
+                    _mat_to_stream(file, window_start, window_end))
+        else:
+            for nscl in _nscl_list_from_config(detector):
+                flist_sub = self.filekey.query(
+                    f"nscl == '{nscl}' and starttime < '{window_end}' "
+                    f"and endtime > '{window_start}'")['filename'].to_list()
+                if len(flist_sub) > 0:
+                    for file in flist_sub:
+                        stream = stream.extend(obspy.read(
+                            file, starttime=window_start, endtime=window_end))
         return stream
 
     def _preload_check(self, detector, window_start, window_end):
