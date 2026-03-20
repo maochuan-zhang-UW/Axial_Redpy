@@ -143,10 +143,13 @@ def _scatter_with_depth_cbar(fig, ax, lons, lats, depths, marker_size):
 
 def create_axial_map(detector, fnum, catalog_csv):
     """
-    Create a 2x2 location map for a family using the DD catalog.
+    Create a cross-section location figure for a family using the DD catalog.
 
-    Top row: all located events — colored by time (left), colored by depth (right).
-    Bottom row: events with mean CC > 0.8 — same color scheme.
+    Layout (all panels colored by time):
+      Top-left  : map view — longitude (x) vs latitude (y)
+      Top-right : side view — depth (x) vs latitude (y)  [shares y with map]
+      Bottom-left: front view — longitude (x) vs depth (y) [shares x with map]
+      Bottom-right: colorbar
 
     Parameters
     ----------
@@ -160,6 +163,7 @@ def create_axial_map(detector, fnum, catalog_csv):
 
     """
     import matplotlib.dates as mdates
+    from matplotlib.gridspec import GridSpec
 
     members = detector.get_members(fnum)
     rtimes_mpl = detector.get('rtable', 'startTimeMPL')
@@ -167,9 +171,6 @@ def create_axial_map(detector, fnum, catalog_csv):
         mdates.num2date(rtimes_mpl[m]).timestamp() for m in members])
     core_idx = detector.get('ftable', 'core', fnum)
     core_time_sec = mdates.num2date(rtimes_mpl[core_idx]).timestamp()
-
-    # CC values per member (same as the CC subplot in fam*.png)
-    member_cc = _get_family_cc(detector, members)
 
     # Load DD catalog
     try:
@@ -180,8 +181,8 @@ def create_axial_map(detector, fnum, catalog_csv):
         return
 
     # Match each family event to nearest catalog entry within 60s
-    lats, lons, depths, matched_times, matched_cc = [], [], [], [], []
-    for t_sec, cc_val in zip(event_times_sec, member_cc):
+    lats, lons, depths, matched_times = [], [], [], []
+    for t_sec in event_times_sec:
         diffs = np.abs(cat_times - t_sec)
         idx = np.argmin(diffs)
         if diffs[idx] < 60:
@@ -190,20 +191,14 @@ def create_axial_map(detector, fnum, catalog_csv):
             lons.append(float(row['Longitude']))
             depths.append(float(row['Depth']))
             matched_times.append(t_sec)
-            matched_cc.append(float(cc_val))
 
     if len(lats) < 1:
         return
 
     lats = np.array(lats)
     lons = np.array(lons)
-    depths = np.array(depths)
+    depths = np.clip(np.array(depths), 0, 2.5)
     matched_times = np.array(matched_times)
-    matched_cc = np.array(matched_cc)
-
-    # High-CC subset
-    hcc = matched_cc >= 0.8
-    n_hcc = hcc.sum()
 
     # Core event location
     core_diffs = np.abs(cat_times - core_time_sec)
@@ -212,58 +207,91 @@ def create_axial_map(detector, fnum, catalog_csv):
         core_row = cat.iloc[core_idx_cat]
         core_lon = float(core_row['Longitude'])
         core_lat = float(core_row['Latitude'])
+        core_dep = float(np.clip(core_row['Depth'], 0, 2.5))
     else:
-        core_lon = core_lat = None
+        core_lon = core_lat = core_dep = None
 
-    def plot_core(ax):
-        if core_lon is not None:
-            ax.scatter(core_lon, core_lat, s=40, c='red', marker='*',
-                       zorder=6, edgecolors='darkred', linewidths=0.5,
-                       label='Core')
-
+    # --- Shared colormap (time) ---
+    t_min, t_max = matched_times.min(), matched_times.max()
+    norm = mcolors.Normalize(vmin=t_min, vmax=t_max)
+    cmap = cm.plasma
     MARKER_SIZE = 8
-    CC_THRESH = 0.8
 
-    fig, axes = plt.subplots(2, 2, figsize=(9, 9))
-    fig.suptitle(
-        f'Family {fnum}  ({len(lats)} located / {n_hcc} with CC≥{CC_THRESH})',
-        fontsize=9)
+    # --- Figure layout ---
+    fig = plt.figure(figsize=(10, 8))
+    gs = GridSpec(2, 2, figure=fig,
+                  width_ratios=[3, 1], height_ratios=[3, 1],
+                  hspace=0.04, wspace=0.04)
 
-    # Row 0: all events
-    _setup_map_ax(axes[0, 0])
-    axes[0, 0].set_title('All events — colored by time', fontsize=7)
-    _scatter_with_time_cbar(fig, axes[0, 0], lons, lats, matched_times, MARKER_SIZE)
-    plot_core(axes[0, 0])
+    ax_map = fig.add_subplot(gs[0, 0])
+    ax_right = fig.add_subplot(gs[0, 1], sharey=ax_map)
+    ax_bot = fig.add_subplot(gs[1, 0], sharex=ax_map)
+    ax_cb = fig.add_subplot(gs[1, 1])
 
-    _setup_map_ax(axes[0, 1])
-    axes[0, 1].set_title('All events — colored by depth', fontsize=7)
-    _scatter_with_depth_cbar(fig, axes[0, 1], lons, lats, depths, MARKER_SIZE)
-    plot_core(axes[0, 1])
+    # --- Map (lon vs lat) ---
+    ax_map.set_xlim(-130.05, -129.94)
+    ax_map.set_ylim(45.91, 46.00)
+    ax_map.xaxis.set_major_formatter(
+        matplotlib.ticker.FormatStrFormatter('%.2f'))
+    ax_map.yaxis.set_major_formatter(
+        matplotlib.ticker.FormatStrFormatter('%.2f'))
+    ax_map.tick_params(labelsize=6)
+    ax_map.set_ylabel('Latitude', fontsize=7)
+    plt.setp(ax_map.get_xticklabels(), visible=False)  # bottom panel has lon labels
+    ax_map.plot(_CALDERA_RIM_LON, _CALDERA_RIM_LAT, 'k-', linewidth=0.8, zorder=2)
+    for name, (slon, slat) in _STATIONS.items():
+        ax_map.scatter(slon, slat, marker='^', s=30, color='k',
+                       facecolors='none', linewidths=0.8, zorder=5)
+        ax_map.annotate(name, (slon, slat), fontsize=4,
+                        xytext=(2, 2), textcoords='offset points')
 
-    # Row 1: high-CC events
-    _setup_map_ax(axes[1, 0])
-    axes[1, 0].set_title(f'CC ≥ {CC_THRESH} — colored by time', fontsize=7)
-    if n_hcc >= 1:
-        _scatter_with_time_cbar(fig, axes[1, 0],
-                                lons[hcc], lats[hcc], matched_times[hcc],
-                                MARKER_SIZE)
-    else:
-        axes[1, 0].text(0.5, 0.5, 'No events', transform=axes[1, 0].transAxes,
-                        ha='center', va='center', fontsize=8)
-    plot_core(axes[1, 0])
+    sc = ax_map.scatter(lons, lats, s=MARKER_SIZE, c=matched_times,
+                        cmap=cmap, norm=norm, zorder=4,
+                        edgecolors='k', linewidths=0.2, alpha=0.85)
+    if core_lon is not None:
+        ax_map.scatter(core_lon, core_lat, s=50, c='red', marker='*',
+                       zorder=6, edgecolors='darkred', linewidths=0.5)
 
-    _setup_map_ax(axes[1, 1])
-    axes[1, 1].set_title(f'CC ≥ {CC_THRESH} — colored by depth', fontsize=7)
-    if n_hcc >= 1:
-        _scatter_with_depth_cbar(fig, axes[1, 1],
-                                 lons[hcc], lats[hcc], depths[hcc],
-                                 MARKER_SIZE)
-    else:
-        axes[1, 1].text(0.5, 0.5, 'No events', transform=axes[1, 1].transAxes,
-                        ha='center', va='center', fontsize=8)
-    plot_core(axes[1, 1])
+    # --- Right panel (depth vs lat) ---
+    ax_right.scatter(depths, lats, s=MARKER_SIZE, c=matched_times,
+                     cmap=cmap, norm=norm, zorder=4,
+                     edgecolors='k', linewidths=0.2, alpha=0.85)
+    if core_lon is not None:
+        ax_right.scatter(core_dep, core_lat, s=50, c='red', marker='*',
+                         zorder=6, edgecolors='darkred', linewidths=0.5)
+    ax_right.set_xlim(0, 2.5)
+    ax_right.set_xlabel('Depth (km)', fontsize=7)
+    ax_right.tick_params(labelsize=6)
+    plt.setp(ax_right.get_yticklabels(), visible=False)
+    plt.setp(ax_right.get_xticklabels(), visible=False)
 
-    plt.tight_layout()
+    # --- Bottom panel (lon vs depth) ---
+    ax_bot.scatter(lons, depths, s=MARKER_SIZE, c=matched_times,
+                   cmap=cmap, norm=norm, zorder=4,
+                   edgecolors='k', linewidths=0.2, alpha=0.85)
+    if core_lon is not None:
+        ax_bot.scatter(core_lon, core_dep, s=50, c='red', marker='*',
+                       zorder=6, edgecolors='darkred', linewidths=0.5)
+    ax_bot.set_ylim(2.5, 0)   # depth increases downward
+    ax_bot.set_xlabel('Longitude', fontsize=7)
+    ax_bot.set_ylabel('Depth (km)', fontsize=7)
+    ax_bot.xaxis.set_major_formatter(
+        matplotlib.ticker.FormatStrFormatter('%.2f'))
+    ax_bot.tick_params(labelsize=6)
+
+    # --- Colorbar in bottom-right cell ---
+    ax_cb.set_axis_off()
+    sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax_cb, fraction=0.6, pad=0.05, aspect=15)
+    cbar.set_label('Date', fontsize=7)
+    n_ticks = min(5, len(matched_times))
+    tick_vals = np.linspace(t_min, t_max, n_ticks)
+    cbar.set_ticks(tick_vals)
+    cbar.set_ticklabels([UTCDateTime(t).strftime('%Y-%m-%d')
+                         for t in tick_vals], fontsize=5)
+
+    fig.suptitle(f'Family {fnum}  —  {len(lats)} located events', fontsize=9)
     plt.savefig(os.path.join(detector.get('output_folder'), 'families',
                              f'map{fnum}.png'), dpi=120)
     plt.close(fig)
@@ -288,11 +316,13 @@ _FAULT_COLORS = {'N': '#4393c3', 'R': '#d6604d', 'S': '#74c476', 'U': '#969696'}
 def create_axial_fm_plot(detector, fnum, catalog_csv, fm_catalog,
                          fm_mat_path=None):
     """
-    Create a large focal mechanism beachball map for a family.
+    Create a cross-section focal mechanism figure for a family.
 
-    Matches family events to the FM catalog via DD catalog EventID,
-    then plots beachballs colored by fault type on the Axial caldera map.
-    Quality A/B events are fully opaque; C/D are 40% alpha.
+    Layout (all beachballs in lower-hemisphere projection, qual A/B only):
+      Top-left  : map view — longitude (x) vs latitude (y)
+      Top-right : side view — depth (x) vs latitude (y)  [shares y with map]
+      Bottom-left: front view — longitude (x) vs depth (y) [shares x with map]
+      Bottom-right: fault-type legend
 
     Parameters
     ----------
@@ -307,6 +337,7 @@ def create_axial_fm_plot(detector, fnum, catalog_csv, fm_catalog,
         Unused; kept for API compatibility.
     """
     import matplotlib.dates as mdates
+    from matplotlib.gridspec import GridSpec
 
     members = detector.get_members(fnum)
     rtimes_mpl = detector.get('rtable', 'startTimeMPL')
@@ -338,7 +369,7 @@ def create_axial_fm_plot(detector, fnum, catalog_csv, fm_catalog,
             continue
         fms.append({
             'lon': float(ev.lon), 'lat': float(ev.lat),
-            'depth': float(ev.depth),
+            'depth': float(np.clip(ev.depth, 0, 2.5)),
             'sdr': sdr,
             'qual': str(ev.mechqual),
             'ftype': str(ev.faultType),
@@ -348,46 +379,92 @@ def create_axial_fm_plot(detector, fnum, catalog_csv, fm_catalog,
     if not fms_ab:
         return
 
-    # --- Plot ---
-    fig, ax = plt.subplots(figsize=(10, 9))
-    _setup_map_ax(ax)
-    ax.set_title(
-        f'Family {fnum} — Focal Mechanisms  '
-        f'({len(fms_ab)} qual A/B  /  {len(fms)} total matched)',
-        fontsize=10)
+    bb_width = 20  # beachball width in display points
 
-    # Beachball width in points (display units)
-    bb_width = 20
-
-    for fm in fms:
-        ftype = fm['ftype']
-        qual = fm['qual']
-        if qual not in ('A', 'B'):
-            continue
-        color = _FAULT_COLORS.get(ftype, '#969696')
-        alpha = 1.0
+    def _draw_bb(ax, x, y, fm):
+        """Draw one beachball at (x, y); fall back to scatter on error."""
+        color = _FAULT_COLORS.get(fm['ftype'], '#969696')
         try:
-            b = beach(fm['sdr'], xy=(fm['lon'], fm['lat']),
-                      width=bb_width, linewidth=0.3,
-                      facecolor=color, edgecolor='k', alpha=alpha,
-                      axes=ax)
+            b = beach(fm['sdr'], xy=(x, y), width=bb_width,
+                      linewidth=0.3, facecolor=color, edgecolor='k',
+                      alpha=1.0, axes=ax)
             b.set_zorder(4)
             ax.add_collection(b)
         except Exception:
-            # Fallback: plain scatter dot
-            ax.scatter(fm['lon'], fm['lat'], s=10,
-                       color=color, alpha=alpha, zorder=4)
+            ax.scatter(x, y, s=12, color=color, zorder=4,
+                       edgecolors='k', linewidths=0.3)
 
-    # Legend: fault types
-    for ftype, color in _FAULT_COLORS.items():
-        label = {'N': 'Normal', 'R': 'Reverse',
-                 'S': 'Strike-slip', 'U': 'Undefined'}[ftype]
-        ax.scatter([], [], s=60, color=color, edgecolors='k',
-                   linewidths=0.5, label=label)
-    ax.legend(loc='lower left', fontsize=7, framealpha=0.8,
-              title='Qual A/B only', title_fontsize=7)
+    # --- Figure layout (same proportions as location map) ---
+    fig = plt.figure(figsize=(10, 8))
+    gs = GridSpec(2, 2, figure=fig,
+                  width_ratios=[3, 1], height_ratios=[3, 1],
+                  hspace=0.04, wspace=0.04)
 
-    plt.tight_layout()
+    ax_map = fig.add_subplot(gs[0, 0])
+    ax_right = fig.add_subplot(gs[0, 1], sharey=ax_map)
+    ax_bot = fig.add_subplot(gs[1, 0], sharex=ax_map)
+    ax_leg = fig.add_subplot(gs[1, 1])
+
+    # --- Map axis setup ---
+    ax_map.set_xlim(-130.05, -129.94)
+    ax_map.set_ylim(45.91, 46.00)
+    ax_map.xaxis.set_major_formatter(
+        matplotlib.ticker.FormatStrFormatter('%.2f'))
+    ax_map.yaxis.set_major_formatter(
+        matplotlib.ticker.FormatStrFormatter('%.2f'))
+    ax_map.tick_params(labelsize=6)
+    ax_map.set_ylabel('Latitude', fontsize=7)
+    plt.setp(ax_map.get_xticklabels(), visible=False)
+    ax_map.plot(_CALDERA_RIM_LON, _CALDERA_RIM_LAT,
+                'k-', linewidth=0.8, zorder=2)
+    for name, (slon, slat) in _STATIONS.items():
+        ax_map.scatter(slon, slat, marker='^', s=30, color='k',
+                       facecolors='none', linewidths=0.8, zorder=5)
+        ax_map.annotate(name, (slon, slat), fontsize=4,
+                        xytext=(2, 2), textcoords='offset points')
+
+    # --- Right axis setup (depth vs lat) ---
+    ax_right.set_xlim(0, 2.5)
+    ax_right.set_xlabel('Depth (km)', fontsize=7)
+    ax_right.tick_params(labelsize=6)
+    plt.setp(ax_right.get_yticklabels(), visible=False)
+    plt.setp(ax_right.get_xticklabels(), visible=False)
+
+    # --- Bottom axis setup (lon vs depth, depth inverted) ---
+    ax_bot.set_ylim(2.5, 0)
+    ax_bot.set_xlabel('Longitude', fontsize=7)
+    ax_bot.set_ylabel('Depth (km)', fontsize=7)
+    ax_bot.xaxis.set_major_formatter(
+        matplotlib.ticker.FormatStrFormatter('%.2f'))
+    ax_bot.tick_params(labelsize=6)
+
+    MARKER_SIZE = 8  # small dot size for cross-section panels
+
+    # --- Draw beachballs on map; colored dots on cross-section panels ---
+    for fm in fms_ab:
+        color = _FAULT_COLORS.get(fm['ftype'], '#969696')
+        _draw_bb(ax_map, fm['lon'], fm['lat'], fm)
+        ax_right.scatter(fm['depth'], fm['lat'], s=MARKER_SIZE, color=color,
+                         zorder=4, edgecolors='k', linewidths=0.2, alpha=0.85)
+        ax_bot.scatter(fm['lon'], fm['depth'], s=MARKER_SIZE, color=color,
+                       zorder=4, edgecolors='k', linewidths=0.2, alpha=0.85)
+
+    # --- Legend in bottom-right cell ---
+    ax_leg.set_axis_off()
+    label_map = {'N': 'Normal', 'R': 'Reverse',
+                 'S': 'Strike-slip', 'U': 'Undefined'}
+    handles = [
+        plt.scatter([], [], s=60, color=c, edgecolors='k',
+                    linewidths=0.5, label=label_map[ft])
+        for ft, c in _FAULT_COLORS.items()
+    ]
+    ax_leg.legend(handles=handles, loc='center', fontsize=7,
+                  framealpha=0.8, title='Qual A/B only', title_fontsize=7)
+
+    fig.suptitle(
+        f'Family {fnum} — Focal Mechanisms  '
+        f'({len(fms_ab)} qual A/B  /  {len(fms)} total matched)',
+        fontsize=9)
     plt.savefig(os.path.join(detector.get('output_folder'), 'families',
                              f'fm{fnum}.png'), dpi=130)
     plt.close(fig)

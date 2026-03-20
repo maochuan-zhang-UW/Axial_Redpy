@@ -6,6 +6,12 @@
 !tests/data/
 !h5/
 !runs/
+!scripts/
+!scripts/analysis/
+!scripts/plotting/
+!scripts/setup/
+!logs/
+!papers/
 *.pyc
 *.csv
 !axial_catalog.csv
@@ -14,9 +20,11 @@
 *.h5
 *.out
 *.sh
+!scripts/setup/*.sh
 *.txt
 *.html
 *.new
 *.mseed
+*.log
 .coverage
 .DS_Store
